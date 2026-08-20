@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["**/routeTree.gen.ts"],
+  "plugins": ["typescript", "unicorn", "oxc", "react"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react/forbid-elements": [
+      "error",
+      { "forbid": ["p", "span", "h1", "h2", "h3", "h4", "h5", "h6"] }
+    ]
+  },
+  "env": {
+    "builtin": true
+  },
+  "overrides": [
+    {
+      "files": ["apps/web/src/components/ui/text.tsx"],
+      "rules": { "react/forbid-elements": "off" }
+    }
+  ]
+}
