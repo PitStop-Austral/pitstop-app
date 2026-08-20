@@ -1,6 +1,7 @@
-# Pitstop Stack
+# PitStop MVP
 
-A pnpm workspace managed by Turborepo. It contains a NestJS API and a React single-page application, with shared repository commands for development, builds, type checks, linting, and formatting.
+PitStop is a pnpm workspace managed by Turborepo. It contains the MVP web app and API for the
+vehicle maintenance platform, plus the shared tooling the team uses locally and in pull requests.
 
 ## Stack
 
@@ -8,8 +9,10 @@ A pnpm workspace managed by Turborepo. It contains a NestJS API and a React sing
 - **Task runner:** Turborepo 2
 - **API:** NestJS 11
 - **Web:** React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4
+- **Local database:** PostgreSQL 16 via Docker Compose
 - **Linting:** Oxlint
 - **Formatting:** Oxfmt
+- **Git hooks:** Husky + lint-staged
 - **Testing:** Jest (API)
 
 ## Repository layout
@@ -20,6 +23,8 @@ A pnpm workspace managed by Turborepo. It contains a NestJS API and a React sing
 │   ├── api/              # NestJS API (default port 3001)
 │   └── web/              # Vite/React app (default port 3000)
 ├── packages/             # Reserved for shared workspace packages
+├── docker-compose.yml    # Local PostgreSQL for development
+├── .env.example          # Example environment variables
 ├── .oxlintrc.json        # Shared Oxlint configuration
 ├── .oxfmtrc.json         # Shared Oxfmt configuration
 ├── pnpm-workspace.yaml   # Workspace package globs
@@ -29,99 +34,91 @@ A pnpm workspace managed by Turborepo. It contains a NestJS API and a React sing
 
 ## Requirements
 
-- A current Node.js release compatible with the application dependencies
-- [pnpm 11](https://pnpm.io/installation) (the repository declares `^11.20.0`)
-
-Install pnpm by following the [official pnpm installation documentation](https://pnpm.io/installation).
+- A current Node.js release compatible with the repository dependencies
+- [pnpm 11](https://pnpm.io/installation)
+- Docker Desktop or a compatible local Docker engine
 
 ## Getting started
 
-Create a new project from this template with [create-turbo](https://turborepo.dev/docs/reference/create-turbo):
+1. Clone the repository.
+2. Copy `.env.example` to `.env` if you need local overrides.
+3. Start PostgreSQL:
 
 ```bash
-pnpm dlx create-turbo@latest --example https://github.com/ManuLosta/pitstop-stack
+docker compose up -d
 ```
 
-Select the `pnpm` package manager when prompted. You can also clone the repository and run `pnpm install` in the root directory.
-
-The generator prompts for the destination directory and installs dependencies. Then start every application:
+4. Install dependencies:
 
 ```bash
-cd <destination-directory>
+pnpm install
+```
+
+5. Start the web app and API together:
+
+```bash
 pnpm dev
 ```
 
-Open the web app at `http://localhost:3000`; the API listens on `http://localhost:3001` by default.
+The web app runs at `http://localhost:3000` and the API listens on `http://localhost:3001`.
 
-To start only one app:
-
-```bash
-pnpm dev:web
-pnpm dev:api
-```
-
-## Turborepo
-
-Turborepo runs commands across workspace packages and caches eligible tasks. The task graph lives in [`turbo.json`](./turbo.json).
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Run all development servers. Persistent and never cached. |
-| `pnpm build` | Build all applications in dependency order. |
-| `pnpm check-types` | Type-check all workspace packages in dependency order. |
-
-Run a task for one package with pnpm's filter syntax:
+To stop and remove the local database while keeping data:
 
 ```bash
-pnpm --filter web build
-pnpm --filter api test
-pnpm --filter api test:e2e
+docker compose down
 ```
 
-Run a Turborepo task directly when you need its flags:
+To stop and remove the local database including its volume:
 
 ```bash
-pnpm exec turbo run build --filter=web
-pnpm exec turbo run check-types --force
+docker compose down -v
 ```
 
-`--force` bypasses the local task cache. Use it only when verifying a build independently of cached results.
+## Local database
 
-## Code quality
+The local PostgreSQL instance uses the credentials published in `.env.example`:
+
+```bash
+DATABASE_URL=postgresql://pitstop:pitstop@localhost:5432/pitstop
+```
+
+You can connect from the host machine with `psql` or any database client using that URL.
+Because the container uses a named volume, data survives `docker compose restart`.
+
+## Team workflow
+
+- Branch names follow `feat/PIT-XX-description` for feature work unless the ticket calls for a
+  different prefix.
+- Open a pull request against the default branch when the ticket is ready for review.
+- Ask for review from the team members responsible for the affected area and wait for approval
+  before merging.
+
+Definition of done for repository-level setup work:
+
+- The local database starts with `docker compose up -d`.
+- `pnpm install` completes and installs the Git hooks automatically.
+- `pnpm dev` starts both apps on the documented ports.
+- `pnpm format:check`, `pnpm lint`, `pnpm check-types`, `pnpm test`, and `pnpm build` pass from
+  the repository root.
+
+## Commands
 
 Run these commands from the repository root.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm lint` | Check the whole repository with Oxlint. |
-| `pnpm lint:fix` | Apply Oxlint autofixes where available. Review the diff afterwards. |
-| `pnpm format` | Format files in place with Oxfmt. |
-| `pnpm format:check` | Verify formatting without modifying files; suitable for CI. |
-| `pnpm check-types` | Run TypeScript checks across the workspace. |
+| Command             | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `pnpm dev`          | Run all development servers.                |
+| `pnpm dev:web`      | Run only the web application.               |
+| `pnpm dev:api`      | Run only the API.                           |
+| `pnpm test`         | Run workspace tests.                        |
+| `pnpm build`        | Build all applications in dependency order. |
+| `pnpm check-types`  | Type-check all workspace packages.          |
+| `pnpm lint`         | Check the repository with Oxlint.           |
+| `pnpm lint:fix`     | Apply Oxlint autofixes where available.     |
+| `pnpm format`       | Format files in place with Oxfmt.           |
+| `pnpm format:check` | Verify formatting without modifying files.  |
 
-Recommended local verification before opening a pull request:
-
-```bash
-pnpm format
-pnpm lint
-pnpm check-types
-pnpm build
-```
-
-For a non-mutating CI check, use:
-
-```bash
-pnpm format:check
-pnpm lint
-pnpm check-types
-pnpm build
-```
-
-Oxlint and Oxfmt use the root configuration files, so do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete, app-specific need. Generated TanStack Router route trees are ignored by both tools.
-
-## Tests
-
-Jest belongs to the API package:
+API-specific Jest commands:
 
 ```bash
 pnpm --filter api test
@@ -129,6 +126,14 @@ pnpm --filter api test:watch
 pnpm --filter api test:cov
 pnpm --filter api test:e2e
 ```
+
+## Pre-commit hook
+
+`pnpm install` runs the `prepare` script, which installs Husky hooks locally. The pre-commit hook
+uses `lint-staged` to:
+
+- format staged code and docs with Oxfmt
+- lint staged JavaScript and TypeScript files with Oxlint autofix
 
 ## Environment variables
 
@@ -138,15 +143,4 @@ The API reads `PORT` and defaults to `3001`:
 PORT=4000 pnpm dev:api
 ```
 
-Turborepo treats `.env*` files as build inputs. Keep local secrets in ignored `.env` files; never commit them.
-
-## Useful pnpm commands
-
-```bash
-pnpm install             # Install every workspace dependency
-pnpm update              # Update dependencies within their declared ranges
-pnpm --filter web dev    # Run a package script directly
-pnpm --filter api build  # Build only the API
-```
-
-Use `pnpm`, not npm or yarn, so the workspace and its lockfile stay consistent.
+Keep local secrets in ignored `.env` files; never commit real `.env` values.

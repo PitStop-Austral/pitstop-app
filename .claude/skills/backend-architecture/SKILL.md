@@ -9,7 +9,7 @@ description: >
 license: MIT
 metadata:
   author: martinbarreiro
-  version: "2.0.0"
+  version: '2.0.0'
 ---
 
 # Backend Architecture — Changuito API
@@ -23,12 +23,12 @@ and overrides them where the project decided otherwise.
 
 ## 1. Sources of truth (in precedence order)
 
-| # | Source | What it settles |
-|---|--------|-----------------|
-| 1 | [`SPEC.md`](../../../SPEC.md) | Product behavior, data model, API contract, status codes. Linear tickets reference it. **If something is not in SPEC.md, ask — do not invent it.** |
-| 2 | [`AGENTS.md`](../../../AGENTS.md) | Tooling, package manager, verification commands. |
-| 3 | This skill | Internal architecture of the API (layering, file layout, Prisma conventions). |
-| 4 | `nestjs-best-practices` | Framework-level rules when 1–3 are silent. |
+| #   | Source                            | What it settles                                                                                                                                    |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | [`SPEC.md`](../../../SPEC.md)     | Product behavior, data model, API contract, status codes. Linear tickets reference it. **If something is not in SPEC.md, ask — do not invent it.** |
+| 2   | [`AGENTS.md`](../../../AGENTS.md) | Tooling, package manager, verification commands.                                                                                                   |
+| 3   | This skill                        | Internal architecture of the API (layering, file layout, Prisma conventions).                                                                      |
+| 4   | `nestjs-best-practices`           | Framework-level rules when 1–3 are silent.                                                                                                         |
 
 **Conflict rule:** SPEC beats this skill; this skill beats generic NestJS advice. When SPEC and a
 "best practice" disagree, follow SPEC and say so in the PR instead of silently improving the contract.
@@ -37,14 +37,14 @@ and overrides them where the project decided otherwise.
 
 ## 2. Companion skills — load which, when
 
-| Skill | Load it when |
-|-------|--------------|
-| `nestjs-best-practices` | Any `apps/api` work. Open the specific `rules/*.md` files mapped in §10 — do not read all 40. |
-| `tdd` | The ticket has real logic (e.g. `computeSuggestions`, close-list totals). Red → green, one seam at a time. |
-| `feature-planning` | Anything beyond a one-file change. Requires Plan Mode; plan and get approval before writing code. |
-| `commit-local-changes` | Creating the commit at the end of the ticket. |
-| `context7-mcp` | Before writing Prisma/NestJS API surface you have not verified this session. Prisma 7 broke several defaults — see §6. |
-| CodeGraph (`codegraph explore "<symbol or question>"`) | Locating existing code. Reach for it before `grep`/`find`. |
+| Skill                                                  | Load it when                                                                                                           |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `nestjs-best-practices`                                | Any `apps/api` work. Open the specific `rules/*.md` files mapped in §10 — do not read all 40.                          |
+| `tdd`                                                  | The ticket has real logic (e.g. `computeSuggestions`, close-list totals). Red → green, one seam at a time.             |
+| `feature-planning`                                     | Anything beyond a one-file change. Requires Plan Mode; plan and get approval before writing code.                      |
+| `commit-local-changes`                                 | Creating the commit at the end of the ticket.                                                                          |
+| `context7-mcp`                                         | Before writing Prisma/NestJS API surface you have not verified this session. Prisma 7 broke several defaults — see §6. |
+| CodeGraph (`codegraph explore "<symbol or question>"`) | Locating existing code. Reach for it before `grep`/`find`.                                                             |
 
 ---
 
@@ -53,16 +53,16 @@ and overrides them where the project decided otherwise.
 These are the traps that have burned sessions. Confirm with `cat apps/api/package.json` before assuming
 anything about installed libraries.
 
-| Fact | Not |
-|------|-----|
-| API lives in `apps/api/` | ~~`apps/backend/`~~ |
-| Package manager is **pnpm** (root `devEngines`, `AGENTS.md`) | ~~npm~~, ~~yarn~~ |
-| Lint = **Oxlint**, format = **Oxfmt**, root config only | ~~ESLint~~, ~~Prettier~~, ~~app-local config~~ |
-| Type check = `pnpm check-types` (turbo → `tsc --noEmit`) | ~~`npx tsc` inside the app~~ |
-| Tests = Jest, `rootDir: src`, `testRegex: .*\.spec\.ts$` | — |
-| **No auth, no users, no tenancy** during the capacitación (SPEC §1) | ~~`JwtAuthGuard`~~, ~~`@Public()`~~, ~~`@CurrentUser()`~~ |
-| Postgres runs via `docker compose up -d` at the repo root | ~~a globally installed psql~~ |
-| `packages/` is reserved and empty — there is no shared types package yet | ~~importing from `@repo/*`~~ |
+| Fact                                                                     | Not                                                       |
+| ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| API lives in `apps/api/`                                                 | ~~`apps/backend/`~~                                       |
+| Package manager is **pnpm** (root `devEngines`, `AGENTS.md`)             | ~~npm~~, ~~yarn~~                                         |
+| Lint = **Oxlint**, format = **Oxfmt**, root config only                  | ~~ESLint~~, ~~Prettier~~, ~~app-local config~~            |
+| Type check = `pnpm check-types` (turbo → `tsc --noEmit`)                 | ~~`npx tsc` inside the app~~                              |
+| Tests = Jest, `rootDir: src`, `testRegex: .*\.spec\.ts$`                 | —                                                         |
+| **No auth, no users, no tenancy** during the capacitación (SPEC §1)      | ~~`JwtAuthGuard`~~, ~~`@Public()`~~, ~~`@CurrentUser()`~~ |
+| Postgres runs via `docker compose up -d` at the repo root                | ~~a globally installed psql~~                             |
+| `packages/` is reserved and empty — there is no shared types package yet | ~~importing from `@repo/*`~~                              |
 
 At the time of writing `apps/api/src` is still the plain Nest 11 scaffold (`main.ts`, `app.module.ts`,
 `app.controller.ts`, `app.service.ts`) and **Prisma is not installed**. §6 is the wiring recipe.
@@ -109,11 +109,11 @@ canonical example.
 
 ## 5. The layering contract
 
-| Layer | Does | Never |
-|-------|------|-------|
-| **Controller** | Declares the route, binds DTOs/params, returns what the service gives back. | Touches Prisma. Contains branching business rules. Builds response shapes by hand. |
-| **Service** | Business rules, invariants, orchestration, mapping to the response shape. Throws `HttpException` subclasses. | Touches `req`/`res`. Calls `PrismaService` directly. |
-| **Repository** | Every Prisma call and every `$transaction`. Returns Prisma model types. | Throws HTTP exceptions. Knows about DTOs or response shapes. |
+| Layer          | Does                                                                                                         | Never                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **Controller** | Declares the route, binds DTOs/params, returns what the service gives back.                                  | Touches Prisma. Contains branching business rules. Builds response shapes by hand. |
+| **Service**    | Business rules, invariants, orchestration, mapping to the response shape. Throws `HttpException` subclasses. | Touches `req`/`res`. Calls `PrismaService` directly.                               |
+| **Repository** | Every Prisma call and every `$transaction`. Returns Prisma model types.                                      | Throws HTTP exceptions. Knows about DTOs or response shapes.                       |
 
 SPEC §7 only requires "thin controller, logic in the service". The **repository layer is this team's
 convention on top of it** — keep it even for one-line queries; it is what makes the service unit-testable
@@ -246,7 +246,7 @@ Use `select`/`include` deliberately: `GET /lists` needs `itemCount`, `checkedCou
 - Every request body has a `class-validator` DTO. `PATCH` DTOs use `PartialType(CreateXDto)`, not a
   hand-copied optional clone (`rules/security-validate-all-input.md`).
 - **Route params follow SPEC verbatim.** SPEC uses `/lists/:id`, `/lists/:id/items`, `/items/:id`. Do not
-  "improve" them to `:listId`. For an endpoint that is *not* in SPEC, use a descriptive param name and
+  "improve" them to `:listId`. For an endpoint that is _not_ in SPEC, use a descriptive param name and
   flag the addition in the PR — SPEC is the contract the frontend codes against.
 - Status codes are contract, not taste: `201` on create, `204` on delete (`@HttpCode(204)`), `409` on
   any mutation of a `CLOSED` list, `404` when the id does not exist.
@@ -289,17 +289,17 @@ pnpm --filter api test:e2e
 
 Open the rule file for the task at hand; do not read the whole skill.
 
-| Task | Rules to open |
-|------|---------------|
-| New module / splitting a service | `arch-feature-modules`, `arch-single-responsibility`, `arch-module-sharing` |
-| Wiring providers | `di-prefer-constructor-injection`, `di-scope-awareness` |
-| Repository work | `arch-use-repository-pattern`, `db-use-transactions`, `db-avoid-n-plus-one` |
-| Schema change | `db-use-migrations` |
-| DTOs / request payloads | `security-validate-all-input`, `api-use-dto-serialization`, `api-use-pipes` |
-| Error paths (404/409) | `error-throw-http-exceptions`, `error-use-exception-filters`, `error-handle-async-errors` |
-| Slow endpoint | `perf-optimize-database`, `perf-use-caching` |
-| Tests | `test-use-testing-module`, `test-e2e-supertest`, `test-mock-external-services` |
-| Health check / shutdown | `micro-use-health-checks`, `devops-graceful-shutdown` |
+| Task                             | Rules to open                                                                             |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| New module / splitting a service | `arch-feature-modules`, `arch-single-responsibility`, `arch-module-sharing`               |
+| Wiring providers                 | `di-prefer-constructor-injection`, `di-scope-awareness`                                   |
+| Repository work                  | `arch-use-repository-pattern`, `db-use-transactions`, `db-avoid-n-plus-one`               |
+| Schema change                    | `db-use-migrations`                                                                       |
+| DTOs / request payloads          | `security-validate-all-input`, `api-use-dto-serialization`, `api-use-pipes`               |
+| Error paths (404/409)            | `error-throw-http-exceptions`, `error-use-exception-filters`, `error-handle-async-errors` |
+| Slow endpoint                    | `perf-optimize-database`, `perf-use-caching`                                              |
+| Tests                            | `test-use-testing-module`, `test-e2e-supertest`, `test-mock-external-services`            |
+| Health check / shutdown          | `micro-use-health-checks`, `devops-graceful-shutdown`                                     |
 
 **Deliberately not applicable here:** every `security-auth-*` / `security-use-guards` rule (no auth in
 this capacitación), `api-versioning` (the contract is `/api`, unversioned), and the `micro-*` queue and
@@ -332,7 +332,7 @@ pnpm --filter api test:e2e   # when API behavior changed
 
 ## 12. Ticket workflow
 
-1. **Read the ticket** (Linear) *and* the SPEC section it references. Ambiguity in the ticket is resolved
+1. **Read the ticket** (Linear) _and_ the SPEC section it references. Ambiguity in the ticket is resolved
    by SPEC; ambiguity in SPEC is escalated, not invented.
 2. **Plan** with `feature-planning` (Plan Mode) for anything bigger than a one-file change. Stop for
    approval before implementing.
@@ -350,15 +350,15 @@ no "fixed" claim until the observed behavior actually changed.
 
 ## 13. Anti-patterns already caught in this repo
 
-| Wrong | Right |
-|-------|-------|
-| `apps/backend/src/modules/...` | `apps/api/src/modules/...` |
-| `npm run lint`, `npx tsc --noEmit` | `pnpm lint`, `pnpm check-types` |
-| ESLint/Prettier scripts, `nestjs-pino` | Oxlint/Oxfmt, built-in `Logger` |
-| `JwtAuthGuard`, `@Public()`, `@CurrentUser()` | No auth exists — delete the guard, do not stub it |
-| `Float` for prices | `Decimal @db.Decimal(10, 2)`, `.toNumber()` in the mapper |
-| Returning the raw Prisma row | Mapper: `Decimal` → `number`, drop `normalizedName` |
-| `:clientId`-style renames of SPEC routes | Match SPEC verbatim; propose changes in the PR |
-| Prisma calls inside a service or controller | Repository only |
-| Hand-editing a migration file | `prisma migrate dev --name ...` |
+| Wrong                                                                    | Right                                                                         |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `apps/backend/src/modules/...`                                           | `apps/api/src/modules/...`                                                    |
+| `npm run lint`, `npx tsc --noEmit`                                       | `pnpm lint`, `pnpm check-types`                                               |
+| ESLint/Prettier scripts, `nestjs-pino`                                   | Oxlint/Oxfmt, built-in `Logger`                                               |
+| `JwtAuthGuard`, `@Public()`, `@CurrentUser()`                            | No auth exists — delete the guard, do not stub it                             |
+| `Float` for prices                                                       | `Decimal @db.Decimal(10, 2)`, `.toNumber()` in the mapper                     |
+| Returning the raw Prisma row                                             | Mapper: `Decimal` → `number`, drop `normalizedName`                           |
+| `:clientId`-style renames of SPEC routes                                 | Match SPEC verbatim; propose changes in the PR                                |
+| Prisma calls inside a service or controller                              | Repository only                                                               |
+| Hand-editing a migration file                                            | `prisma migrate dev --name ...`                                               |
 | `generator client { provider = "prisma-client-js" }` written from memory | Check the installed major; Prisma 7 uses `prisma-client` + mandatory `output` |

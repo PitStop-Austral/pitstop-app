@@ -12,32 +12,32 @@ TanStack Router loads nested route data in parallel, not sequentially. Structure
 // Creating waterfall with dependent beforeLoad
 export const Route = createFileRoute('/dashboard')({
   beforeLoad: async () => {
-    const user = await fetchUser()        // 200ms
-    const permissions = await fetchPermissions(user.id)  // 200ms
-    const preferences = await fetchPreferences(user.id)  // 200ms
+    const user = await fetchUser(); // 200ms
+    const permissions = await fetchPermissions(user.id); // 200ms
+    const preferences = await fetchPreferences(user.id); // 200ms
     // Total: 600ms (sequential)
 
-    return { user, permissions, preferences }
+    return { user, permissions, preferences };
   },
-})
+});
 
 // Or nesting data dependencies incorrectly
 // routes/posts.tsx
 export const Route = createFileRoute('/posts')({
   loader: async () => {
-    const posts = await fetchPosts()  // 300ms
-    return { posts }
+    const posts = await fetchPosts(); // 300ms
+    return { posts };
   },
-})
+});
 
 // routes/posts/$postId.tsx
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params }) => {
     // Waits for parent to complete first - waterfall!
-    const post = await fetchPost(params.postId)  // +200ms
-    return { post }
+    const post = await fetchPost(params.postId); // +200ms
+    return { post };
   },
-})
+});
 ```
 
 ## Good Example: Parallel in Single Loader
@@ -47,12 +47,12 @@ export const Route = createFileRoute('/dashboard')({
   beforeLoad: async () => {
     // All requests start simultaneously
     const [user, config] = await Promise.all([
-      fetchUser(),          // 200ms
-      fetchAppConfig(),     // 150ms
-    ])
+      fetchUser(), // 200ms
+      fetchAppConfig(), // 150ms
+    ]);
     // Total: 200ms (parallel)
 
-    return { user, config }
+    return { user, config };
   },
   loader: async ({ context }) => {
     // These also run in parallel with each other
@@ -60,11 +60,11 @@ export const Route = createFileRoute('/dashboard')({
       fetchDashboardStats(context.user.id),
       fetchRecentActivity(context.user.id),
       fetchNotifications(context.user.id),
-    ])
+    ]);
 
-    return { stats, activity, notifications }
+    return { stats, activity, notifications };
   },
-})
+});
 ```
 
 ## Good Example: Parallel Nested Routes
@@ -75,20 +75,20 @@ export const Route = createFileRoute('/dashboard')({
 export const Route = createFileRoute('/posts')({
   loader: async () => {
     // This runs...
-    const categories = await fetchCategories()
-    return { categories }
+    const categories = await fetchCategories();
+    return { categories };
   },
-})
+});
 
 // routes/posts/$postId.tsx
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params }) => {
     // ...at the SAME TIME as this!
-    const post = await fetchPost(params.postId)
-    const comments = await fetchComments(params.postId)
-    return { post, comments }
+    const post = await fetchPost(params.postId);
+    const comments = await fetchComments(params.postId);
+    return { post, comments };
   },
-})
+});
 
 // Navigation to /posts/123:
 // - Both loaders start simultaneously
@@ -106,9 +106,9 @@ export const Route = createFileRoute('/posts')({
     await Promise.all([
       queryClient.ensureQueryData(postQueries.list()),
       queryClient.ensureQueryData(categoryQueries.all()),
-    ])
+    ]);
   },
-})
+});
 
 // routes/posts/$postId.tsx
 export const Route = createFileRoute('/posts/$postId')({
@@ -117,9 +117,9 @@ export const Route = createFileRoute('/posts/$postId')({
     await Promise.all([
       queryClient.ensureQueryData(postQueries.detail(params.postId)),
       queryClient.ensureQueryData(commentQueries.forPost(params.postId)),
-    ])
+    ]);
   },
-})
+});
 ```
 
 ## Good Example: Streaming Non-Critical Data
@@ -128,35 +128,31 @@ export const Route = createFileRoute('/posts/$postId')({
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params, context: { queryClient } }) => {
     // Critical data - await
-    const post = await queryClient.ensureQueryData(
-      postQueries.detail(params.postId)
-    )
+    const post = await queryClient.ensureQueryData(postQueries.detail(params.postId));
 
     // Non-critical - start but don't await (stream in later)
-    queryClient.prefetchQuery(commentQueries.forPost(params.postId))
-    queryClient.prefetchQuery(relatedQueries.forPost(params.postId))
+    queryClient.prefetchQuery(commentQueries.forPost(params.postId));
+    queryClient.prefetchQuery(relatedQueries.forPost(params.postId));
 
-    return { post }
+    return { post };
   },
   component: PostPage,
-})
+});
 
 function PostPage() {
-  const { post } = Route.useLoaderData()
-  const { postId } = Route.useParams()
+  const { post } = Route.useLoaderData();
+  const { postId } = Route.useParams();
 
   // Critical data ready immediately
   // Non-critical loads in component with loading state
-  const { data: comments, isLoading } = useQuery(
-    commentQueries.forPost(postId)
-  )
+  const { data: comments, isLoading } = useQuery(commentQueries.forPost(postId));
 
   return (
     <article>
       <PostContent post={post} />
       {isLoading ? <CommentsSkeleton /> : <Comments data={comments} />}
     </article>
-  )
+  );
 }
 ```
 

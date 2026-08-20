@@ -1,6 +1,6 @@
 ---
 name: feature-planning
-description: "Plan and implement features, fixes, refactors, and technical changes through an interactive discovery and approval workflow. Requires Plan Mode before starting."
+description: 'Plan and implement features, fixes, refactors, and technical changes through an interactive discovery and approval workflow. Requires Plan Mode before starting.'
 ---
 
 # Feature Planning & Implementation

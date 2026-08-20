@@ -16,19 +16,19 @@ export const Route = createFileRoute('/posts/$postId')({
     queryClient.prefetchQuery({
       queryKey: ['posts', params.postId],
       queryFn: () => fetchPost(params.postId),
-    })
+    });
     // No await - might not complete before render
     // No return value to use
   },
-})
+});
 
 // Fetching directly - bypasses TanStack Query cache
 export const Route = createFileRoute('/posts')({
   loader: async () => {
-    const posts = await fetchPosts()  // Not cached
-    return { posts }
+    const posts = await fetchPosts(); // Not cached
+    return { posts };
   },
-})
+});
 ```
 
 ## Good Example
@@ -39,8 +39,8 @@ const postQueryOptions = (postId: string) =>
   queryOptions({
     queryKey: ['posts', postId],
     queryFn: () => fetchPost(postId),
-    staleTime: 5 * 60 * 1000,  // 5 minutes
-  })
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
 export const Route = createFileRoute('/posts/$postId')({
   loader: async ({ params, context: { queryClient } }) => {
@@ -49,18 +49,18 @@ export const Route = createFileRoute('/posts/$postId')({
     // - Fetches and caches if missing or stale
     // - Awaits completion
     // - Throws on error (caught by error boundary)
-    await queryClient.ensureQueryData(postQueryOptions(params.postId))
+    await queryClient.ensureQueryData(postQueryOptions(params.postId));
   },
   component: PostPage,
-})
+});
 
 function PostPage() {
-  const { postId } = Route.useParams()
+  const { postId } = Route.useParams();
 
   // Data guaranteed to exist from loader
-  const { data: post } = useSuspenseQuery(postQueryOptions(postId))
+  const { data: post } = useSuspenseQuery(postQueryOptions(postId));
 
-  return <PostContent post={post} />
+  return <PostContent post={post} />;
 }
 ```
 
@@ -74,9 +74,9 @@ export const Route = createFileRoute('/dashboard')({
       queryClient.ensureQueryData(statsQueries.overview()),
       queryClient.ensureQueryData(activityQueries.recent()),
       queryClient.ensureQueryData(notificationQueries.unread()),
-    ])
+    ]);
   },
-})
+});
 ```
 
 ## Good Example: Dependent Queries
@@ -85,16 +85,12 @@ export const Route = createFileRoute('/dashboard')({
 export const Route = createFileRoute('/users/$userId/posts')({
   loader: async ({ params, context: { queryClient } }) => {
     // First query needed for second
-    const user = await queryClient.ensureQueryData(
-      userQueries.detail(params.userId)
-    )
+    const user = await queryClient.ensureQueryData(userQueries.detail(params.userId));
 
     // Dependent query uses result
-    await queryClient.ensureQueryData(
-      postQueries.byAuthor(user.id)
-    )
+    await queryClient.ensureQueryData(postQueries.byAuthor(user.id));
   },
-})
+});
 ```
 
 ## Router Configuration for TanStack Query
@@ -104,10 +100,10 @@ export const Route = createFileRoute('/users/$userId/posts')({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,  // 1 minute default
+      staleTime: 60 * 1000, // 1 minute default
     },
   },
-})
+});
 
 export const router = createRouter({
   routeTree,
@@ -123,25 +119,23 @@ export const router = createRouter({
 
   // SSR: Hydrate on client
   hydrate: (dehydrated) => {
-    hydrate(queryClient, dehydrated.queryClientState)
+    hydrate(queryClient, dehydrated.queryClientState);
   },
 
   // Wrap with QueryClientProvider
   Wrap: ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   ),
-})
+});
 ```
 
 ## ensureQueryData vs prefetchQuery vs fetchQuery
 
-| Method | Returns | Throws | Awaits | Use Case |
-|--------|---------|--------|--------|----------|
-| `ensureQueryData` | Data | Yes | Yes | Route loaders (recommended) |
-| `prefetchQuery` | void | No | Yes | Background prefetching |
-| `fetchQuery` | Data | Yes | Yes | When you need data immediately |
+| Method            | Returns | Throws | Awaits | Use Case                       |
+| ----------------- | ------- | ------ | ------ | ------------------------------ |
+| `ensureQueryData` | Data    | Yes    | Yes    | Route loaders (recommended)    |
+| `prefetchQuery`   | void    | No     | Yes    | Background prefetching         |
+| `fetchQuery`      | Data    | Yes    | Yes    | When you need data immediately |
 
 ## Context
 

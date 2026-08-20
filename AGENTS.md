@@ -53,14 +53,16 @@ See [README.md](./README.md) for the full command reference.
 
 Only what is installed in the repository today:
 
-| Area | Technology |
-| --- | --- |
-| Workspace | pnpm 11, Turborepo 2 |
-| Language | TypeScript |
-| API | NestJS 11 on Express |
-| API tests | Jest, Supertest |
-| Web | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4 |
-| Lint / format | Oxlint, Oxfmt |
+| Area           | Technology                                                        |
+| -------------- | ----------------------------------------------------------------- |
+| Workspace      | pnpm 11, Turborepo 2                                              |
+| Language       | TypeScript                                                        |
+| API            | NestJS 11 on Express                                              |
+| API tests      | Jest, Supertest                                                   |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4 |
+| Local database | PostgreSQL 16 via Docker Compose                                  |
+| Lint / format  | Oxlint, Oxfmt                                                     |
+| Git hooks      | Husky, lint-staged                                                |
 
 There is no ORM, database, authentication provider, or component library wired up yet.
 
@@ -124,6 +126,10 @@ under `overrides`. Do not disable the rule elsewhere — if a case seems to need
 - Use pnpm; do not use npm or yarn.
 - Run workspace commands from the repository root.
 - Use Oxlint and Oxfmt. Do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete app-specific need.
+- Local development uses the root `docker-compose.yml` PostgreSQL service and the single
+  `DATABASE_URL` variable from `.env` / `.env.example`.
+- Pre-commit automation is managed with Husky and lint-staged at the repository root. Keep hook
+  logic lightweight and scoped to staged files.
 
 ## Verification
 
