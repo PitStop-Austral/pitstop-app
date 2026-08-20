@@ -28,7 +28,7 @@
     "turbo": "^2.10.8"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs,json,md,css,yml,yaml}": "oxfmt",
+    "*.{js,jsx,ts,tsx,mjs,cjs,json,md,css,yml,yaml}": "oxfmt --no-error-on-unmatched-pattern",
     "*.{js,jsx,ts,tsx,mjs,cjs}": "oxlint --fix"
   },
   "devEngines": {
