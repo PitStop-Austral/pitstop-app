@@ -1,6 +1,2 @@
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp/oauth"
-
-[mcp_servers.codegraph]
-command = "codegraph"
-args = ["serve", "--mcp"]

@@ -79,11 +79,13 @@ docker compose down -v
 The local PostgreSQL instance uses the credentials published in `.env.example`:
 
 ```bash
-DATABASE_URL=postgresql://pitstop:pitstop@localhost:5432/pitstop
+DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
 
 You can connect from the host machine with `psql` or any database client using that URL.
-Because the container uses a named volume, data survives `docker compose restart`.
+PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation;
+set `POSTGRES_PORT` and update `DATABASE_URL` in `.env` if you need another port. Because the
+container uses a named volume, data survives `docker compose restart`.
 
 ## Team workflow
 

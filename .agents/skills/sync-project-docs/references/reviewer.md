@@ -5,7 +5,6 @@ Review staged changes only to determine whether durable project documentation un
 Minimize reads and tokens.
 
 Start with only:
-
 1. `git diff --cached --unified=2`
 2. `docs/README.md` if it exists
 3. `docs/DOCUMENTATION_RULES.md` if it exists
@@ -13,7 +12,6 @@ Start with only:
 Do not scan the repository broadly.
 
 Documentation is generally warranted when staged changes materially affect:
-
 - user-visible features or workflows
 - APIs or routes that are part of project behavior
 - system architecture or service boundaries
@@ -26,7 +24,6 @@ Documentation is generally warranted when staged changes materially affect:
 - important operational constraints future developers/agents need to know
 
 Documentation is generally NOT warranted for:
-
 - formatting only
 - comments only
 - tests only
@@ -41,7 +38,6 @@ Documentation is generally NOT warranted for:
 If docs are not stale, return exactly `DOCS_NOT_NEEDED`.
 
 If docs are stale:
-
 1. Identify the smallest relevant documentation set.
 2. Read only those files/sections.
 3. Read affected source files only if the staged diff is insufficient to resolve ambiguity.

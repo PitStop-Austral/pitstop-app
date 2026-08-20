@@ -126,8 +126,8 @@ under `overrides`. Do not disable the rule elsewhere — if a case seems to need
 - Use pnpm; do not use npm or yarn.
 - Run workspace commands from the repository root.
 - Use Oxlint and Oxfmt. Do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete app-specific need.
-- Local development uses the root `docker-compose.yml` PostgreSQL service and the single
-  `DATABASE_URL` variable from `.env` / `.env.example`.
+- Local development uses the root `docker-compose.yml` PostgreSQL service and the database
+  variables from `.env` / `.env.example`.
 - Pre-commit automation is managed with Husky and lint-staged at the repository root. Keep hook
   logic lightweight and scoped to staged files.
 

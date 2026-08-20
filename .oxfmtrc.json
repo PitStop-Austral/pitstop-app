@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/routeTree.gen.ts"],
+  "ignorePatterns": [".agents/**", ".claude/**", ".codex/**", ".mcp.json", "**/routeTree.gen.ts"],
   "singleQuote": true,
   "trailingComma": "all"
 }

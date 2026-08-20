@@ -1,6 +1,8 @@
 {
   "permissions": {
-    "allow": ["mcp__codegraph__*"]
+    "allow": [
+      "mcp__codegraph__*"
+    ]
   },
   "hooks": {
     "UserPromptSubmit": [
