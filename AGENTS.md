@@ -53,18 +53,18 @@ See [README.md](./README.md) for the full command reference.
 
 Only what is installed in the repository today:
 
-| Area           | Technology                                                        |
-| -------------- | ----------------------------------------------------------------- |
-| Workspace      | pnpm 11, Turborepo 2                                              |
-| Language       | TypeScript                                                        |
-| API            | NestJS 11 on Express                                              |
-| API tests      | Jest, Supertest                                                   |
-| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4 |
-| Local database | PostgreSQL 16 via Docker Compose                                  |
-| Lint / format  | Oxlint, Oxfmt                                                     |
-| Git hooks      | Husky, lint-staged                                                |
+| Area           | Technology                                                               |
+| -------------- | ------------------------------------------------------------------------ |
+| Workspace      | pnpm 11, Turborepo 2                                                     |
+| Language       | TypeScript                                                               |
+| API            | NestJS 11 on Express                                                     |
+| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg` |
+| API tests      | Jest, Supertest                                                          |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4        |
+| Lint / format  | Oxlint, Oxfmt                                                            |
+| Git hooks      | Husky, lint-staged                                                       |
 
-There is no ORM, database, authentication provider, or component library wired up yet.
+There is no authentication provider or component library wired up yet.
 
 **When you add a new dependency, tool, or external service (ORM, database, auth, UI library, …),
 document it in this file in the same pull request that introduces it.** Update the table above and,
@@ -157,4 +157,6 @@ pnpm --filter api test:e2e
 ## Architecture
 
 - Keep API changes within `apps/api` and web changes within `apps/web` unless a shared workspace concern requires otherwise.
+- Keep Prisma schema files and migrations under `apps/api/prisma`; access Prisma through the global
+  `PrismaModule` and feature repositories rather than directly from controllers or services.
 - Keep generated TanStack Router route trees unchanged; they are generated artifacts.
