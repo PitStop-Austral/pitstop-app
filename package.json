@@ -18,6 +18,9 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "check-types": "turbo run check-types",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:studio": "pnpm --filter api db:studio",
     "prepare": "husky"
   },
   "devDependencies": {
