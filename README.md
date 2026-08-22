@@ -76,7 +76,8 @@ docker compose down -v
 
 ## Local database
 
-The local PostgreSQL instance uses the credentials published in `.env.example`:
+The local PostgreSQL instance uses the credentials published in `.env.example`. Docker Compose
+uses the same values for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`:
 
 ```bash
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
