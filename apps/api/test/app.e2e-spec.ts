@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 
-describe('HealthController (e2e)', () => {
+describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
   let queryRaw: jest.Mock;
 
@@ -22,6 +22,10 @@ describe('HealthController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+  });
+
+  it('/ (GET)', () => {
+    return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
   });
 
   it('/health/db (GET)', () => {
