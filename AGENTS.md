@@ -63,6 +63,7 @@ Only what is installed in the repository today:
 | Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4        |
 | Lint / format  | Oxlint, Oxfmt                                                            |
 | Git hooks      | Husky, lint-staged                                                       |
+| CI             | GitHub Actions                                                           |
 
 There is no authentication provider or component library wired up yet.
 
