@@ -8,8 +8,8 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 - **Workspace:** pnpm 11
 - **Task runner:** Turborepo 2
 - **API:** NestJS 11
+- **Database / ORM:** PostgreSQL 16 via Docker Compose, Prisma ORM 7
 - **Web:** React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4
-- **Local database:** PostgreSQL 16 via Docker Compose
 - **Linting:** Oxlint
 - **Formatting:** Oxfmt
 - **Git hooks:** Husky + lint-staged
@@ -35,13 +35,15 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 ## Requirements
 
 - A current Node.js release compatible with the repository dependencies
-- [pnpm 11](https://pnpm.io/installation)
-- Docker Desktop or a compatible local Docker engine
+- [pnpm 11](https://pnpm.io/installation) (the repository declares `^11.20.0`)
+- Docker Desktop or a compatible Docker engine for the local PostgreSQL database
+
+Install pnpm by following the [official pnpm installation documentation](https://pnpm.io/installation).
 
 ## Getting started
 
 1. Clone the repository.
-2. Copy `.env.example` to `.env` if you need local overrides.
+2. Copy `.env.example` to `.env`.
 3. Start PostgreSQL:
 
 ```bash
@@ -54,7 +56,19 @@ docker compose up -d
 pnpm install
 ```
 
-5. Start the web app and API together:
+5. Generate Prisma Client:
+
+```bash
+pnpm db:generate
+```
+
+6. Apply the database migrations:
+
+```bash
+pnpm db:migrate
+```
+
+7. Start the web app and API together:
 
 ```bash
 pnpm dev
@@ -108,18 +122,21 @@ Definition of done for repository-level setup work:
 
 Run these commands from the repository root.
 
-| Command             | Purpose                                     |
-| ------------------- | ------------------------------------------- |
-| `pnpm dev`          | Run all development servers.                |
-| `pnpm dev:web`      | Run only the web application.               |
-| `pnpm dev:api`      | Run only the API.                           |
-| `pnpm test`         | Run workspace tests.                        |
-| `pnpm build`        | Build all applications in dependency order. |
-| `pnpm check-types`  | Type-check all workspace packages.          |
-| `pnpm lint`         | Check the repository with Oxlint.           |
-| `pnpm lint:fix`     | Apply Oxlint autofixes where available.     |
-| `pnpm format`       | Format files in place with Oxfmt.           |
-| `pnpm format:check` | Verify formatting without modifying files.  |
+| Command             | Purpose                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| `pnpm dev`          | Run all development servers.                                         |
+| `pnpm dev:web`      | Run only the web application.                                        |
+| `pnpm dev:api`      | Run only the API.                                                    |
+| `pnpm test`         | Run workspace tests.                                                 |
+| `pnpm build`        | Build all applications in dependency order.                          |
+| `pnpm check-types`  | Type-check all workspace packages.                                   |
+| `pnpm lint`         | Check the repository with Oxlint.                                    |
+| `pnpm lint:fix`     | Apply Oxlint autofixes where available.                              |
+| `pnpm format`       | Format files in place with Oxfmt.                                    |
+| `pnpm format:check` | Verify formatting without modifying files.                           |
+| `pnpm db:generate`  | Generate Prisma Client from the current schema.                      |
+| `pnpm db:migrate`   | Apply committed migrations and create migrations for schema changes. |
+| `pnpm db:studio`    | Open Prisma Studio for the local database.                           |
 
 API-specific Jest commands:
 
@@ -140,10 +157,26 @@ uses `lint-staged` to:
 
 ## Environment variables
 
-The API reads `PORT` and defaults to `3001`:
+The API and Prisma require `DATABASE_URL`. The local default is provided in `.env.example`:
+
+```bash
+DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
+```
+
+The API also reads `PORT` and defaults to `3001`:
 
 ```bash
 PORT=4000 pnpm dev:api
 ```
 
-Keep local secrets in ignored `.env` files; never commit real `.env` values.
+Turborepo treats `.env*` files as build inputs. Keep local secrets in ignored `.env` files; never commit them.
+
+## Database workflow
+
+Run Prisma commands from the repository root. After changing files under `apps/api/prisma`, create and
+apply the migration with `pnpm db:migrate`, then commit the generated migration directory with the
+schema change. Run `pnpm db:generate` whenever you need to regenerate Prisma Client without creating a
+migration.
+
+Use `pnpm db:studio` to inspect local data in Prisma Studio. The command reads `DATABASE_URL` from the
+root `.env` file and remains running until you stop it.
