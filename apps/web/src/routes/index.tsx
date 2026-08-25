@@ -22,7 +22,7 @@ function RouteComponent() {
       const idToken = await credential.user.getIdToken();
       console.log('Firebase ID token:', idToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Error desconocido');
     }
   }
 
@@ -30,7 +30,7 @@ function RouteComponent() {
     <div>
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">Correo electrónico</label>
           <input
             id="email"
             type="email"
@@ -40,7 +40,7 @@ function RouteComponent() {
           />
         </div>
         <div>
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">Contraseña</label>
           <input
             id="password"
             type="password"
@@ -49,7 +49,7 @@ function RouteComponent() {
             required
           />
         </div>
-        <button type="submit">Create user</button>
+        <button type="submit">Crear usuario</button>
       </form>
       {error && <div>{error}</div>}
     </div>

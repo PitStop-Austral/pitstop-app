@@ -14,7 +14,10 @@ jest.mock('firebase-admin/auth', () => ({
     code: string;
     constructor({ code, message }: { code: string; message: string }) {
       super(message);
-      this.code = code;
+      this.code = `auth/${code}`;
+    }
+    hasCode(code: string) {
+      return this.code === code || this.code === `auth/${code}`;
     }
   },
 }));
@@ -54,6 +57,19 @@ describe('FirebaseController', () => {
 
   it('throws InternalServerError instead of leaking details for unexpected failures', async () => {
     verifyIdToken.mockRejectedValue(new Error('network unreachable'));
+
+    await expect(controller.whoami('Bearer some-token')).rejects.toThrow(
+      InternalServerErrorException,
+    );
+  });
+
+  it('throws InternalServerError for a FirebaseAuthError that is not a token problem', async () => {
+    verifyIdToken.mockRejectedValue(
+      new FirebaseAuthError({
+        code: 'internal-error',
+        message: 'could not fetch Google public keys',
+      }),
+    );
 
     await expect(controller.whoami('Bearer some-token')).rejects.toThrow(
       InternalServerErrorException,
