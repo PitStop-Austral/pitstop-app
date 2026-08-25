@@ -53,18 +53,26 @@ See [README.md](./README.md) for the full command reference.
 
 Only what is installed in the repository today:
 
-| Area           | Technology                                                               |
-| -------------- | ------------------------------------------------------------------------ |
-| Workspace      | pnpm 11, Turborepo 2                                                     |
-| Language       | TypeScript                                                               |
-| API            | NestJS 11 on Express                                                     |
-| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg` |
-| API tests      | Jest, Supertest                                                          |
-| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4        |
-| Lint / format  | Oxlint, Oxfmt                                                            |
-| Git hooks      | Husky, lint-staged                                                       |
+| Area           | Technology                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| Workspace      | pnpm 11, Turborepo 2                                                                       |
+| Language       | TypeScript                                                                                 |
+| API            | NestJS 11 on Express                                                                       |
+| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`                   |
+| API tests      | Jest, Supertest                                                                            |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4                          |
+| Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK) |
+| Lint / format  | Oxlint, Oxfmt                                                                              |
+| Git hooks      | Husky, lint-staged                                                                         |
 
-There is no authentication provider or component library wired up yet.
+There is no component library wired up yet.
+
+The web app initializes Firebase once in `apps/web/src/lib/firebase.ts`, configured via
+`VITE_FIREBASE_*` env vars from the root `.env` (see `envDir` in `apps/web/vite.config.ts`). The API
+initializes `firebase-admin` once in the global `FirebaseModule` (`apps/api/src/firebase/`),
+configured via `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY`. There is no auth
+guard yet — token verification is only demonstrated via the disposable `GET /firebase/whoami`
+endpoint, removed once the real auth guard ticket lands.
 
 **When you add a new dependency, tool, or external service (ORM, database, auth, UI library, …),
 document it in this file in the same pull request that introduces it.** Update the table above and,

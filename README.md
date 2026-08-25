@@ -25,6 +25,7 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 ├── packages/             # Reserved for shared workspace packages
 ├── docker-compose.yml    # Local PostgreSQL for development
 ├── .env.example          # Example environment variables
+├── storage.rules         # Firebase Storage security rules (pasted into the console manually)
 ├── .oxlintrc.json        # Shared Oxlint configuration
 ├── .oxfmtrc.json         # Shared Oxfmt configuration
 ├── pnpm-workspace.yaml   # Workspace package globs
@@ -102,6 +103,26 @@ PostgreSQL uses host port `5433` by default to avoid conflicts with an existing 
 set `POSTGRES_PORT` and update `DATABASE_URL` in `.env` if you need another port. Because the
 container uses a named volume, data survives `docker compose restart`.
 
+## Firebase setup
+
+The app uses a shared Firebase project for Authentication (email/password) and Storage. To get your
+own local credentials:
+
+1. Ask a teammate for access to the shared Firebase project (it already exists; you don't need to
+   create your own).
+2. In the Firebase console, go to Project settings > General > Your apps, find (or add) the Web app,
+   and copy its config values into `.env` as `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
+   and `VITE_FIREBASE_APP_ID`.
+3. In the console, go to Project settings > Service accounts > Generate new private key. Open the
+   downloaded JSON, copy `project_id`, `client_email`, and `private_key` into `.env` as
+   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, then delete the
+   downloaded JSON file. Never commit it.
+4. Confirm the Email/Password provider is enabled under Authentication > Sign-in method (this is a
+   one-time, project-level setting, not per-dev).
+5. Confirm the Storage bucket exists, then paste the contents of the repository's `storage.rules`
+   into its Rules tab and publish (also one-time, project-level).
+
 ## Team workflow
 
 - Branch names follow `feat/PIT-XX-description` for feature work unless the ticket calls for a
@@ -168,6 +189,22 @@ The API also reads `PORT` and defaults to `3001`:
 ```bash
 PORT=4000 pnpm dev:api
 ```
+
+The web app reads its Firebase config from `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and
+`VITE_FIREBASE_APP_ID`. Vite is configured to read the same root `.env` as the API (see
+`envDir` in `apps/web/vite.config.ts`), so there is no separate `apps/web/.env`.
+
+The API reads its Firebase Admin credentials from `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`,
+and `FIREBASE_PRIVATE_KEY`:
+
+```bash
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----\n"
+```
+
+Paste the private key exactly as it appears in the downloaded service-account JSON (a single-line,
+quoted string with literal `\n` sequences); the code unescapes them at startup. See
+[Firebase setup](#firebase-setup) for where to get these values.
 
 Turborepo treats `.env*` files as build inputs. Keep local secrets in ignored `.env` files; never commit them.
 
