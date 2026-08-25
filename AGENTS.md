@@ -64,6 +64,7 @@ Only what is installed in the repository today:
 | Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK) |
 | Lint / format  | Oxlint, Oxfmt                                                                              |
 | Git hooks      | Husky, lint-staged                                                                         |
+| CI             | GitHub Actions                                                                             |
 
 There is no component library wired up yet.
 
