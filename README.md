@@ -23,8 +23,7 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 │   ├── api/              # NestJS API (default port 3001, own .env.example)
 │   └── web/              # Vite/React app (default port 3000, own .env.example)
 ├── packages/             # Reserved for shared workspace packages
-├── docker-compose.yml    # Local PostgreSQL for development
-├── .env.example          # Example environment variables for docker-compose (PostgreSQL only)
+├── docker-compose.yml    # Local PostgreSQL for development (reads apps/api/.env via env_file)
 ├── storage.rules         # Firebase Storage security rules (pasted into the console manually)
 ├── .oxlintrc.json        # Shared Oxlint configuration
 ├── .oxfmtrc.json         # Shared Oxfmt configuration
@@ -44,11 +43,10 @@ Install pnpm by following the [official pnpm installation documentation](https:/
 ## Getting started
 
 1. Clone the repository.
-2. Copy each environment variable template to its own `.env` (see
+2. Copy each app's environment variable template to its own `.env` (see
    [Environment variables](#environment-variables) for what goes in each one):
 
 ```bash
-cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 ```
@@ -56,7 +54,7 @@ cp apps/web/.env.example apps/web/.env
 3. Start PostgreSQL:
 
 ```bash
-docker compose up -d
+pnpm db:up
 ```
 
 4. Install dependencies:
@@ -88,7 +86,7 @@ The web app runs at `http://localhost:3000` and the API listens on `http://local
 To stop and remove the local database while keeping data:
 
 ```bash
-docker compose down
+pnpm db:down
 ```
 
 To stop and remove the local database including its volume:
@@ -99,21 +97,21 @@ docker compose down -v
 
 ## Local database
 
-The local PostgreSQL instance uses the credentials published in the root `.env.example`
-(`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`), read directly by
-`docker-compose.yml`. `apps/api/.env.example` has a matching `DATABASE_URL` built from those same
-default values:
+`docker-compose.yml` reads `apps/api/.env` (via `env_file`) for `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, and `POSTGRES_DB`, so the local Postgres container and the API always use the
+same values — there is no separate root `.env`. `apps/api/.env.example` has a matching
+`DATABASE_URL` built from those same default values:
 
 ```bash
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
 
 You can connect from the host machine with `psql` or any database client using that URL.
-PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation;
-if you change `POSTGRES_PORT` (or any other `POSTGRES_*` value) in the root `.env`, update
-`DATABASE_URL` in `apps/api/.env` to match — the two are not read from the same file, so nothing
-keeps them in sync automatically. Because the container uses a named volume, data survives
-`docker compose restart`.
+PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation.
+That port mapping is hardcoded in `docker-compose.yml` (Compose can't read it from `env_file`), so
+`POSTGRES_PORT` in `apps/api/.env` only affects `DATABASE_URL`, not the container's actual port —
+if you need a different host port, edit `docker-compose.yml` directly and update `DATABASE_URL` to
+match. Because the container uses a named volume, data survives `docker compose restart`.
 
 ## Firebase setup
 
@@ -145,7 +143,7 @@ own local credentials:
 
 Definition of done for repository-level setup work:
 
-- The local database starts with `docker compose up -d`.
+- The local database starts with `pnpm db:up`.
 - `pnpm install` completes and installs the Git hooks automatically.
 - `pnpm dev` starts both apps on the documented ports.
 - `pnpm format:check`, `pnpm lint`, `pnpm check-types`, `pnpm test`, and `pnpm build` pass from
@@ -163,6 +161,8 @@ Run these commands from the repository root.
 | `pnpm test`         | Run workspace tests.                                                 |
 | `pnpm build`        | Build all applications in dependency order.                          |
 | `pnpm check-types`  | Type-check all workspace packages.                                   |
+| `pnpm db:up`        | Start the local PostgreSQL container.                                |
+| `pnpm db:down`      | Stop the local PostgreSQL container (keeps its data volume).         |
 | `pnpm lint`         | Check the repository with Oxlint.                                    |
 | `pnpm lint:fix`     | Apply Oxlint autofixes where available.                              |
 | `pnpm format`       | Format files in place with Oxfmt.                                    |
@@ -190,25 +190,24 @@ uses `lint-staged` to:
 
 ## Environment variables
 
-Each app (and the repository root, for Docker) has its own `.env.example` — there is no single
-shared `.env`. Copy all three as shown in [Getting started](#getting-started).
+Each app has its own `.env.example` — everything lives in `apps/api/.env` and `apps/web/.env`, there
+is no root `.env`. Copy both as shown in [Getting started](#getting-started).
 
-**Root `.env`** — read only by `docker-compose.yml` to configure the local PostgreSQL container:
+**`apps/api/.env`** — read by the API, Prisma, and (via `env_file` in `docker-compose.yml`) the local
+Postgres container. `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` configure the container
+directly; `DATABASE_URL` must be built by hand from those same values, since nothing keeps
+`DATABASE_URL` and the `POSTGRES_*` vars in sync automatically:
 
 ```bash
 POSTGRES_USER=pitstop
 POSTGRES_PASSWORD=pitstop
 POSTGRES_DB=pitstop
 POSTGRES_PORT=5433
-```
-
-**`apps/api/.env`** — read by the API and Prisma. `DATABASE_URL` must be built by hand from the same
-values as the root `.env`'s `POSTGRES_*` vars; nothing keeps the two files in sync automatically, so
-if you change one, update the other:
-
-```bash
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
+
+`POSTGRES_PORT` here only feeds `DATABASE_URL` — the container's host port is hardcoded in
+`docker-compose.yml` (see [Local database](#local-database)).
 
 `PORT` is optional and defaults to `3001`:
 
