@@ -3,13 +3,12 @@ services:
     image: postgres:16
     container_name: pitstop-postgres
     restart: unless-stopped
-    env_file: apps/api/.env
     environment:
-      POSTGRES_USER: pitstop
-      POSTGRES_PASSWORD: pitstop
-      POSTGRES_DB: pitstop
+      POSTGRES_USER: ${POSTGRES_USER:-pitstop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pitstop}
+      POSTGRES_DB: ${POSTGRES_DB:-pitstop}
     ports:
-      - '127.0.0.1:5433:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
       - pitstop_postgres_data:/var/lib/postgresql/data
     healthcheck:

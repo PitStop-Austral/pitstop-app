@@ -23,7 +23,7 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 │   ├── api/              # NestJS API (default port 3001, own .env.example)
 │   └── web/              # Vite/React app (default port 3000, own .env.example)
 ├── packages/             # Reserved for shared workspace packages
-├── docker-compose.yml    # Local PostgreSQL for development (reads apps/api/.env via env_file)
+├── docker-compose.yml    # Local PostgreSQL for development (run via `pnpm db:up`/`db:down`)
 ├── storage.rules         # Firebase Storage security rules (pasted into the console manually)
 ├── .oxlintrc.json        # Shared Oxlint configuration
 ├── .oxfmtrc.json         # Shared Oxfmt configuration
@@ -92,14 +92,17 @@ pnpm db:down
 To stop and remove the local database including its volume:
 
 ```bash
-docker compose down -v
+docker compose --env-file apps/api/.env down -v
 ```
 
 ## Local database
 
-`docker-compose.yml` reads `apps/api/.env` (via `env_file`) for `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, and `POSTGRES_DB`, so the local Postgres container and the API always use the
-same values — there is no separate root `.env`. `apps/api/.env.example` has a matching
+`docker-compose.yml` still uses `${POSTGRES_USER:-pitstop}`-style interpolation for
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and the host port — there is no root `.env` for
+Compose to read those from anymore, so `pnpm db:up`/`pnpm db:down` pass `apps/api/.env` explicitly
+with `docker compose --env-file apps/api/.env ...`. That resolves the interpolation in the YAML
+(and, through the `environment:` block, sets the same values inside the container), so the local
+Postgres container and the API always use the same values. `apps/api/.env.example` has a matching
 `DATABASE_URL` built from those same default values:
 
 ```bash
@@ -107,11 +110,14 @@ DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
 
 You can connect from the host machine with `psql` or any database client using that URL.
-PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation.
-That port mapping is hardcoded in `docker-compose.yml` (Compose can't read it from `env_file`), so
-`POSTGRES_PORT` in `apps/api/.env` only affects `DATABASE_URL`, not the container's actual port —
-if you need a different host port, edit `docker-compose.yml` directly and update `DATABASE_URL` to
-match. Because the container uses a named volume, data survives `docker compose restart`.
+PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation;
+if you change `POSTGRES_PORT` (or any other `POSTGRES_*` value) in `apps/api/.env`, update
+`DATABASE_URL` in the same file to match — the two are not linked automatically. Because the
+container uses a named volume, data survives `docker compose restart`.
+
+If you run raw `docker compose` commands instead of the `pnpm db:*` scripts, remember to pass
+`--env-file apps/api/.env` yourself, or the interpolation falls back to the `pitstop`/`5433`
+defaults baked into `docker-compose.yml`.
 
 ## Firebase setup
 
@@ -193,10 +199,11 @@ uses `lint-staged` to:
 Each app has its own `.env.example` — everything lives in `apps/api/.env` and `apps/web/.env`, there
 is no root `.env`. Copy both as shown in [Getting started](#getting-started).
 
-**`apps/api/.env`** — read by the API, Prisma, and (via `env_file` in `docker-compose.yml`) the local
-Postgres container. `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` configure the container
-directly; `DATABASE_URL` must be built by hand from those same values, since nothing keeps
-`DATABASE_URL` and the `POSTGRES_*` vars in sync automatically:
+**`apps/api/.env`** — read by the API and Prisma directly, and by `docker compose` (via
+`--env-file apps/api/.env`, passed by the `pnpm db:up`/`pnpm db:down` scripts) to interpolate
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and the host port in `docker-compose.yml`.
+`DATABASE_URL` must be built by hand from those same values, since nothing keeps `DATABASE_URL` and
+the `POSTGRES_*` vars in sync automatically:
 
 ```bash
 POSTGRES_USER=pitstop
@@ -206,8 +213,9 @@ POSTGRES_PORT=5433
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
 
-`POSTGRES_PORT` here only feeds `DATABASE_URL` — the container's host port is hardcoded in
-`docker-compose.yml` (see [Local database](#local-database)).
+`POSTGRES_PORT` here drives both `DATABASE_URL` and the container's actual host port, via
+`docker-compose.yml`'s interpolation (see [Local database](#local-database)) — keep them in sync by
+hand if you change one.
 
 `PORT` is optional and defaults to `3001`:
 

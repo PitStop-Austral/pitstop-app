@@ -136,10 +136,11 @@ under `overrides`. Do not disable the rule elsewhere — if a case seems to need
 - Run workspace commands from the repository root.
 - Use Oxlint and Oxfmt. Do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete app-specific need.
 - Local development uses the root `docker-compose.yml` PostgreSQL service, started with
-  `pnpm db:up`/`pnpm db:down`. It reads its Postgres credentials from `apps/api/.env` via
-  `env_file` — there is no root `.env` anywhere in the repo. Each app has its own `.env` /
-  `.env.example` for its own variables (`apps/api` for `POSTGRES_*`/`DATABASE_URL`/`PORT`/Firebase
-  Admin, `apps/web` for the Firebase web config). See
+  `pnpm db:up`/`pnpm db:down`. Those scripts pass `--env-file apps/api/.env` to `docker compose`,
+  which resolves the `${POSTGRES_*}` interpolation still used in `docker-compose.yml` — there is no
+  root `.env` anywhere in the repo. Each app has its own `.env` / `.env.example` for its own
+  variables (`apps/api` for `POSTGRES_*`/`DATABASE_URL`/`PORT`/Firebase Admin, `apps/web` for the
+  Firebase web config). See
   [README.md](./README.md#environment-variables).
 - Pre-commit automation is managed with Husky and lint-staged at the repository root. Keep hook
   logic lightweight and scoped to staged files.
