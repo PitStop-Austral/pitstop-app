@@ -69,10 +69,10 @@ Only what is installed in the repository today:
 There is no component library wired up yet.
 
 The web app initializes Firebase once in `apps/web/src/lib/firebase.ts`, configured via
-`VITE_FIREBASE_*` env vars from the root `.env` (see `envDir` in `apps/web/vite.config.ts`). The API
-initializes `firebase-admin` once in the global `FirebaseModule` (`apps/api/src/firebase/`),
-configured via `FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY`. There is no auth
-guard yet — token verification is only demonstrated via the disposable `GET /firebase/whoami`
+`VITE_FIREBASE_*` env vars from `apps/web/.env`. The API initializes `firebase-admin` once in the
+global `FirebaseModule` (`apps/api/src/firebase/`), configured via
+`FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY` from `apps/api/.env`. There is
+no auth guard yet — token verification is only demonstrated via the disposable `GET /firebase/whoami`
 endpoint, removed once the real auth guard ticket lands.
 
 **When you add a new dependency, tool, or external service (ORM, database, auth, UI library, …),
@@ -135,8 +135,10 @@ under `overrides`. Do not disable the rule elsewhere — if a case seems to need
 - Use pnpm; do not use npm or yarn.
 - Run workspace commands from the repository root.
 - Use Oxlint and Oxfmt. Do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete app-specific need.
-- Local development uses the root `docker-compose.yml` PostgreSQL service and the database
-  variables from `.env` / `.env.example`.
+- Local development uses the root `docker-compose.yml` PostgreSQL service, configured from the root
+  `.env` / `.env.example`. Each app has its own `.env` / `.env.example` for its own variables
+  (`apps/api` for `DATABASE_URL`/`PORT`/Firebase Admin, `apps/web` for the Firebase web config) —
+  there is no single shared `.env`. See [README.md](./README.md#environment-variables).
 - Pre-commit automation is managed with Husky and lint-staged at the repository root. Keep hook
   logic lightweight and scoped to staged files.
 

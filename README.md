@@ -20,11 +20,11 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 ```text
 .
 ├── apps/
-│   ├── api/              # NestJS API (default port 3001)
-│   └── web/              # Vite/React app (default port 3000)
+│   ├── api/              # NestJS API (default port 3001, own .env.example)
+│   └── web/              # Vite/React app (default port 3000, own .env.example)
 ├── packages/             # Reserved for shared workspace packages
 ├── docker-compose.yml    # Local PostgreSQL for development
-├── .env.example          # Example environment variables
+├── .env.example          # Example environment variables for docker-compose (PostgreSQL only)
 ├── storage.rules         # Firebase Storage security rules (pasted into the console manually)
 ├── .oxlintrc.json        # Shared Oxlint configuration
 ├── .oxfmtrc.json         # Shared Oxfmt configuration
@@ -44,7 +44,15 @@ Install pnpm by following the [official pnpm installation documentation](https:/
 ## Getting started
 
 1. Clone the repository.
-2. Copy `.env.example` to `.env`.
+2. Copy each environment variable template to its own `.env` (see
+   [Environment variables](#environment-variables) for what goes in each one):
+
+```bash
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
 3. Start PostgreSQL:
 
 ```bash
@@ -91,8 +99,10 @@ docker compose down -v
 
 ## Local database
 
-The local PostgreSQL instance uses the credentials published in `.env.example`. Docker Compose
-uses the same values for `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`:
+The local PostgreSQL instance uses the credentials published in the root `.env.example`
+(`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`), read directly by
+`docker-compose.yml`. `apps/api/.env.example` has a matching `DATABASE_URL` built from those same
+default values:
 
 ```bash
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
@@ -100,8 +110,10 @@ DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 
 You can connect from the host machine with `psql` or any database client using that URL.
 PostgreSQL uses host port `5433` by default to avoid conflicts with an existing local installation;
-set `POSTGRES_PORT` and update `DATABASE_URL` in `.env` if you need another port. Because the
-container uses a named volume, data survives `docker compose restart`.
+if you change `POSTGRES_PORT` (or any other `POSTGRES_*` value) in the root `.env`, update
+`DATABASE_URL` in `apps/api/.env` to match — the two are not read from the same file, so nothing
+keeps them in sync automatically. Because the container uses a named volume, data survives
+`docker compose restart`.
 
 ## Firebase setup
 
@@ -111,11 +123,11 @@ own local credentials:
 1. Ask a teammate for access to the shared Firebase project (it already exists; you don't need to
    create your own).
 2. In the Firebase console, go to Project settings > General > Your apps, find (or add) the Web app,
-   and copy its config values into `.env` as `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
-   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
-   and `VITE_FIREBASE_APP_ID`.
+   and copy its config values into `apps/web/.env` as `VITE_FIREBASE_API_KEY`,
+   `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`,
+   `VITE_FIREBASE_MESSAGING_SENDER_ID`, and `VITE_FIREBASE_APP_ID`.
 3. In the console, go to Project settings > Service accounts > Generate new private key. Open the
-   downloaded JSON, copy `project_id`, `client_email`, and `private_key` into `.env` as
+   downloaded JSON, copy `project_id`, `client_email`, and `private_key` into `apps/api/.env` as
    `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, then delete the
    downloaded JSON file. Never commit it.
 4. Confirm the Email/Password provider is enabled under Authentication > Sign-in method (this is a
@@ -178,25 +190,34 @@ uses `lint-staged` to:
 
 ## Environment variables
 
-The API and Prisma require `DATABASE_URL`. The local default is provided in `.env.example`:
+Each app (and the repository root, for Docker) has its own `.env.example` — there is no single
+shared `.env`. Copy all three as shown in [Getting started](#getting-started).
+
+**Root `.env`** — read only by `docker-compose.yml` to configure the local PostgreSQL container:
+
+```bash
+POSTGRES_USER=pitstop
+POSTGRES_PASSWORD=pitstop
+POSTGRES_DB=pitstop
+POSTGRES_PORT=5433
+```
+
+**`apps/api/.env`** — read by the API and Prisma. `DATABASE_URL` must be built by hand from the same
+values as the root `.env`'s `POSTGRES_*` vars; nothing keeps the two files in sync automatically, so
+if you change one, update the other:
 
 ```bash
 DATABASE_URL=postgresql://pitstop:pitstop@localhost:5433/pitstop
 ```
 
-The API also reads `PORT` and defaults to `3001`:
+`PORT` is optional and defaults to `3001`:
 
 ```bash
 PORT=4000 pnpm dev:api
 ```
 
-The web app reads its Firebase config from `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
-`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and
-`VITE_FIREBASE_APP_ID`. Vite is configured to read the same root `.env` as the API (see
-`envDir` in `apps/web/vite.config.ts`), so there is no separate `apps/web/.env`.
-
-The API reads its Firebase Admin credentials from `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`,
-and `FIREBASE_PRIVATE_KEY`:
+It also holds the Firebase Admin credentials, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+`FIREBASE_PRIVATE_KEY`:
 
 ```bash
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----\n"
@@ -205,6 +226,11 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE K
 Paste the private key exactly as it appears in the downloaded service-account JSON (a single-line,
 quoted string with literal `\n` sequences); the code unescapes them at startup. See
 [Firebase setup](#firebase-setup) for where to get these values.
+
+**`apps/web/.env`** — read by Vite (default `envDir`, so nothing beyond this file needs
+configuring). Holds the web Firebase config: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and
+`VITE_FIREBASE_APP_ID`. See [Firebase setup](#firebase-setup) for where to get these values.
 
 Turborepo treats `.env*` files as build inputs. Keep local secrets in ignored `.env` files; never commit them.
 
@@ -215,5 +241,5 @@ apply the migration with `pnpm db:migrate`, then commit the generated migration 
 schema change. Run `pnpm db:generate` whenever you need to regenerate Prisma Client without creating a
 migration.
 
-Use `pnpm db:studio` to inspect local data in Prisma Studio. The command reads `DATABASE_URL` from the
-root `.env` file and remains running until you stop it.
+Use `pnpm db:studio` to inspect local data in Prisma Studio. The command reads `DATABASE_URL` from
+`apps/api/.env` and remains running until you stop it.
