@@ -114,4 +114,21 @@ describe('FirebaseAuthGuard', () => {
     expect(authService.syncUser).toHaveBeenCalledWith(decodedToken);
     expect(request.user).toBe(user);
   });
+
+  it('propagates a syncUser/DB failure instead of masking it as 401', async () => {
+    firebaseService.verifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'a@b.com' });
+    const dbError = new Error('connection to database failed');
+    authService.syncUser.mockRejectedValue(dbError);
+    const { context } = createContext({ authorization: 'Bearer good-token' });
+
+    let thrown: unknown;
+    try {
+      await guard.canActivate(context);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBe(dbError);
+    expect(thrown).not.toBeInstanceOf(UnauthorizedException);
+  });
 });

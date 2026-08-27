@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { FirebaseAuthError } from 'firebase-admin/auth';
 import { FirebaseService } from '../../firebase/firebase.service';
 import { AuthService } from '../auth.service';
@@ -40,26 +41,39 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or missing token');
     }
 
+    const decodedToken = await this.verifyToken(idToken);
+
+    // Upsert runs on every request, not just first login: the ticket requires that a
+    // name/email change in Firebase is reflected here on the very next request. Do not
+    // gate this behind a "new user" check to save a write.
     try {
-      const decodedToken = await this.firebaseService.verifyIdToken(idToken);
-      // Upsert runs on every request, not just first login: the ticket requires that a
-      // name/email change in Firebase is reflected here on the very next request. Do not
-      // gate this behind a "new user" check to save a write.
       request.user = await this.authService.syncUser(decodedToken);
-      return true;
     } catch (error) {
+      // AuthService itself throws UnauthorizedException for a genuinely bad token (e.g.
+      // missing email) — that's still a 401. Anything else here is a DB/infra failure, not
+      // an invalid credential: log it and let it propagate as a 5xx instead of masking it
+      // as "invalid token", or a real outage would look identical to an expired session.
       if (error instanceof UnauthorizedException) throw error;
-      // Ticket requires every failure to surface as 401, never 500 — but that means an
-      // infra/DB failure looks identical to a bad token from the client's point of view.
-      // Log the real cause here so we're not blind to it.
-      this.logger.error('Firebase auth guard rejected a request', error);
-      throw new UnauthorizedException(this.mapFirebaseError(error));
+      this.logger.error('Failed to sync Firebase user to the database', error);
+      throw error;
     }
+
+    return true;
   }
 
   private extractToken(request: Request): string | undefined {
     const header = request.headers.authorization;
     return header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+  }
+
+  private async verifyToken(idToken: string): Promise<DecodedIdToken> {
+    try {
+      return await this.firebaseService.verifyIdToken(idToken);
+    } catch (error) {
+      // Ticket requires every token-verification failure to surface as 401, never 500.
+      this.logger.error('Firebase ID token verification failed', error);
+      throw new UnauthorizedException(this.mapFirebaseError(error));
+    }
   }
 
   private mapFirebaseError(error: unknown): string {
