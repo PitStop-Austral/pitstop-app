@@ -60,13 +60,11 @@ Only what is installed in the repository today:
 | API            | NestJS 11 on Express                                                                       |
 | Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`                   |
 | API tests      | Jest, Supertest                                                                            |
-| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4                          |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide       |
 | Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK) |
 | Lint / format  | Oxlint, Oxfmt                                                                              |
 | Git hooks      | Husky, lint-staged                                                                         |
 | CI             | GitHub Actions                                                                             |
-
-There is no component library wired up yet.
 
 The web app initializes Firebase once in `apps/web/src/lib/firebase.ts`, configured via
 `VITE_FIREBASE_*` env vars from `apps/web/.env`. The API initializes `firebase-admin` once in the
