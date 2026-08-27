@@ -71,9 +71,12 @@ There is no component library wired up yet.
 The web app initializes Firebase once in `apps/web/src/lib/firebase.ts`, configured via
 `VITE_FIREBASE_*` env vars from `apps/web/.env`. The API initializes `firebase-admin` once in the
 global `FirebaseModule` (`apps/api/src/firebase/`), configured via
-`FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY` from `apps/api/.env`. There is
-no auth guard yet — token verification is only demonstrated via the disposable `GET /firebase/whoami`
-endpoint, removed once the real auth guard ticket lands.
+`FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY` from `apps/api/.env`.
+`FirebaseAuthGuard` (`apps/api/src/auth/guards/firebase-auth.guard.ts`) is registered globally via
+`APP_GUARD`: every request needs a valid Firebase ID token in the `Authorization: Bearer <token>`
+header, and the guard upserts the caller's row in our `User` table on every request. Mark a route
+`@Public()` (`apps/api/src/auth/decorators/public.decorator.ts`) to exempt it from the guard — the
+only way to skip it.
 
 **When you add a new dependency, tool, or external service (ORM, database, auth, UI library, …),
 document it in this file in the same pull request that introduces it.** Update the table above and,

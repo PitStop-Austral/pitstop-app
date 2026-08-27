@@ -22,19 +22,25 @@ jest.mock('firebase-admin/auth', () => ({
 describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
   let queryRaw: jest.Mock;
+  let verifyIdToken: jest.Mock;
+  let upsert: jest.Mock;
 
   beforeEach(async () => {
     queryRaw = jest.fn().mockResolvedValue([{ result: 1 }]);
+    verifyIdToken = jest.fn();
+    upsert = jest.fn();
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
       .useValue({
         $queryRaw: queryRaw,
+        user: { upsert },
       })
       .overrideProvider(FirebaseService)
       .useValue({
-        verifyIdToken: jest.fn(),
+        verifyIdToken,
       })
       .compile();
 
@@ -54,6 +60,42 @@ describe('AppModule (e2e)', () => {
     queryRaw.mockRejectedValue(new Error('connection failed'));
 
     return request(app.getHttpServer()).get('/health/db').expect(503);
+  });
+
+  describe('/me (GET)', () => {
+    it('returns 401 when the Authorization header is missing', () => {
+      return request(app.getHttpServer()).get('/me').expect(401);
+    });
+
+    it('returns 401 when the token is rejected', () => {
+      verifyIdToken.mockRejectedValue(new Error('invalid'));
+
+      return request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', 'Bearer bad-token')
+        .expect(401);
+    });
+
+    it('returns the synced user for a valid token', () => {
+      verifyIdToken.mockResolvedValue({
+        uid: 'firebase-uid-1',
+        email: 'driver@example.com',
+        name: 'Driver One',
+      });
+      const user = {
+        id: 'uuid-1',
+        firebaseUid: 'firebase-uid-1',
+        email: 'driver@example.com',
+        name: 'Driver One',
+      };
+      upsert.mockResolvedValue(user);
+
+      return request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200)
+        .expect(user);
+    });
   });
 
   afterEach(async () => {
