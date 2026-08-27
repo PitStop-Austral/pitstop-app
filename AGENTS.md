@@ -53,19 +53,25 @@ See [README.md](./README.md) for the full command reference.
 
 Only what is installed in the repository today:
 
-| Area           | Technology                                                                           |
-| -------------- | ------------------------------------------------------------------------------------ |
-| Workspace      | pnpm 11, Turborepo 2                                                                 |
-| Language       | TypeScript                                                                           |
-| API            | NestJS 11 on Express                                                                 |
-| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`             |
-| API tests      | Jest, Supertest                                                                      |
-| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide |
-| Lint / format  | Oxlint, Oxfmt                                                                        |
-| Git hooks      | Husky, lint-staged                                                                   |
-| CI             | GitHub Actions                                                                       |
+| Area           | Technology                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| Workspace      | pnpm 11, Turborepo 2                                                                       |
+| Language       | TypeScript                                                                                 |
+| API            | NestJS 11 on Express                                                                       |
+| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`                   |
+| API tests      | Jest, Supertest                                                                            |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide       |
+| Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK) |
+| Lint / format  | Oxlint, Oxfmt                                                                              |
+| Git hooks      | Husky, lint-staged                                                                         |
+| CI             | GitHub Actions                                                                             |
 
-There is no authentication provider or component library wired up yet.
+The web app initializes Firebase once in `apps/web/src/lib/firebase.ts`, configured via
+`VITE_FIREBASE_*` env vars from `apps/web/.env`. The API initializes `firebase-admin` once in the
+global `FirebaseModule` (`apps/api/src/firebase/`), configured via
+`FIREBASE_PROJECT_ID`/`FIREBASE_CLIENT_EMAIL`/`FIREBASE_PRIVATE_KEY` from `apps/api/.env`. There is
+no auth guard yet — token verification is only demonstrated via the disposable `GET /firebase/whoami`
+endpoint, removed once the real auth guard ticket lands.
 
 **When you add a new dependency, tool, or external service (ORM, database, auth, UI library, …),
 document it in this file in the same pull request that introduces it.** Update the table above and,
@@ -127,8 +133,13 @@ under `overrides`. Do not disable the rule elsewhere — if a case seems to need
 - Use pnpm; do not use npm or yarn.
 - Run workspace commands from the repository root.
 - Use Oxlint and Oxfmt. Do not add app-local ESLint, Prettier, Oxlint, or Oxfmt configuration without a concrete app-specific need.
-- Local development uses the root `docker-compose.yml` PostgreSQL service and the database
-  variables from `.env` / `.env.example`.
+- Local development uses the root `docker-compose.yml` PostgreSQL service, started with
+  `pnpm db:up`/`pnpm db:down`. Those scripts pass `--env-file apps/api/.env` to `docker compose`,
+  which resolves the `${POSTGRES_*}` interpolation still used in `docker-compose.yml` — there is no
+  root `.env` anywhere in the repo. Each app has its own `.env` / `.env.example` for its own
+  variables (`apps/api` for `POSTGRES_*`/`DATABASE_URL`/`PORT`/Firebase Admin, `apps/web` for the
+  Firebase web config). See
+  [README.md](./README.md#environment-variables).
 - Pre-commit automation is managed with Husky and lint-staged at the repository root. Keep hook
   logic lightweight and scoped to staged files.
 
