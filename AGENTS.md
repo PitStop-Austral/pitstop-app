@@ -53,17 +53,17 @@ See [README.md](./README.md) for the full command reference.
 
 Only what is installed in the repository today:
 
-| Area           | Technology                                                               |
-| -------------- | ------------------------------------------------------------------------ |
-| Workspace      | pnpm 11, Turborepo 2                                                     |
-| Language       | TypeScript                                                               |
-| API            | NestJS 11 on Express                                                     |
-| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg` |
-| API tests      | Jest, Supertest                                                          |
-| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4        |
-| Lint / format  | Oxlint, Oxfmt                                                            |
-| Git hooks      | Husky, lint-staged                                                       |
-| CI             | GitHub Actions                                                           |
+| Area           | Technology                                                                           |
+| -------------- | ------------------------------------------------------------------------------------ |
+| Workspace      | pnpm 11, Turborepo 2                                                                 |
+| Language       | TypeScript                                                                           |
+| API            | NestJS 11 on Express                                                                 |
+| Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`             |
+| API tests      | Jest, Supertest                                                                      |
+| Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide |
+| Lint / format  | Oxlint, Oxfmt                                                                        |
+| Git hooks      | Husky, lint-staged                                                                   |
+| CI             | GitHub Actions                                                                       |
 
 There is no authentication provider or component library wired up yet.
 
