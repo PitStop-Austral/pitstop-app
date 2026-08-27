@@ -3,7 +3,21 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { FirebaseService } from './../src/firebase/firebase.service';
 import { PrismaService } from './../src/prisma/prisma.service';
+
+// firebase-admin/auth pulls in the ESM-only `jose` package, which the Node runtime loads fine
+// (native require(esm)) but Jest's module loader cannot transform. Mock it so importing
+// AppModule for this e2e test never touches the real firebase-admin/auth module graph.
+jest.mock('firebase-admin/app', () => ({
+  initializeApp: jest.fn(() => ({})),
+  getApps: jest.fn(() => []),
+  cert: jest.fn(),
+}));
+jest.mock('firebase-admin/auth', () => ({
+  getAuth: jest.fn(() => ({ verifyIdToken: jest.fn() })),
+  FirebaseAuthError: class FirebaseAuthError extends Error {},
+}));
 
 describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
@@ -17,6 +31,10 @@ describe('AppModule (e2e)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         $queryRaw: queryRaw,
+      })
+      .overrideProvider(FirebaseService)
+      .useValue({
+        verifyIdToken: jest.fn(),
       })
       .compile();
 
