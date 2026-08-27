@@ -23,12 +23,14 @@ describe('AppModule (e2e)', () => {
   let app: INestApplication<App>;
   let queryRaw: jest.Mock;
   let verifyIdToken: jest.Mock;
-  let upsert: jest.Mock;
+  let findUnique: jest.Mock;
+  let create: jest.Mock;
 
   beforeEach(async () => {
     queryRaw = jest.fn().mockResolvedValue([{ result: 1 }]);
     verifyIdToken = jest.fn();
-    upsert = jest.fn();
+    findUnique = jest.fn();
+    create = jest.fn();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -36,7 +38,7 @@ describe('AppModule (e2e)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         $queryRaw: queryRaw,
-        user: { upsert },
+        user: { findUnique, create },
       })
       .overrideProvider(FirebaseService)
       .useValue({
@@ -88,7 +90,8 @@ describe('AppModule (e2e)', () => {
         email: 'driver@example.com',
         name: 'Driver One',
       };
-      upsert.mockResolvedValue(user);
+      findUnique.mockResolvedValue(null);
+      create.mockResolvedValue(user);
 
       return request(app.getHttpServer())
         .get('/me')

@@ -43,9 +43,10 @@ export class FirebaseAuthGuard implements CanActivate {
 
     const decodedToken = await this.verifyToken(idToken);
 
-    // Upsert runs on every request, not just first login: the ticket requires that a
-    // name/email change in Firebase is reflected here on the very next request. Do not
-    // gate this behind a "new user" check to save a write.
+    // AuthService.syncUser runs on every request, not just first login, so a name/email
+    // change in Firebase is reflected here on the very next request. UsersRepository only
+    // writes to the DB when email/name actually changed, so the common case (nothing
+    // changed) costs a single read, not a write.
     try {
       request.user = await this.authService.syncUser(decodedToken);
     } catch (error) {

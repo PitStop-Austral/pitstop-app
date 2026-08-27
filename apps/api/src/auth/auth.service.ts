@@ -13,6 +13,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or missing token');
     }
     const name = decodedToken.name ?? email.split('@')[0];
-    return this.usersRepository.upsertByFirebaseUid(uid, email, name);
+    return this.usersRepository.syncByFirebaseUid(uid, email, name);
   }
 }
