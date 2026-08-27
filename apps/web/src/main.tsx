@@ -4,7 +4,35 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
 
-const queryClient = new QueryClient();
+const NON_RETRYABLE_STATUSES = new Set([401, 403, 404]);
+
+function hasStatus(error: unknown): error is { status: number } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof error.status === 'number'
+  );
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if (hasStatus(error) && NON_RETRYABLE_STATUSES.has(error.status)) {
+          return false;
+        }
+
+        return failureCount < 2;
+      },
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});
 
 // Set up a Router instance
 const router = createRouter({

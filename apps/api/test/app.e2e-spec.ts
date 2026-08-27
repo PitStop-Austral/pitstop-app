@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { configureCors } from './../src/configure-cors';
 import { FirebaseService } from './../src/firebase/firebase.service';
 import { PrismaService } from './../src/prisma/prisma.service';
 
@@ -39,6 +40,7 @@ describe('AppModule (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    configureCors(app, 'http://localhost:3000');
     await app.init();
   });
 
@@ -54,6 +56,22 @@ describe('AppModule (e2e)', () => {
     queryRaw.mockRejectedValue(new Error('connection failed'));
 
     return request(app.getHttpServer()).get('/health/db').expect(503);
+  });
+
+  it('allows authenticated browser requests from the configured web origin', () => {
+    return request(app.getHttpServer())
+      .options('/firebase/whoami')
+      .set('Origin', 'http://localhost:3000')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization,content-type')
+      .expect(204)
+      .expect('Access-Control-Allow-Origin', 'http://localhost:3000')
+      .expect((response) => {
+        const allowedHeaders = response.headers['access-control-allow-headers']?.toLowerCase();
+
+        expect(allowedHeaders).toContain('authorization');
+        expect(allowedHeaders).toContain('content-type');
+      });
   });
 
   afterEach(async () => {

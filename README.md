@@ -223,6 +223,9 @@ hand if you change one.
 PORT=4000 pnpm dev:api
 ```
 
+`CORS_ORIGIN` identifies the web origin allowed to call the API and defaults to
+`http://localhost:3000` in `.env.example`.
+
 It also holds the Firebase Admin credentials, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
 `FIREBASE_PRIVATE_KEY`:
 
@@ -235,9 +238,11 @@ quoted string with literal `\n` sequences); the code unescapes them at startup. 
 [Firebase setup](#firebase-setup) for where to get these values.
 
 **`apps/web/.env`** — read by Vite (default `envDir`, so nothing beyond this file needs
-configuring). Holds the web Firebase config: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
-`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and
-`VITE_FIREBASE_APP_ID`. See [Firebase setup](#firebase-setup) for where to get these values.
+configuring). `VITE_API_URL` points the shared Axios client to the API and defaults to
+`http://localhost:3001` in `.env.example`. The file also holds the web Firebase config:
+`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
+`VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, and `VITE_FIREBASE_APP_ID`. See
+[Firebase setup](#firebase-setup) for where to get these values.
 
 Turborepo treats `.env*` files as build inputs. Keep local secrets in ignored `.env` files; never commit them.
 
