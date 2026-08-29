@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../../auth/decorators/public.decorator';
 import type { DatabaseHealth } from './health.service';
 import { HealthService } from './health.service';
 
@@ -6,6 +7,7 @@ import { HealthService } from './health.service';
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
+  @Public()
   @Get('db')
   checkDatabase(): Promise<DatabaseHealth> {
     return this.healthService.checkDatabase();
