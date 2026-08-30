@@ -15,6 +15,14 @@ deployment per pull request.
 - **CORS** is configured once in `create-app.ts` (shared by both `main.ts` and the Vercel entry) via
   `WEB_ORIGIN` — a single required origin, never `*`. Missing `WEB_ORIGIN` fails app startup instead
   of falling back to an open CORS policy.
+  - **Known limitation — Preview CORS**: Vercel gives every Preview deployment of `pitstop-web` a
+    unique URL per commit, but the API's Preview `WEB_ORIGIN` can only be set to one fixed value. In
+    practice that value will rarely match a given PR's preview URL, so a front-to-back `fetch` from a
+    web preview will usually get blocked by CORS — this is not solvable by wildcarding `WEB_ORIGIN`
+    (the ticket explicitly forbids `*`). The only reliable fix is pinning `pitstop-web`'s Preview
+    `WEB_ORIGIN` to a stable Vercel domain — e.g. its git-branch alias
+    (`pitstop-web-git-<branch>-<team>.vercel.app`), which stays constant across commits on that
+    branch — rather than expecting every ad-hoc PR preview to work out of the box.
 - **Database**: production uses [Neon](https://neon.tech) Postgres instead of the local Docker
   container. Neon provides two connection strings, both required in `apps/api`'s Vercel env vars:
   - `DATABASE_URL` — the **pooled** (`-pooler`) string. Used by the running app; required for
