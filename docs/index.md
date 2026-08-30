@@ -1,5 +1,7 @@
 # Documentation
 
+- [Deployment](./deployment.md)
+
 ## Setup
 
 - [Install Ponytail](./setup/ponytail.md)

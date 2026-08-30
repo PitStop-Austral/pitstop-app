@@ -62,6 +62,7 @@ Only what is installed in the repository today:
 | API tests      | Jest, Supertest                                                                            |
 | Web            | React 19, Vite 8, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide       |
 | Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK) |
+| Deploy         | Vercel (`apps/web` and `apps/api` as two separate projects), Neon (managed Postgres for the deployed environment only — local dev still uses Docker Compose) |
 | Lint / format  | Oxlint, Oxfmt                                                                              |
 | Git hooks      | Husky, lint-staged                                                                         |
 | CI             | GitHub Actions                                                                             |
