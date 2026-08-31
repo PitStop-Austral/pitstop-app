@@ -58,7 +58,7 @@ async function expectApiError(request: Promise<unknown>, expected: ApiError): Pr
 test('adds the current Firebase token to authenticated requests', async () => {
   const { apiClient } = createTestClient(async () => 'firebase-token');
 
-  const response = await apiClient.get('/firebase/whoami', { adapter: successAdapter });
+  const response = await apiClient.get('/me', { adapter: successAdapter });
 
   assert.strictEqual(response.data.authorization, 'Bearer firebase-token');
 });
