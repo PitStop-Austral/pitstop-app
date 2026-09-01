@@ -153,3 +153,24 @@ test('awaits the unauthorized handler and preserves the API error if it fails', 
   );
   assert.strictEqual(handlerFinished, true);
 });
+
+test('does not invoke the unauthorized handler for skipAuth requests', async () => {
+  let handlerCalls = 0;
+  const { apiClient, setUnauthorizedHandler } = createTestClient();
+
+  setUnauthorizedHandler(() => {
+    handlerCalls += 1;
+  });
+
+  await expectApiError(
+    apiClient.get('/sign-in', {
+      adapter: errorAdapter(401, { message: 'Invalid credentials' }),
+      skipAuth: true,
+    }),
+    {
+      status: 401,
+      message: 'Invalid credentials',
+    },
+  );
+  assert.strictEqual(handlerCalls, 0);
+});

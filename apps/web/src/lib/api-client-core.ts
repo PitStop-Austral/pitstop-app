@@ -92,8 +92,9 @@ export function createApiClient(options: CreateApiClientOptions) {
     (response) => response,
     async (error: unknown) => {
       const apiError = normalizeApiError(error);
+      const isPublicRequest = axios.isAxiosError(error) && error.config?.skipAuth === true;
 
-      if (apiError.status === 401) {
+      if (apiError.status === 401 && !isPublicRequest) {
         try {
           await unauthorizedHandler();
         } catch {

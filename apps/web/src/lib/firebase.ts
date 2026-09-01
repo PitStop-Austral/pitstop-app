@@ -13,4 +13,6 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
 
-await setPersistence(auth, browserLocalPersistence);
+void setPersistence(auth, browserLocalPersistence).catch(() => {
+  // Persistence is optional; storage restrictions must not prevent the app from rendering.
+});

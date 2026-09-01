@@ -223,9 +223,6 @@ hand if you change one.
 PORT=4000 pnpm dev:api
 ```
 
-`CORS_ORIGIN` identifies the web origin allowed to call the API and defaults to
-`http://localhost:3000` in `.env.example`.
-
 It also holds the Firebase Admin credentials, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
 `FIREBASE_PRIVATE_KEY`:
 
