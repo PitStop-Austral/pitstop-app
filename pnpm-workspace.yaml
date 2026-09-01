@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - packages/*
+overrides:
+  jose: ^5.0.0
 allowBuilds:
   '@firebase/util': true
   '@prisma/engines': true
