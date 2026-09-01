@@ -12,6 +12,10 @@ deployment per pull request.
   from `../dist/create-app` (the compiled output of `nest build`), not `../src`, because Vercel's
   function bundler doesn't support `emitDecoratorMetadata`, which Nest's DI needs. Vercel Build
   Command: `pnpm db:generate && pnpm build`.
+  - `apps/api/api/` is excluded from the main `tsconfig.json`/`tsconfig.build.json` because it
+    imports from `dist/`, which doesn't exist yet when those run. It's still type-checked, just
+    separately and after the build: `pnpm --filter api check-types:vercel` (wired into CI right
+    after the `Build` step) uses the dedicated `apps/api/tsconfig.vercel-check.json`.
 - **CORS** is configured once in `create-app.ts` (shared by both `main.ts` and the Vercel entry) via
   `WEB_ORIGIN` — a single required origin, never `*`. Missing `WEB_ORIGIN` fails app startup instead
   of falling back to an open CORS policy.

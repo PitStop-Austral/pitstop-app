@@ -5,6 +5,14 @@ let appPromise: ReturnType<typeof createApp> | undefined;
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   appPromise ??= createApp();
-  const app = await appPromise;
+
+  let app;
+  try {
+    app = await appPromise;
+  } catch (error) {
+    appPromise = undefined;
+    throw error;
+  }
+
   app.getHttpAdapter().getInstance()(req, res);
 }
