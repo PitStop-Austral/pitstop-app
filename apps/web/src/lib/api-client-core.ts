@@ -3,6 +3,7 @@ import axios from 'axios';
 declare module 'axios' {
   export interface AxiosRequestConfig<D = any, P = any> {
     skipAuth?: boolean;
+    skipUnauthorizedHandler?: boolean;
   }
 }
 
@@ -93,8 +94,10 @@ export function createApiClient(options: CreateApiClientOptions) {
     async (error: unknown) => {
       const apiError = normalizeApiError(error);
       const isPublicRequest = axios.isAxiosError(error) && error.config?.skipAuth === true;
+      const handlesUnauthorizedLocally =
+        axios.isAxiosError(error) && error.config?.skipUnauthorizedHandler === true;
 
-      if (apiError.status === 401 && !isPublicRequest) {
+      if (apiError.status === 401 && !isPublicRequest && !handlesUnauthorizedLocally) {
         try {
           await unauthorizedHandler();
         } catch {
