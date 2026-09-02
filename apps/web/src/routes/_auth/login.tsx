@@ -123,7 +123,7 @@ function LoginRoute() {
           </div>
           <a
             className="rounded-sm focus-visible:outline-3 focus-visible:outline-primary/50"
-            href="/recuperar"
+            href="/forgot-password"
           >
             <Text as="span" color="primary" variant="body-strong">
               ¿Olvidaste tu contraseña?
@@ -145,7 +145,7 @@ function LoginRoute() {
           ¿No tenés cuenta?{' '}
           <Link
             className="rounded-sm hover:underline focus-visible:outline-3 focus-visible:outline-primary/50"
-            to="/registro"
+            to="/register"
           >
             <Text as="span" color="primary" variant="body-strong">
               Registrate

@@ -20,7 +20,7 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { auth } from '@/lib/firebase';
 
-export const Route = createFileRoute('/_auth/registro')({
+export const Route = createFileRoute('/_auth/register')({
   component: RegistrationRoute,
 });
 
