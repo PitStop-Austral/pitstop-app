@@ -51,3 +51,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Check types (Vercel serverless entry)
+        # Excluded from the main check-types/build above because it imports from apps/api/dist,
+        # which only exists once the Build step has run.
+        run: pnpm --filter api check-types:vercel

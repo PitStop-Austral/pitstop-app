@@ -7,6 +7,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [
     tailwindcss(),
+    // Browser-history routing (see vercel.json's SPA rewrite for the deployed-build counterpart).
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,

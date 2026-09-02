@@ -8,6 +8,12 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Public()
+  @Get()
+  checkLiveness(): { status: 'ok' } {
+    return { status: 'ok' };
+  }
+
+  @Public()
   @Get('db')
   checkDatabase(): Promise<DatabaseHealth> {
     return this.healthService.checkDatabase();

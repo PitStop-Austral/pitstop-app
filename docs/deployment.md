@@ -1,0 +1,43 @@
+# Deployment
+
+`apps/web` and `apps/api` deploy as two separate Vercel projects pointed at the same repo, each
+with its own Root Directory. Both auto-deploy to Production on merge to `main` and get a Preview
+deployment per pull request.
+
+- **`apps/web`** — standard Vite build (`pnpm build` → `dist`), Vercel's Vite preset.
+- **`apps/api`** — NestJS doesn't run `app.listen()` on Vercel. `apps/api/api/index.ts` is the
+  serverless function entry: it builds the Nest app once via `apps/api/src/create-app.ts` (caching
+  it across warm invocations) and delegates requests to the Express instance Nest already creates
+  internally (`app.getHttpAdapter().getInstance()`) — no extra HTTP-adapter dependency. It imports
+  from `../dist/create-app` (the compiled output of `nest build`), not `../src`, because Vercel's
+  function bundler doesn't support `emitDecoratorMetadata`, which Nest's DI needs. Vercel Build
+  Command: `pnpm db:generate && pnpm build`.
+  - `apps/api/api/` is excluded from the main `tsconfig.json`/`tsconfig.build.json` because it
+    imports from `dist/`, which doesn't exist yet when those run. It's still type-checked, just
+    separately and after the build: `pnpm --filter api check-types:vercel` (wired into CI right
+    after the `Build` step) uses the dedicated `apps/api/tsconfig.vercel-check.json`.
+- **CORS** is configured once in `create-app.ts` (shared by both `main.ts` and the Vercel entry) via
+  `WEB_ORIGIN` — a single required origin, never `*`. Missing `WEB_ORIGIN` fails app startup instead
+  of falling back to an open CORS policy.
+  - **Known limitation — Preview CORS**: Vercel gives every Preview deployment of `pitstop-web` a
+    unique URL per commit, but the API's Preview `WEB_ORIGIN` can only be set to one fixed value. In
+    practice that value will rarely match a given PR's preview URL, so a front-to-back `fetch` from a
+    web preview will usually get blocked by CORS — this is not solvable by wildcarding `WEB_ORIGIN`
+    (the ticket explicitly forbids `*`). The only reliable fix is pinning `pitstop-web`'s Preview
+    `WEB_ORIGIN` to a stable Vercel domain — e.g. its git-branch alias
+    (`pitstop-web-git-<branch>-<team>.vercel.app`), which stays constant across commits on that
+    branch — rather than expecting every ad-hoc PR preview to work out of the box.
+- **Database**: production uses [Neon](https://neon.tech) Postgres instead of the local Docker
+  container. Neon provides two connection strings, both required in `apps/api`'s Vercel env vars:
+  - `DATABASE_URL` — the **pooled** (`-pooler`) string. Used by the running app; required for
+    serverless, where each invocation can open its own connection.
+  - `DIRECT_URL` — the **direct** (non-pooled) string. Used only by `apps/api/prisma.config.ts` for
+    running migrations (`prisma migrate`), which need session-level features PgBouncer doesn't
+    support. Locally there's no pooler, so `DIRECT_URL` is left empty and falls back to
+    `DATABASE_URL`.
+  - Migrations are **not** run automatically on deploy — apply them manually against `DIRECT_URL`
+    after merging schema changes.
+- **Health checks**: `GET /health` (liveness, no DB) and `GET /health/db` (checks the DB
+  connection) are both public routes, unauthenticated.
+- Env vars are declared per app in `apps/api/.env.example` and `apps/web/.env.example`; set them in
+  Vercel for both the Production and Preview environments.
