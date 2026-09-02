@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import pitstopLogo from '@/assets/pitstop-logo.png';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { NAV_ITEMS } from '@/lib/navigation';
@@ -23,10 +24,10 @@ export function DesktopSidebar() {
       </button>
 
       <div className="flex h-24 items-center justify-center">
-        <div
-          aria-label="PitStop"
-          className={`rounded-md bg-neutral-100 transition-[width,height] duration-300 ${collapsed ? 'size-7' : 'h-14 w-40'}`}
-          role="img"
+        <img
+          alt="PitStop"
+          className={`w-auto object-contain transition-[height] duration-300 ${collapsed ? 'h-7' : 'h-14'}`}
+          src={pitstopLogo}
         />
       </div>
 

@@ -8,7 +8,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="safe-bottom pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-3 lg:hidden"
+      className="safe-bottom pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-5 lg:hidden"
     >
       <div className="pointer-events-auto flex w-full max-w-md items-center gap-1 rounded-full border border-border/70 bg-white/80 p-1.5 shadow-lg backdrop-blur-xl">
         {NAV_ITEMS.slice(0, 2).map((item) => (
