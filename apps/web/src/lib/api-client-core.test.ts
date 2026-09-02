@@ -174,3 +174,22 @@ test('does not invoke the unauthorized handler for skipAuth requests', async () 
   );
   assert.strictEqual(handlerCalls, 0);
 });
+
+test('keeps the token and skips the unauthorized handler when a request handles 401 locally', async () => {
+  let handlerCalls = 0;
+  const { apiClient, setUnauthorizedHandler } = createTestClient(async () => 'firebase-token');
+  const adapter: AxiosAdapter = async (config) => {
+    assert.strictEqual(config.headers.get('Authorization'), 'Bearer firebase-token');
+    return errorAdapter(401, { message: 'Unauthorized' })(config);
+  };
+
+  setUnauthorizedHandler(() => {
+    handlerCalls += 1;
+  });
+
+  await expectApiError(apiClient.get('/me', { adapter, skipUnauthorizedHandler: true }), {
+    status: 401,
+    message: 'Unauthorized',
+  });
+  assert.strictEqual(handlerCalls, 0);
+});

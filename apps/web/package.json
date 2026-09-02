@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check-types": "tsc -b",
-    "test": "node --test src/lib/api-client-core.test.ts"
+    "test": "node --test src/lib/*.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
