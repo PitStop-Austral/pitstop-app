@@ -5,6 +5,7 @@ import {
   AUTH_MESSAGES,
   getPasswordStrength,
   mapAuthOperationError,
+  validateEmail,
   validateLogin,
   validateRegistration,
 } from './auth-forms.ts';
@@ -44,6 +45,11 @@ test('login only requires a valid email and a non-empty password', () => {
     password: AUTH_MESSAGES.passwordRequired,
   });
   assert.deepStrictEqual(validateLogin({ email: 'person@example.com', password: 'old' }), {});
+});
+
+test('email validation trims surrounding whitespace', () => {
+  assert.equal(validateEmail(' person@example.com '), undefined);
+  assert.equal(validateEmail('not-an-email'), AUTH_MESSAGES.email);
 });
 
 test('password strength follows the ticket boundaries', () => {
