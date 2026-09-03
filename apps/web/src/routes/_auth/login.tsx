@@ -18,8 +18,14 @@ import {
 } from '@/lib/auth-forms';
 import { apiClient } from '@/lib/api-client';
 import { auth } from '@/lib/firebase';
+import { getSafeRedirect } from '@/lib/redirect';
+
+type LoginSearch = { redirect?: string };
 
 export const Route = createFileRoute('/_auth/login')({
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: getSafeRedirect(search.redirect),
+  }),
   component: LoginRoute,
 });
 
@@ -27,6 +33,7 @@ const initialValues: LoginValues = { email: '', password: '' };
 
 function LoginRoute() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [formError, setFormError] = useState<string>();
@@ -46,7 +53,7 @@ function LoginRoute() {
 
       setFormError(mappedError.message);
     },
-    onSuccess: () => navigate({ replace: true, to: '/' }),
+    onSuccess: () => navigate({ replace: true, to: redirect ?? '/' }),
   });
 
   function updateValue(field: keyof LoginValues, value: string) {

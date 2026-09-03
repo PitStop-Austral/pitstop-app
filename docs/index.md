@@ -1,6 +1,7 @@
 # Documentation
 
 - [Deployment](./deployment.md)
+- [Authentication & session (web)](./auth.md)
 
 ## Setup
 
