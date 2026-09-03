@@ -18,6 +18,17 @@
 
 `signOut(options)` takes an optional `preserveLocation` flag (`lib/sign-out-navigation.ts`): the manual "Cerrar sesión" button omits it (clean `/login`, per product decision), while the 401 handler (`api-client.ts`) passes `preserveLocation: true` so the user returns to where they were after logging back in.
 
+## Login / register bootstrap (`isAuthenticating`)
+
+Firebase auth success (`signInWithEmailAndPassword`, `createUserWithEmailAndPassword`) is not the same as "fully logged in" here: both `login.tsx` and `register.tsx` also require a backend `/me` bootstrap (register additionally needs `updateProfile` + `getIdToken(true)` first) to succeed. Firebase sets `user` truthy _before_ that bootstrap even starts — `onAuthStateChanged` fires before the triggering SDK call's own promise resolves — so without `isAuthenticating`, `_auth.tsx`'s guard would redirect away mid-bootstrap, unmounting the route (and its mutation's error state) before a failing `/me` could ever render an error.
+
+`isAuthenticating` (`auth-context.tsx`) suppresses only the guard's redirect branch — it must never swap `_auth.tsx`'s render to `<FullScreenLoader/>` instead, since that would unmount `<Outlet/>` and, with it, `login.tsx`/`register.tsx`'s own `useMutation` state (this was tried and reverted during development).
+
+Login and register reset the flag differently, because their retry semantics differ:
+
+- **Login** has no partial state worth preserving — every submit re-attempts `signInWithEmailAndPassword` from scratch. On any failure it also rolls back via `firebaseSignOut(auth)`, so `user` genuinely returns to `null` and the flag can simply reset in a `finally`.
+- **Register** deliberately keeps the Firebase account alive across the "Reintentar" retry (`accountCreated` avoids re-calling `createUserWithEmailAndPassword`, which would otherwise fail with "email already in use"). Rolling back would break that retry design, so the flag instead stays `true` across failed attempts, resetting only in `onSuccess` — plus an unmount cleanup effect, in case the user abandons the retry loop by navigating away instead of retrying.
+
 ## Redirect sanitization
 
 `getSafeRedirect()` (`lib/redirect.ts`) only accepts values starting with a single `/` — it rejects `//host` and `/\host` alike, since both are browser-equivalent to a protocol-relative URL (the WHATWG URL spec treats a leading backslash like a slash for special schemes).

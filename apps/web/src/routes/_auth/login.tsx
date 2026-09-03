@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -17,6 +17,7 @@ import {
   type LoginValues,
 } from '@/lib/auth-forms';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth-context';
 import { auth } from '@/lib/firebase';
 import { getSafeRedirect } from '@/lib/redirect';
 
@@ -33,6 +34,7 @@ const initialValues: LoginValues = { email: '', password: '' };
 
 function LoginRoute() {
   const navigate = useNavigate();
+  const { setIsAuthenticating } = useAuth();
   const { redirect } = Route.useSearch();
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState<LoginErrors>({});
@@ -41,8 +43,23 @@ function LoginRoute() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginValues) => {
-      await signInWithEmailAndPassword(auth, credentials.email.trim(), credentials.password);
-      await apiClient.get('/me', { skipUnauthorizedHandler: true });
+      // isAuthenticating suppresses _auth.tsx's guard: signIn sets the
+      // Firebase user (and would make the guard redirect away) before /me
+      // below has a chance to run, let alone fail — see docs/auth.md.
+      setIsAuthenticating(true);
+      try {
+        await signInWithEmailAndPassword(auth, credentials.email.trim(), credentials.password);
+        await apiClient.get('/me', { skipUnauthorizedHandler: true });
+      } catch (error) {
+        // Login has no partial state worth preserving: roll the Firebase
+        // sign-in back so `user` matches "not fully logged in" again,
+        // instead of leaving a signed-in-but-unbootstrapped session that
+        // would let a later reload past the guards with a broken /me.
+        await firebaseSignOut(auth).catch(() => {});
+        throw error;
+      } finally {
+        setIsAuthenticating(false);
+      }
     },
     onError: (error) => {
       const mappedError = mapAuthOperationError(error);

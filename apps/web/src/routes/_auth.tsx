@@ -10,14 +10,18 @@ export const Route = createFileRoute('/_auth')({
 });
 
 function AuthRoute() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAuthenticating } = useAuth();
   const search = useSearch({ strict: false }) as { redirect?: string };
 
   if (isLoading) {
     return <FullScreenLoader />;
   }
 
-  if (user) {
+  // isAuthenticating: login/register have a Firebase user but their own
+  // bootstrap (see docs/auth.md) hasn't resolved yet. Only suppress the
+  // redirect here — swapping to <FullScreenLoader/> would unmount <Outlet/>
+  // and, with it, the mutation whose error this guard must let render.
+  if (user && !isAuthenticating) {
     return <Navigate replace to={getSafeRedirect(search.redirect) ?? '/'} />;
   }
 

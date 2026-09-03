@@ -14,6 +14,8 @@ type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   isSigningOut: boolean;
+  isAuthenticating: boolean;
+  setIsAuthenticating: (value: boolean) => void;
   signOut: (options?: SignOutOptions) => Promise<void>;
 };
 
@@ -40,6 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  // Set by login/register while Firebase auth has succeeded but their own
+  // required bootstrap (/me, updateProfile, ...) hasn't resolved yet — see
+  // docs/auth.md. Without this, _auth.tsx's guard treats `user` alone as
+  // "fully logged in" and redirects away before bootstrap can fail visibly.
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // useRouter (not useLocation) so reading the current location doesn't make
@@ -83,7 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(() => signOut({ preserveLocation: true }));
   }, [signOut]);
 
-  const value: AuthContextValue = { user, isLoading, isSigningOut, signOut };
+  const value: AuthContextValue = {
+    user,
+    isLoading,
+    isSigningOut,
+    isAuthenticating,
+    setIsAuthenticating,
+    signOut,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

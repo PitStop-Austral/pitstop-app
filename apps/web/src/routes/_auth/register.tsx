@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { AuthFormError, PasswordStrength } from '@/components/auth/auth-feedback';
@@ -18,6 +18,7 @@ import {
   type RegistrationValues,
 } from '@/lib/auth-forms';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth-context';
 import { auth } from '@/lib/firebase';
 
 export const Route = createFileRoute('/_auth/register')({
@@ -35,6 +36,7 @@ const allFields: RegistrationField[] = ['name', 'email', 'password', 'passwordCo
 
 function RegistrationRoute() {
   const navigate = useNavigate();
+  const { setIsAuthenticating } = useAuth();
   const [values, setValues] = useState(initialValues);
   const [touched, setTouched] = useState<Partial<Record<RegistrationField, boolean>>>({});
   const [serverErrors, setServerErrors] = useState<RegistrationErrors>({});
@@ -42,8 +44,20 @@ function RegistrationRoute() {
   const [accountCreated, setAccountCreated] = useState(false);
   const validationErrors = validateRegistration(values);
 
+  // Reset on unmount in case the user abandons a failed/retrying bootstrap
+  // (e.g. clicks away to /login) instead of retrying — see docs/auth.md.
+  useEffect(() => {
+    return () => setIsAuthenticating(false);
+  }, [setIsAuthenticating]);
+
   const registrationMutation = useMutation({
     mutationFn: async () => {
+      // Stays true across failed retries (reset only in onSuccess below),
+      // unlike login: createUserWithEmailAndPassword already makes `user`
+      // truthy, and accountCreated deliberately keeps that Firebase session
+      // alive across "Reintentar" so it doesn't recreate the account — the
+      // guard must stay suppressed for that whole window, not just one call.
+      setIsAuthenticating(true);
       let user = auth.currentUser;
 
       if (!accountCreated) {
@@ -77,7 +91,10 @@ function RegistrationRoute() {
 
       setFormError(mappedError.message);
     },
-    onSuccess: () => navigate({ replace: true, to: '/' }),
+    onSuccess: () => {
+      setIsAuthenticating(false);
+      navigate({ replace: true, to: '/' });
+    },
   });
 
   function fieldError(field: RegistrationField): string | undefined {
