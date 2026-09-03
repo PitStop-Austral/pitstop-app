@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppCalendarioRouteImport } from './routes/_app/calendario'
 import { Route as AppGarageRouteImport } from './routes/_app/garage'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
+import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 
@@ -52,6 +53,11 @@ const AppPerfilRoute = AppPerfilRouteImport.update({
   path: '/perfil',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/calendario': typeof AppCalendarioRoute
   '/garage': typeof AppGarageRoute
   '/perfil': typeof AppPerfilRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
 }
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/calendario': typeof AppCalendarioRoute
   '/garage': typeof AppGarageRoute
   '/perfil': typeof AppPerfilRoute
+  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
 }
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/_app/calendario': typeof AppCalendarioRoute
   '/_app/garage': typeof AppGarageRoute
   '/_app/perfil': typeof AppPerfilRoute
+  '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_app/': typeof AppIndexRoute
@@ -96,10 +105,24 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/ui' | '/calendario' | '/garage' | '/perfil' | '/login' | '/register'
+    | '/'
+    | '/ui'
+    | '/calendario'
+    | '/garage'
+    | '/perfil'
+    | '/forgot-password'
+    | '/login'
+    | '/register'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/ui' | '/calendario' | '/garage' | '/perfil' | '/login' | '/register'
+    | '/'
+    | '/ui'
+    | '/calendario'
+    | '/garage'
+    | '/perfil'
+    | '/forgot-password'
+    | '/login'
+    | '/register'
   id:
     | '__root__'
     | '/_app'
@@ -108,6 +131,7 @@ export interface FileRouteTypes {
     | '/_app/calendario'
     | '/_app/garage'
     | '/_app/perfil'
+    | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
     | '/_app/'
@@ -170,6 +194,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPerfilRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_auth/forgot-password': {
+      id: '/_auth/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/login': {
       id: '/_auth/login'
       path: '/login'
@@ -204,11 +235,13 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
 }
