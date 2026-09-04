@@ -11,12 +11,11 @@
 
 ## Logout
 
-`signOut()` always runs, in this exact order: `firebaseSignOut(auth) → queryClient.clear() → navigate('/login', ...)`. Two non-obvious mechanisms live here — do not remove them as dead code or "simplify" them, both fix real, previously-shipped bugs:
+`signOut()` (`lib/sign-out.ts`, wired up in `auth-context.tsx`) always runs, in this exact order: `firebaseSignOut(auth) → queryClient.clear() → navigate('/login', replace: true, search: {})` — identical for the manual "Cerrar sesión" button and the 401 handler, per the ticket. Non-obvious mechanisms live here — do not remove them as dead code or "simplify" them, they fix real, previously-shipped bugs:
 
 - **`isSigningOut` flag** (`auth-context.tsx`): Firebase's `onAuthStateChanged(null)` fires _before_ `firebaseSignOut()`'s own promise resolves, so `_app.tsx`'s guard becomes eligible to fire its own competing redirect while `signOut()` is still mid-flight. `isSigningOut` suppresses the guard's redirect for the duration of any `signOut()` call, so only `signOut()`'s own `navigate()` ever writes the final URL.
 - **`lastAuthedHrefRef`** (`_app.tsx`): tracks the last location seen _while authenticated_, updating on every render where `user` is truthy and freezing the instant it goes null. A plain `useRef(location.href)` captured once at mount goes stale once the user moves to a sibling page under the same layout; reading `location.href` live on every render instead re-nests the `redirect` search param during the transition itself, since each subsequent render sees the previous render's own in-flight redirect target. This pattern gets both properties at once.
-
-`signOut(options)` takes an optional `preserveLocation` flag (`lib/sign-out-navigation.ts`): the manual "Cerrar sesión" button omits it (clean `/login`, per product decision), while the 401 handler (`api-client.ts`) passes `preserveLocation: true` so the user returns to where they were after logging back in.
+- **In-flight dedup** (`lib/sign-out.ts`): the logout button and the 401 handler can both call `signOut()` around the same time (double-click, or a 401 landing mid-manual-logout). Without dedup, the first call's `finally` could flip `isSigningOut` back to `false` while the second is still awaiting `firebaseSignOut`/`navigate`, reopening the exact guard race above. `createSignOut` closes over an in-flight promise and returns it to any caller while a run is already active, instead of starting a second one. Covered by `lib/sign-out.test.ts`.
 
 ## Login / register bootstrap (`isAuthenticating`)
 
@@ -32,7 +31,3 @@ Login and register reset the flag differently, because their retry semantics dif
 ## Redirect sanitization
 
 `getSafeRedirect()` (`lib/redirect.ts`) only accepts values starting with a single `/` — it rejects `//host` and `/\host` alike, since both are browser-equivalent to a protocol-relative URL (the WHATWG URL spec treats a leading backslash like a slash for special schemes).
-
-## Debug helpers (dev only)
-
-`window.__pitstopDebug` exposes `triggerUnauthorized()` (`api-client.ts`) and `forceSignOutFailure()` (`auth-context.tsx`) for exercising the 401 and sign-out-failure paths from the browser console without touching Firebase or the backend. Both are gated behind `import.meta.env.DEV` and confirmed removed from production builds by grepping `dist/` after `pnpm build`.
