@@ -25,10 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  // Set by login/register while Firebase auth has succeeded but their own
-  // required bootstrap (/me, updateProfile, ...) hasn't resolved yet — see
-  // docs/auth.md. Without this, _auth.tsx's guard treats `user` alone as
-  // "fully logged in" and redirects away before bootstrap can fail visibly.
+  // Suppresses _auth.tsx's guard while login/register bootstrap is
+  // pending — see docs/auth.md before touching this.
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();

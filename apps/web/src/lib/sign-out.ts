@@ -10,11 +10,8 @@ export function createSignOut(deps: SignOutDeps): () => Promise<void> {
   let inFlight: Promise<void> | null = null;
 
   return function signOut(): Promise<void> {
-    // Callers (the logout button, the 401 handler) may invoke this
-    // concurrently; returning the same in-flight promise instead of
-    // starting a new run avoids a second execution finishing (and
-    // clearing isSigningOut) while the first is still mid-flight, which
-    // would reopen the guard redirect race this module exists to prevent.
+    // Concurrent calls share this run instead of starting a new one —
+    // see docs/auth.md for the race this avoids.
     if (inFlight) {
       return inFlight;
     }

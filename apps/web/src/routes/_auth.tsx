@@ -17,10 +17,7 @@ function AuthRoute() {
     return <FullScreenLoader />;
   }
 
-  // isAuthenticating: login/register have a Firebase user but their own
-  // bootstrap (see docs/auth.md) hasn't resolved yet. Only suppress the
-  // redirect here — swapping to <FullScreenLoader/> would unmount <Outlet/>
-  // and, with it, the mutation whose error this guard must let render.
+  // Don't swap this branch to <FullScreenLoader/> — see docs/auth.md.
   if (user && !isAuthenticating) {
     return <Navigate replace to={getSafeRedirect(search.redirect) ?? '/'} />;
   }

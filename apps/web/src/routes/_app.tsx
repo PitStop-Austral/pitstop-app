@@ -14,11 +14,8 @@ export const Route = createFileRoute('/_app')({
 function AppLayout() {
   const { user, isLoading, isSigningOut } = useAuth();
   const location = useLocation();
-  // Tracks the last location seen while authenticated. Updates on every
-  // navigation within this layout (so it never goes stale across sibling
-  // pages), but freezes the instant `user` goes null — renders during the
-  // ensuing redirect transition already reflect the in-flight target and
-  // would otherwise nest the search param.
+  // Freezes once `user` goes null to avoid re-nesting the redirect param
+  // mid-transition — see docs/auth.md before simplifying this.
   const lastAuthedHrefRef = useRef(location.href);
   if (user) {
     lastAuthedHrefRef.current = location.href;
