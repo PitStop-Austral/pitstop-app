@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 import { Toaster } from '@/components/ui/sonner';
+import { AuthProvider } from '@/lib/auth-context';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -10,11 +11,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <>
+    <AuthProvider>
       <Outlet />
       <Toaster />
       <ReactQueryDevtools buttonPosition="bottom-left" />
       <TanStackRouterDevtools position="bottom-right" />
-    </>
+    </AuthProvider>
   );
 }
