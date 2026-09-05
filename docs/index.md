@@ -2,6 +2,7 @@
 
 - [Deployment](./deployment.md)
 - [Authentication & session (web)](./auth.md)
+- [Vehicle management](./vehicles.md)
 
 ## Setup
 

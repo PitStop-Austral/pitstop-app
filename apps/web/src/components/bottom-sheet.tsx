@@ -12,6 +12,7 @@ type BottomSheetProps = {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  dismissible?: boolean;
 };
 
 export function BottomSheet({
@@ -21,6 +22,7 @@ export function BottomSheet({
   description,
   children,
   footer,
+  dismissible = true,
 }: BottomSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -34,10 +36,16 @@ export function BottomSheet({
   return (
     <dialog
       aria-labelledby="bottom-sheet-title"
-      className="m-auto max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
-      onCancel={() => onOpenChange(false)}
+      className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
+      onCancel={(event) => {
+        if (!dismissible) {
+          event.preventDefault();
+          return;
+        }
+        onOpenChange(false);
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onOpenChange(false);
+        if (dismissible && event.target === event.currentTarget) onOpenChange(false);
       }}
       onClose={() => onOpenChange(false)}
       ref={dialogRef}
@@ -57,6 +65,7 @@ export function BottomSheet({
           </div>
           <Button
             aria-label="Cerrar"
+            disabled={!dismissible}
             size="icon"
             variant="icon"
             onClick={() => onOpenChange(false)}

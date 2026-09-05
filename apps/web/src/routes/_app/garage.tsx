@@ -1,11 +1,147 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 
+import { EmptyState } from '@/components/empty-state';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useCurrentUser } from '@/features/users/queries';
+import { useVehicles } from '@/features/vehicles/queries';
+import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
 export const Route = createFileRoute('/_app/garage')({
   component: GaragePage,
 });
 
 function GaragePage() {
-  return <Text variant="title">Garage</Text>;
+  const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
+  const vehiclesQuery = useVehicles();
+  const currentUserQuery = useCurrentUser();
+
+  if (vehiclesQuery.isPending || currentUserQuery.isPending) {
+    return (
+      <PageContainer>
+        <Text variant="title">Garage</Text>
+        <div className="grid min-h-72 place-items-center">
+          <div className="flex flex-col items-center gap-3">
+            <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
+            <Text color="muted" variant="body">
+              Cargando tu garage...
+            </Text>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (vehiclesQuery.isError || currentUserQuery.isError) {
+    return (
+      <PageContainer>
+        <Text variant="title">Garage</Text>
+        <div className="mt-8">
+          <EmptyState
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void Promise.all([vehiclesQuery.refetch(), currentUserQuery.refetch()]);
+                }}
+              >
+                <Text variant="label">Volver a intentar</Text>
+              </Button>
+            }
+            description="Revisá tu conexión y volvé a intentarlo."
+            icon="TriangleAlert"
+            title="No pudimos cargar tu garage"
+          />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const vehicles = vehiclesQuery.data;
+  const activeVehicle =
+    vehicles.find((vehicle) => vehicle.id === currentUserQuery.data.activeVehicleId) ?? vehicles[0];
+
+  if (!activeVehicle) {
+    return (
+      <PageContainer>
+        <Text variant="title">Garage</Text>
+        <div className="mt-8">
+          <EmptyState
+            action={
+              <Button className="gap-2" onClick={() => setFormMode('add')}>
+                <Icon color="on-primary" name="Plus" size="sm" />
+                <Text color="on-primary" variant="label">
+                  Crear vehículo
+                </Text>
+              </Button>
+            }
+            description="Creá tu primer vehículo para empezar a registrar sus mantenimientos."
+            icon="Car"
+            title="Tu garage está vacío"
+          />
+        </div>
+        {formMode === 'add' ? (
+          <VehicleFormSheet mode="add" open onOpenChange={() => setFormMode(null)} />
+        ) : null}
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Text variant="title">Garage</Text>
+          <Text className="mt-1 truncate" color="muted" variant="body">
+            {activeVehicle.brand} {activeVehicle.model} · {activeVehicle.plate}
+          </Text>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Abrir acciones del vehículo"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-card shadow-sm outline-none transition hover:border-neutral-400 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <Icon name="EllipsisVertical" size="md" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setFormMode('add')}>
+              <Icon name="Plus" size="sm" />
+              <Text variant="label">Agregar vehículo</Text>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFormMode('edit')}>
+              <Icon name="Pencil" size="sm" />
+              <Text variant="label">Editar</Text>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {formMode === 'add' ? (
+        <VehicleFormSheet mode="add" open onOpenChange={() => setFormMode(null)} />
+      ) : formMode === 'edit' ? (
+        <VehicleFormSheet
+          mode="edit"
+          open
+          vehicle={activeVehicle}
+          onOpenChange={() => setFormMode(null)}
+        />
+      ) : null}
+    </PageContainer>
+  );
+}
+
+function PageContainer({ children }: { children: ReactNode }) {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-10">{children}</section>
+  );
 }
