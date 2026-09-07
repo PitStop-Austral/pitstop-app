@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { Vehicle, VehicleInput } from './types';
+import type { Vehicle, VehicleInput, VehicleUpdateInput } from './types';
 
 export async function getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
   const response = await apiClient.get<Vehicle[]>('/vehicles', { signal });
@@ -11,7 +11,7 @@ export async function createVehicle(input: VehicleInput): Promise<Vehicle> {
   return response.data;
 }
 
-export async function updateVehicle(id: string, input: VehicleInput): Promise<Vehicle> {
+export async function updateVehicle(id: string, input: VehicleUpdateInput): Promise<Vehicle> {
   const response = await apiClient.patch<Vehicle>(`/vehicles/${id}`, input);
   return response.data;
 }

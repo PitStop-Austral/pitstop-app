@@ -75,7 +75,9 @@ export function BottomSheet({
         </div>
         <div className="no-scrollbar overflow-y-auto px-6 pb-6">{children}</div>
         {footer ? (
-          <div className="safe-bottom border-t border-border px-6 py-4">{footer}</div>
+          <div className="border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            {footer}
+          </div>
         ) : null}
       </div>
     </dialog>

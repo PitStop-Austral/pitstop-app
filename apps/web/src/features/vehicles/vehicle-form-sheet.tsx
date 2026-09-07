@@ -12,7 +12,12 @@ import { useState } from 'react';
 import { useCreateVehicle, useUpdateVehicle } from './queries';
 import { FUEL_LABELS, FUEL_TYPES } from './types';
 import type { FuelType, Vehicle } from './types';
-import { getVehicleFormErrors, vehicleFormSchema } from './vehicle-form-schema';
+import {
+  getVehicleEditFormSchema,
+  getVehicleFormErrors,
+  getVehicleUpdateInput,
+  vehicleFormSchema,
+} from './vehicle-form-schema';
 import type { VehicleFormErrors, VehicleFormValues } from './vehicle-form-schema';
 
 type CommonProps = {
@@ -71,7 +76,9 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = vehicleFormSchema.safeParse(values);
+    const schema =
+      props.mode === 'edit' ? getVehicleEditFormSchema(props.vehicle.plate) : vehicleFormSchema;
+    const result = schema.safeParse(values);
 
     if (!result.success) {
       setErrors(getVehicleFormErrors(result.error));
@@ -84,7 +91,10 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
       if (props.mode === 'add') {
         await createVehicle.mutateAsync(result.data);
       } else {
-        await updateVehicle.mutateAsync({ id: props.vehicle.id, input: result.data });
+        await updateVehicle.mutateAsync({
+          id: props.vehicle.id,
+          input: getVehicleUpdateInput(result.data, props.vehicle.plate),
+        });
       }
 
       props.onOpenChange(false);

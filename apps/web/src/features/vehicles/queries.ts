@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { currentUserQueryKey } from '@/features/users/queries';
 import { createVehicle, getVehicles, updateVehicle } from './api';
-import type { VehicleInput } from './types';
+import type { VehicleUpdateInput } from './types';
 
 export const vehiclesQueryKey = ['vehicles'] as const;
 
@@ -33,7 +33,8 @@ export function useUpdateVehicle() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: VehicleInput }) => updateVehicle(id, input),
+    mutationFn: ({ id, input }: { id: string; input: VehicleUpdateInput }) =>
+      updateVehicle(id, input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
     },

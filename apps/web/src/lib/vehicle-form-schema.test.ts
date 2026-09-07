@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getVehicleEditFormSchema,
   getVehicleFormErrors,
+  getVehicleUpdateInput,
   vehicleFormSchema,
 } from '../features/vehicles/vehicle-form-schema.ts';
 
@@ -61,6 +63,61 @@ test('vehicle form rejects impossible identification values per field', () => {
 test('vehicle form accepts both Argentine plate formats', () => {
   assert.equal(vehicleFormSchema.safeParse({ ...validVehicle, plate: 'ABC123' }).success, true);
   assert.equal(vehicleFormSchema.safeParse({ ...validVehicle, plate: 'AB123CD' }).success, true);
+});
+
+test('vehicle create form rejects migration-only legacy plates', () => {
+  assert.equal(
+    vehicleFormSchema.safeParse({
+      ...validVehicle,
+      plate: 'LEGACY-123e4567-e89b-12d3-a456-426614174000',
+    }).success,
+    false,
+  );
+});
+
+test('vehicle edit form accepts an unchanged legacy plate and omits it from the update', () => {
+  const legacyPlate = 'LEGACY-123e4567-e89b-12d3-a456-426614174000';
+  const result = getVehicleEditFormSchema(legacyPlate).safeParse({
+    ...validVehicle,
+    plate: legacyPlate,
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+
+  assert.deepStrictEqual(getVehicleUpdateInput(result.data, legacyPlate), {
+    brand: 'Honda',
+    model: 'Civic',
+    year: 2021,
+    fuel: 'NAFTA',
+    mileage: 48000,
+    nickname: null,
+  });
+});
+
+test('vehicle edit form rejects a modified legacy plate', () => {
+  const legacyPlate = 'LEGACY-123e4567-e89b-12d3-a456-426614174000';
+
+  assert.equal(
+    getVehicleEditFormSchema(legacyPlate).safeParse({
+      ...validVehicle,
+      plate: 'LEGACY-123e4567-e89b-12d3-a456-426614174001',
+    }).success,
+    false,
+  );
+});
+
+test('vehicle edit form accepts a valid replacement for a legacy plate', () => {
+  const legacyPlate = 'LEGACY-123e4567-e89b-12d3-a456-426614174000';
+  const result = getVehicleEditFormSchema(legacyPlate).safeParse({
+    ...validVehicle,
+    plate: 'ab 123 cd',
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+
+  assert.equal(getVehicleUpdateInput(result.data, legacyPlate).plate, 'AB123CD');
 });
 
 test('vehicle form rejects mileage above the database range', () => {

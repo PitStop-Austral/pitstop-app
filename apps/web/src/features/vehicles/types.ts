@@ -24,3 +24,4 @@ export type Vehicle = {
 };
 
 export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
+export type VehicleUpdateInput = Partial<VehicleInput>;
