@@ -57,10 +57,10 @@ Only what is installed in the repository today:
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Workspace      | pnpm 11, Turborepo 2                                                                                                                                         |
 | Language       | TypeScript                                                                                                                                                   |
-| API            | NestJS 11 on Express                                                                                                                                         |
+| API            | NestJS 11 on Express, class-validator, class-transformer                                                                                                     |
 | Database / ORM | PostgreSQL 16 via Docker Compose, Prisma ORM 7 with `@prisma/adapter-pg`                                                                                     |
 | API tests      | Jest, Supertest                                                                                                                                              |
-| Web            | React 19, Vite 8, Axios, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Lucide                                                                  |
+| Web            | React 19, Vite 8, Axios, TanStack Router, TanStack Query, Tailwind CSS 4, shadcn/ui, Base UI, Lucide, Zod                                                    |
 | Auth / Storage | Firebase Authentication (Email/Password), `firebase` (web SDK), `firebase-admin` (API SDK)                                                                   |
 | Deploy         | Vercel (`apps/web` and `apps/api` as two separate projects), Neon (managed Postgres for the deployed environment only — local dev still uses Docker Compose) |
 | Lint / format  | Oxlint, Oxfmt                                                                                                                                                |

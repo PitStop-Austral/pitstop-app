@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -25,12 +25,53 @@ describe('AppModule (e2e)', () => {
   let verifyIdToken: jest.Mock;
   let findUnique: jest.Mock;
   let create: jest.Mock;
+  let findManyVehicles: jest.Mock;
+  let findOwnedVehicle: jest.Mock;
+  let createVehicle: jest.Mock;
+  let updateVehicle: jest.Mock;
+  let updateActiveUser: jest.Mock;
+  let transaction: jest.Mock;
+
+  const authenticatedUser = {
+    id: '11111111-1111-4111-8111-111111111111',
+    firebaseUid: 'firebase-uid-1',
+    email: 'driver@example.com',
+    name: 'Driver One',
+    activeVehicleId: null,
+  };
+
+  const vehicle = {
+    id: '22222222-2222-4222-8222-222222222222',
+    brand: 'Honda',
+    model: 'Civic',
+    year: 2021,
+    fuel: 'NAFTA',
+    plate: 'AF812KM',
+    mileage: 48000,
+    nickname: null,
+    createdAt: new Date('2026-09-03T00:00:00.000Z'),
+    updatedAt: new Date('2026-09-03T00:00:00.000Z'),
+  };
+
+  const serializedVehicle = {
+    ...vehicle,
+    createdAt: vehicle.createdAt.toISOString(),
+    updatedAt: vehicle.updatedAt.toISOString(),
+  };
 
   beforeEach(async () => {
     queryRaw = jest.fn().mockResolvedValue([{ result: 1 }]);
     verifyIdToken = jest.fn();
     findUnique = jest.fn();
     create = jest.fn();
+    findManyVehicles = jest.fn();
+    findOwnedVehicle = jest.fn();
+    createVehicle = jest.fn();
+    updateVehicle = jest.fn();
+    updateActiveUser = jest.fn();
+    transaction = jest.fn(async (callback) =>
+      callback({ vehicle: { create: createVehicle }, user: { update: updateActiveUser } }),
+    );
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -38,7 +79,13 @@ describe('AppModule (e2e)', () => {
       .overrideProvider(PrismaService)
       .useValue({
         $queryRaw: queryRaw,
+        $transaction: transaction,
         user: { findUnique, create },
+        vehicle: {
+          findMany: findManyVehicles,
+          findFirst: findOwnedVehicle,
+          update: updateVehicle,
+        },
       })
       .overrideProvider(FirebaseService)
       .useValue({
@@ -47,8 +94,24 @@ describe('AppModule (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
   });
+
+  function authenticate() {
+    verifyIdToken.mockResolvedValue({
+      uid: authenticatedUser.firebaseUid,
+      email: authenticatedUser.email,
+      name: authenticatedUser.name,
+    });
+    findUnique.mockResolvedValue(authenticatedUser);
+  }
 
   it('/ (GET)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
@@ -98,6 +161,127 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .expect(200)
         .expect(user);
+    });
+  });
+
+  describe('/vehicles', () => {
+    it('requires authentication', () => {
+      return request(app.getHttpServer()).get('/vehicles').expect(401);
+    });
+
+    it('lists only the authenticated user vehicles', async () => {
+      authenticate();
+      findManyVehicles.mockResolvedValue([vehicle]);
+
+      await request(app.getHttpServer())
+        .get('/vehicles')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200)
+        .expect([serializedVehicle]);
+
+      expect(findManyVehicles).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { ownerId: authenticatedUser.id } }),
+      );
+    });
+
+    it('creates a vehicle and canonicalizes a formatted plate', async () => {
+      authenticate();
+      createVehicle.mockResolvedValue(vehicle);
+      updateActiveUser.mockResolvedValue({ ...authenticatedUser, activeVehicleId: vehicle.id });
+
+      await request(app.getHttpServer())
+        .post('/vehicles')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          brand: ' Honda ',
+          model: 'Civic',
+          year: 2021,
+          fuel: 'NAFTA',
+          plate: 'af 812 km',
+          mileage: 48000,
+        })
+        .expect(201)
+        .expect(serializedVehicle);
+
+      expect(createVehicle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            brand: 'Honda',
+            ownerId: authenticatedUser.id,
+            plate: 'AF812KM',
+          }),
+        }),
+      );
+      expect(updateActiveUser).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id },
+        data: { activeVehicleId: vehicle.id },
+      });
+    });
+
+    it('rejects an invalid vehicle payload', () => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .post('/vehicles')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          brand: '',
+          model: 'Civic',
+          year: 1899,
+          fuel: 'NAFTA',
+          plate: 'invalid',
+          mileage: -1,
+        })
+        .expect(400);
+    });
+
+    it('returns conflict for a duplicate owner plate', () => {
+      authenticate();
+      transaction.mockRejectedValue({ code: 'P2002' });
+
+      return request(app.getHttpServer())
+        .post('/vehicles')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          brand: 'Honda',
+          model: 'Civic',
+          year: 2021,
+          fuel: 'NAFTA',
+          plate: 'AF812KM',
+          mileage: 48000,
+        })
+        .expect(409);
+    });
+
+    it('canonicalizes a formatted plate when updating an owned vehicle', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id });
+      updateVehicle.mockResolvedValue(vehicle);
+
+      await request(app.getHttpServer())
+        .patch(`/vehicles/${vehicle.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ plate: 'af 812 km' })
+        .expect(200)
+        .expect(serializedVehicle);
+
+      expect(updateVehicle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { plate: 'AF812KM' },
+          where: { id: vehicle.id },
+        }),
+      );
+    });
+
+    it('hides another user vehicle behind a not-found response', () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue(null);
+
+      return request(app.getHttpServer())
+        .patch(`/vehicles/${vehicle.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ model: 'Golf' })
+        .expect(404);
     });
   });
 

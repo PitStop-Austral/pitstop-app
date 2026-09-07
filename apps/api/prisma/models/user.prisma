@@ -3,6 +3,7 @@ model User {
   firebaseUid String    @unique
   email       String    @unique
   name        String
+  activeVehicleId String? @db.Uuid
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   vehicles    Vehicle[]
