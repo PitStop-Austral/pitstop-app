@@ -208,7 +208,7 @@ function VehicleHeroCard({ vehicle }: { vehicle: Vehicle }) {
   return (
     <div className="rounded-[20px] border border-border bg-card p-4 lg:sticky lg:top-10">
       <div className="grid aspect-video place-items-center rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
-        <Icon color="subtle" name="CarFront" size={64} strokeWidth={1.5} />
+        <Icon color="subtle" name="CarFront" size="xl" strokeWidth={1.5} />
       </div>
 
       <div className="mt-4">
@@ -255,10 +255,10 @@ function IdentificationPanel({ vehicle }: { vehicle: Vehicle }) {
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <Text className="block" color="muted" variant="label">
+      <Text color="muted" variant="label">
         {label}
       </Text>
-      <Text className="mt-1 block" variant="body-strong">
+      <Text className="mt-1" variant="body-strong">
         {value}
       </Text>
     </div>
