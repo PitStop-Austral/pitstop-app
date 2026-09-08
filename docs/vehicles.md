@@ -16,3 +16,9 @@ current year plus one, and mileage must fit PostgreSQL's non-negative integer ra
 The Garage route uses TanStack Query for vehicle and current-user state. It shows an empty state for
 accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
 mutations invalidate the affected query caches before the form closes.
+
+For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
+odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
+Información has real content today (a read-only identification grid); the other tabs show a
+"coming soon" empty state. The active tab is kept in the `tab` URL search param (`/garage?tab=...`,
+defaulting to `info`) so it survives a page reload.

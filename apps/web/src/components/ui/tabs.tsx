@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
 const TabsContext = createContext<{ value: string; setValue: (value: string) => void } | null>(
@@ -12,16 +13,28 @@ const useTabs = () => {
   return context;
 };
 
-export function Tabs({ defaultValue, children }: { defaultValue: string; children: ReactNode }) {
-  const [value, setValue] = useState(defaultValue);
+export function Tabs({
+  defaultValue,
+  value,
+  onValueChange,
+  children,
+}: {
+  defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  children: ReactNode;
+}) {
+  const [internalValue, setInternalValue] = useState(defaultValue ?? '');
+  const currentValue = value ?? internalValue;
+  const setValue = onValueChange ?? setInternalValue;
   return (
-    <TabsContext value={{ value, setValue }}>
+    <TabsContext value={{ value: currentValue, setValue }}>
       <div>{children}</div>
     </TabsContext>
   );
 }
-export function TabsList({ children }: { children: ReactNode }) {
-  return <div className="flex gap-4 border-b border-border">{children}</div>;
+export function TabsList({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('flex gap-4 border-b border-border', className)}>{children}</div>;
 }
 export function TabsTrigger({ value, children }: { value: string; children: ReactNode }) {
   const tabs = useTabs();
@@ -34,7 +47,9 @@ export function TabsTrigger({ value, children }: { value: string; children: Reac
       type="button"
       onClick={() => tabs.setValue(value)}
     >
-      {children}
+      <Text color={active ? 'default' : 'muted'} variant="label">
+        {children}
+      </Text>
     </button>
   );
 }
