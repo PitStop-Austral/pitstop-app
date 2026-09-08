@@ -3,8 +3,8 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
-import { Odometer } from '@/components/odometer';
-import { StatusChip } from '@/components/status-chip';
+import { IdentificationPanel } from '@/components/garage/identification-panel';
+import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,11 +16,8 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useCurrentUser } from '@/features/users/queries';
-import { FUEL_LABELS } from '@/features/vehicles/types';
-import type { Vehicle } from '@/features/vehicles/types';
 import { useVehicles } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
-import { formatNumber } from '@/lib/format';
 
 const GARAGE_TABS = ['info', 'recomendados', 'historial', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
@@ -201,66 +198,5 @@ function GaragePage() {
 function PageContainer({ children }: { children: ReactNode }) {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-10">{children}</section>
-  );
-}
-
-function VehicleHeroCard({ vehicle }: { vehicle: Vehicle }) {
-  return (
-    <div className="rounded-[20px] border border-border bg-card p-4 lg:sticky lg:top-10">
-      <div className="grid aspect-video place-items-center rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
-        <Icon color="subtle" name="CarFront" size="xl" strokeWidth={1.5} />
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center gap-2">
-          <Text variant="subheading">
-            {vehicle.brand} {vehicle.model}
-          </Text>
-          <StatusChip status="current" />
-        </div>
-        <Text className="mt-1" color="muted" variant="body">
-          {vehicle.year} · {FUEL_LABELS[vehicle.fuel]}
-          {vehicle.nickname ? ` · "${vehicle.nickname}"` : ''}
-        </Text>
-        <div className="mt-4">
-          <Odometer value={vehicle.mileage} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function IdentificationPanel({ vehicle }: { vehicle: Vehicle }) {
-  return (
-    <div className="rounded-[20px] border border-border bg-card p-4">
-      <div className="flex items-center gap-3">
-        <div className="grid size-10 place-items-center rounded-[12px] bg-neutral-100 shadow-sm">
-          <Icon color="emphasis" name="CarFront" size="md" />
-        </div>
-        <Text variant="subheading">Identificación</Text>
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-5">
-        <InfoField label="Marca" value={vehicle.brand} />
-        <InfoField label="Modelo" value={vehicle.model} />
-        <InfoField label="Año" value={String(vehicle.year)} />
-        <InfoField label="Combustible" value={FUEL_LABELS[vehicle.fuel]} />
-        <InfoField label="Patente" value={vehicle.plate} />
-        <InfoField label="Kilometraje" value={`${formatNumber(vehicle.mileage)} km`} />
-      </div>
-    </div>
-  );
-}
-
-function InfoField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <Text color="muted" variant="label">
-        {label}
-      </Text>
-      <Text className="mt-1" variant="body-strong">
-        {value}
-      </Text>
-    </div>
   );
 }
