@@ -1,8 +1,11 @@
 import ReactDOM from 'react-dom/client';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { registerSW } from 'virtual:pwa-register';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
+
+registerSW({ immediate: true });
 
 const NON_RETRYABLE_STATUSES = new Set([401, 403, 404]);
 

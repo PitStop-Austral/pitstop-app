@@ -3,6 +3,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
@@ -13,6 +14,30 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'PitStop',
+        short_name: 'PitStop',
+        description: 'Centralizá el mantenimiento e historial de tus vehículos',
+        lang: 'es',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        theme_color: '#ffffff',
+        background_color: '#fafafa',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          {
+            src: '/icon-512-maskable.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
+    }),
   ],
   resolve: {
     alias: {
