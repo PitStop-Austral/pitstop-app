@@ -7,7 +7,11 @@
 (`purpose: 'maskable'`, extra margin so Android's icon mask doesn't crop the logo).
 
 `registerType: 'autoUpdate'` means a newly deployed version replaces the cached one on the next
-load automatically — no manual "update available" prompt. Only the static shell (HTML/CSS/JS) is
+load automatically — no manual "update available" prompt. This requires the explicit
+`registerSW({ immediate: true })` call in `apps/web/src/main.tsx` (imported from the
+`virtual:pwa-register` module, typed via the `vite-plugin-pwa/client` reference in
+`apps/web/src/vite-env.d.ts`); `registerType: 'autoUpdate'` alone only configures the generated
+service worker's update behavior, it does not register it. Only the static shell (HTML/CSS/JS) is
 precached by the generated service worker; API requests are never cached and still require a
 network connection.
 
