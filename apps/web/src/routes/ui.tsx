@@ -179,14 +179,8 @@ function UiGallery() {
           </div>
           <Tabs defaultValue="historial">
             <TabsList>
-              <TabsTrigger value="historial">
-                <Text variant="label">Historial</Text>
-              </TabsTrigger>
-              <TabsTrigger value="proximos">
-                <Text color="muted" variant="label">
-                  Próximos
-                </Text>
-              </TabsTrigger>
+              <TabsTrigger value="historial">Historial</TabsTrigger>
+              <TabsTrigger value="proximos">Próximos</TabsTrigger>
             </TabsList>
             <TabsContent value="historial">
               <Text variant="body">Último cambio de aceite: hace 3 meses.</Text>

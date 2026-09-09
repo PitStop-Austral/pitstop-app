@@ -1,8 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
+import { IdentificationPanel } from '@/components/garage/identification-panel';
+import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,12 +13,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Icon } from '@/components/ui/icon';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useCurrentUser } from '@/features/users/queries';
 import { useVehicles } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
+const GARAGE_TABS = ['info', 'recomendados', 'historial', 'deseos'] as const;
+type GarageTab = (typeof GARAGE_TABS)[number];
+type GarageSearch = { tab: GarageTab };
+
 export const Route = createFileRoute('/_app/garage')({
+  validateSearch: (search: Record<string, unknown>): GarageSearch => ({
+    tab: GARAGE_TABS.includes(search.tab as GarageTab) ? (search.tab as GarageTab) : 'info',
+  }),
   component: GaragePage,
 });
 
@@ -24,6 +34,8 @@ function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const vehiclesQuery = useVehicles();
   const currentUserQuery = useCurrentUser();
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate();
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
     return (
@@ -124,6 +136,49 @@ function GaragePage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+        <VehicleHeroCard vehicle={activeVehicle} />
+
+        <Tabs
+          value={tab}
+          onValueChange={(next) =>
+            navigate({ to: '/garage', search: { tab: next as GarageTab }, replace: true })
+          }
+        >
+          <TabsList className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 bg-background/92 backdrop-blur-xl lg:top-0">
+            <TabsTrigger value="info">Información</TabsTrigger>
+            <TabsTrigger value="recomendados">Recomendados</TabsTrigger>
+            <TabsTrigger value="historial">Historial</TabsTrigger>
+            <TabsTrigger value="deseos">Deseos</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="info">
+            <IdentificationPanel vehicle={activeVehicle} />
+          </TabsContent>
+          <TabsContent value="recomendados">
+            <EmptyState
+              description="Pronto vamos a sugerirte mantenimientos según el kilometraje y la antigüedad de tu vehículo."
+              icon="Sparkles"
+              title="Todavía no tenemos recomendaciones"
+            />
+          </TabsContent>
+          <TabsContent value="historial">
+            <EmptyState
+              description="Acá vas a ver los mantenimientos que le registraste a tu vehículo."
+              icon="History"
+              title="Todavía no armamos esto"
+            />
+          </TabsContent>
+          <TabsContent value="deseos">
+            <EmptyState
+              description="Acá vas a poder guardar los mantenimientos o mejoras que tengas pensados para tu vehículo."
+              icon="Heart"
+              title="Todavía no armamos esto"
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {formMode === 'add' ? (
