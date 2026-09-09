@@ -7,6 +7,9 @@ describe('VehiclesRepository', () => {
   let repository: VehiclesRepository;
   let transaction: jest.Mock;
   let create: jest.Mock;
+  let deleteVehicle: jest.Mock;
+  let findReplacement: jest.Mock;
+  let findTransactionUser: jest.Mock;
   let updateUser: jest.Mock;
 
   const vehicle: VehicleView = {
@@ -24,9 +27,15 @@ describe('VehiclesRepository', () => {
 
   beforeEach(async () => {
     create = jest.fn().mockResolvedValue(vehicle);
+    deleteVehicle = jest.fn();
+    findReplacement = jest.fn();
+    findTransactionUser = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
     transaction = jest.fn(async (callback) =>
-      callback({ vehicle: { create }, user: { update: updateUser } }),
+      callback({
+        vehicle: { create, delete: deleteVehicle, findFirst: findReplacement },
+        user: { findUnique: findTransactionUser, update: updateUser },
+      }),
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -62,6 +71,37 @@ describe('VehiclesRepository', () => {
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { activeVehicleId: vehicle.id },
+    });
+  });
+
+  it('deletes the active vehicle and assigns the oldest remaining one in one transaction', async () => {
+    findTransactionUser.mockResolvedValue({ activeVehicleId: vehicle.id });
+    findReplacement.mockResolvedValue({ id: 'vehicle-2' });
+
+    await expect(repository.deleteAndReassignActive('user-1', vehicle.id)).resolves.toBeUndefined();
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(deleteVehicle).toHaveBeenCalledWith({ where: { id: vehicle.id } });
+    expect(findReplacement).toHaveBeenCalledWith({
+      where: { ownerId: 'user-1' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    expect(updateUser).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { activeVehicleId: 'vehicle-2' },
+    });
+  });
+
+  it('clears the active vehicle when deleting the last one', async () => {
+    findTransactionUser.mockResolvedValue({ activeVehicleId: vehicle.id });
+    findReplacement.mockResolvedValue(null);
+
+    await repository.deleteAndReassignActive('user-1', vehicle.id);
+
+    expect(updateUser).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { activeVehicleId: null },
     });
   });
 });

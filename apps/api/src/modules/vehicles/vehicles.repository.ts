@@ -71,4 +71,28 @@ export class VehiclesRepository {
       select: vehicleSelect,
     });
   }
+
+  async deleteAndReassignActive(ownerId: string, vehicleId: string): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.findUnique({
+        where: { id: ownerId },
+        select: { activeVehicleId: true },
+      });
+
+      await transaction.vehicle.delete({ where: { id: vehicleId } });
+
+      if (user?.activeVehicleId !== vehicleId) return;
+
+      const replacement = await transaction.vehicle.findFirst({
+        where: { ownerId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+
+      await transaction.user.update({
+        where: { id: ownerId },
+        data: { activeVehicleId: replacement?.id ?? null },
+      });
+    });
+  }
 }

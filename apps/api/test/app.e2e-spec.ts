@@ -28,6 +28,9 @@ describe('AppModule (e2e)', () => {
   let findManyVehicles: jest.Mock;
   let findOwnedVehicle: jest.Mock;
   let createVehicle: jest.Mock;
+  let deleteVehicle: jest.Mock;
+  let findReplacement: jest.Mock;
+  let findTransactionUser: jest.Mock;
   let updateVehicle: jest.Mock;
   let updateActiveUser: jest.Mock;
   let transaction: jest.Mock;
@@ -67,10 +70,16 @@ describe('AppModule (e2e)', () => {
     findManyVehicles = jest.fn();
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
+    deleteVehicle = jest.fn();
+    findReplacement = jest.fn();
+    findTransactionUser = jest.fn();
     updateVehicle = jest.fn();
     updateActiveUser = jest.fn();
     transaction = jest.fn(async (callback) =>
-      callback({ vehicle: { create: createVehicle }, user: { update: updateActiveUser } }),
+      callback({
+        vehicle: { create: createVehicle, delete: deleteVehicle, findFirst: findReplacement },
+        user: { findUnique: findTransactionUser, update: updateActiveUser },
+      }),
     );
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -167,6 +176,10 @@ describe('AppModule (e2e)', () => {
   describe('/vehicles', () => {
     it('requires authentication', () => {
       return request(app.getHttpServer()).get('/vehicles').expect(401);
+    });
+
+    it('requires authentication to delete a vehicle', () => {
+      return request(app.getHttpServer()).delete(`/vehicles/${vehicle.id}`).expect(401);
     });
 
     it('lists only the authenticated user vehicles', async () => {
@@ -281,6 +294,34 @@ describe('AppModule (e2e)', () => {
         .patch(`/vehicles/${vehicle.id}`)
         .set('Authorization', 'Bearer valid-token')
         .send({ model: 'Golf' })
+        .expect(404);
+    });
+
+    it('deletes an owned vehicle and clears the active vehicle when it is the last one', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id });
+      findTransactionUser.mockResolvedValue({ activeVehicleId: vehicle.id });
+      findReplacement.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .delete(`/vehicles/${vehicle.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(204);
+
+      expect(deleteVehicle).toHaveBeenCalledWith({ where: { id: vehicle.id } });
+      expect(updateActiveUser).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id },
+        data: { activeVehicleId: null },
+      });
+    });
+
+    it('hides another user vehicle deletion behind a not-found response', () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue(null);
+
+      return request(app.getHttpServer())
+        .delete(`/vehicles/${vehicle.id}`)
+        .set('Authorization', 'Bearer valid-token')
         .expect(404);
     });
   });

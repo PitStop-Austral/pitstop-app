@@ -52,6 +52,15 @@ export class VehiclesService {
     }
   }
 
+  async remove(ownerId: string, id: string): Promise<void> {
+    const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
+    if (!ownedVehicle) {
+      throw new NotFoundException('Vehículo no encontrado');
+    }
+
+    await this.vehiclesRepository.deleteAndReassignActive(ownerId, id);
+  }
+
   private normalizeUpdate(dto: UpdateVehicleDto): UpdateVehicleData {
     const data: UpdateVehicleData = {};
     if (dto.brand !== undefined) data.brand = dto.brand.trim();
