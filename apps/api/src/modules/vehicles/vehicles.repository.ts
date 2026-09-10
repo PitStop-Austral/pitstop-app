@@ -74,6 +74,8 @@ export class VehiclesRepository {
 
   async deleteAndReassignActive(ownerId: string, vehicleId: string): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT 1 FROM "User" WHERE id = ${ownerId} FOR UPDATE`;
+
       const user = await transaction.user.findUnique({
         where: { id: ownerId },
         select: { activeVehicleId: true },

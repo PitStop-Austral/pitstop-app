@@ -31,6 +31,7 @@ describe('AppModule (e2e)', () => {
   let deleteVehicle: jest.Mock;
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
+  let lockOwner: jest.Mock;
   let updateVehicle: jest.Mock;
   let updateActiveUser: jest.Mock;
   let transaction: jest.Mock;
@@ -73,10 +74,12 @@ describe('AppModule (e2e)', () => {
     deleteVehicle = jest.fn();
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
+    lockOwner = jest.fn();
     updateVehicle = jest.fn();
     updateActiveUser = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
+        $queryRaw: lockOwner,
         vehicle: { create: createVehicle, delete: deleteVehicle, findFirst: findReplacement },
         user: { findUnique: findTransactionUser, update: updateActiveUser },
       }),

@@ -10,6 +10,7 @@ describe('VehiclesRepository', () => {
   let deleteVehicle: jest.Mock;
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
+  let lockOwner: jest.Mock;
   let updateUser: jest.Mock;
 
   const vehicle: VehicleView = {
@@ -30,9 +31,11 @@ describe('VehiclesRepository', () => {
     deleteVehicle = jest.fn();
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
+    lockOwner = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
     transaction = jest.fn(async (callback) =>
       callback({
+        $queryRaw: lockOwner,
         vehicle: { create, delete: deleteVehicle, findFirst: findReplacement },
         user: { findUnique: findTransactionUser, update: updateUser },
       }),
@@ -81,6 +84,7 @@ describe('VehiclesRepository', () => {
     await expect(repository.deleteAndReassignActive('user-1', vehicle.id)).resolves.toBeUndefined();
 
     expect(transaction).toHaveBeenCalledTimes(1);
+    expect(lockOwner).toHaveBeenCalledTimes(1);
     expect(deleteVehicle).toHaveBeenCalledWith({ where: { id: vehicle.id } });
     expect(findReplacement).toHaveBeenCalledWith({
       where: { ownerId: 'user-1' },
