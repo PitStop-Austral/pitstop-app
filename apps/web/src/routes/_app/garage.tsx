@@ -16,6 +16,7 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useCurrentUser } from '@/features/users/queries';
+import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
 import { useVehicles } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
@@ -32,6 +33,7 @@ export const Route = createFileRoute('/_app/garage')({
 
 function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const vehiclesQuery = useVehicles();
   const currentUserQuery = useCurrentUser();
   const { tab } = Route.useSearch();
@@ -134,6 +136,12 @@ function GaragePage() {
               <Icon name="Pencil" size="sm" />
               <Text variant="label">Editar</Text>
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setDeleteOpen(true)}>
+              <Icon color="danger" name="Trash2" size="sm" />
+              <Text color="danger" variant="label">
+                Eliminar
+              </Text>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -191,6 +199,11 @@ function GaragePage() {
           onOpenChange={() => setFormMode(null)}
         />
       ) : null}
+      <DeleteVehicleConfirmSheet
+        open={deleteOpen}
+        vehicle={activeVehicle}
+        onOpenChange={setDeleteOpen}
+      />
     </PageContainer>
   );
 }

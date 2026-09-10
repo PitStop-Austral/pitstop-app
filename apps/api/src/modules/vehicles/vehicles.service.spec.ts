@@ -11,6 +11,7 @@ describe('VehiclesService', () => {
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let createAndSetActive: jest.MockedFunction<VehiclesRepository['createAndSetActive']>;
   let update: jest.MockedFunction<VehiclesRepository['update']>;
+  let deleteAndReassignActive: jest.MockedFunction<VehiclesRepository['deleteAndReassignActive']>;
 
   const vehicle: VehicleView = {
     id: 'vehicle-1',
@@ -40,13 +41,20 @@ describe('VehiclesService', () => {
     findOwnedById = jest.fn();
     createAndSetActive = jest.fn();
     update = jest.fn();
+    deleteAndReassignActive = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VehiclesService,
         {
           provide: VehiclesRepository,
-          useValue: { findByOwner, findOwnedById, createAndSetActive, update },
+          useValue: {
+            findByOwner,
+            findOwnedById,
+            createAndSetActive,
+            update,
+            deleteAndReassignActive,
+          },
         },
       ],
     }).compile();
@@ -98,5 +106,19 @@ describe('VehiclesService', () => {
       service.update('user-1', vehicle.id, { plate: ' af 812 km ', nickname: '' }),
     ).resolves.toBe(vehicle);
     expect(update).toHaveBeenCalledWith(vehicle.id, { plate: 'AF812KM', nickname: null });
+  });
+
+  it('deletes an owned vehicle through the atomic repository operation', async () => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id });
+
+    await expect(service.remove('user-1', vehicle.id)).resolves.toBeUndefined();
+    expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
+  });
+
+  it('returns not found when deleting another user vehicle', async () => {
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(service.remove('user-1', 'vehicle-2')).rejects.toThrow(NotFoundException);
+    expect(deleteAndReassignActive).not.toHaveBeenCalled();
   });
 });

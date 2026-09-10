@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
@@ -27,5 +37,11 @@ export class VehiclesController {
     @Body() dto: UpdateVehicleDto,
   ): Promise<VehicleView> {
     return this.vehiclesService.update(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.vehiclesService.remove(user.id, id);
   }
 }

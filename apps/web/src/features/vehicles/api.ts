@@ -15,3 +15,7 @@ export async function updateVehicle(id: string, input: VehicleUpdateInput): Prom
   const response = await apiClient.patch<Vehicle>(`/vehicles/${id}`, input);
   return response.data;
 }
+
+export async function deleteVehicle(id: string): Promise<void> {
+  await apiClient.delete(`/vehicles/${id}`);
+}
