@@ -6,6 +6,20 @@ import type { User } from '../../generated/prisma/client';
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findOwnedVehicle(id: string, ownerId: string): Promise<{ id: string } | null> {
+    return this.prisma.vehicle.findFirst({
+      where: { id, ownerId },
+      select: { id: true },
+    });
+  }
+
+  async setActiveVehicle(id: string, activeVehicleId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { activeVehicleId },
+    });
+  }
+
   async syncByFirebaseUid(firebaseUid: string, email: string, name: string): Promise<User> {
     const existing = await this.prisma.user.findUnique({ where: { firebaseUid } });
 
