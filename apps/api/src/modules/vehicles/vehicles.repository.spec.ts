@@ -46,7 +46,7 @@ describe('VehiclesRepository', () => {
         VehiclesRepository,
         {
           provide: PrismaService,
-          useValue: { $transaction: transaction },
+          useValue: { $transaction: transaction, user: { update: updateUser } },
         },
       ],
     }).compile();
@@ -71,6 +71,18 @@ describe('VehiclesRepository', () => {
       data: { ...data, ownerId: 'user-1' },
       select: expect.any(Object),
     });
+    expect(updateUser).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { activeVehicleId: vehicle.id },
+    });
+  });
+
+  it('sets the selected vehicle as active for its owner', async () => {
+    await expect(repository.setActiveVehicle('user-1', vehicle.id)).resolves.toEqual({
+      id: 'user-1',
+      activeVehicleId: vehicle.id,
+    });
+
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { activeVehicleId: vehicle.id },

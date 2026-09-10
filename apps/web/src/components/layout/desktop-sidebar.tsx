@@ -4,6 +4,7 @@ import { useState } from 'react';
 import pitstopLogo from '@/assets/pitstop-logo.png';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { VehiclePicker } from '@/features/vehicles/vehicle-picker';
 import { NAV_ITEMS } from '@/lib/navigation';
 
 export function DesktopSidebar() {
@@ -30,6 +31,8 @@ export function DesktopSidebar() {
           src={pitstopLogo}
         />
       </div>
+
+      <VehiclePicker className="mx-3 mb-6" compact={collapsed} />
 
       <nav aria-label="Navegación principal" className="flex flex-col gap-1 px-3">
         {NAV_ITEMS.map((item) => (

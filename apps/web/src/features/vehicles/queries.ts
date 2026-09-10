@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { currentUserQueryKey } from '@/features/users/queries';
-import { createVehicle, deleteVehicle, getVehicles, updateVehicle } from './api';
+import { currentUserQueryKey, useCurrentUser } from '@/features/users/queries';
+import { createVehicle, deleteVehicle, getVehicles, setActiveVehicle, updateVehicle } from './api';
 import type { VehicleUpdateInput } from './types';
 
 export const vehiclesQueryKey = ['vehicles'] as const;
@@ -13,6 +13,17 @@ export const vehiclesQueryOptions = queryOptions({
 
 export function useVehicles() {
   return useQuery(vehiclesQueryOptions);
+}
+
+export function useActiveVehicle() {
+  const vehiclesQuery = useVehicles();
+  const currentUserQuery = useCurrentUser();
+  const vehicles = vehiclesQuery.data;
+  const activeVehicle =
+    vehicles?.find((vehicle) => vehicle.id === currentUserQuery.data?.activeVehicleId) ??
+    vehicles?.[0];
+
+  return { activeVehicle, currentUserQuery, vehiclesQuery };
 }
 
 export function useCreateVehicle() {
@@ -51,6 +62,17 @@ export function useDeleteVehicle() {
         queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
         queryClient.invalidateQueries({ queryKey: currentUserQueryKey }),
       ]);
+    },
+  });
+}
+
+export function useSetActiveVehicle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: setActiveVehicle,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
     },
   });
 }

@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
 import { BottomSheet } from '@/components/bottom-sheet';
@@ -8,7 +9,6 @@ import { Select } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
-import { useState } from 'react';
 import { useCreateVehicle, useUpdateVehicle } from './queries';
 import { FUEL_LABELS, FUEL_TYPES } from './types';
 import type { FuelType, Vehicle } from './types';
@@ -34,8 +34,6 @@ type VehicleFormSheetProps = CommonProps &
       }
   );
 
-const FORM_ID = 'vehicle-form';
-
 function initialValues(vehicle?: Vehicle): VehicleFormValues {
   return {
     brand: vehicle?.brand ?? '',
@@ -60,6 +58,7 @@ function isApiError(error: unknown): error is ApiError {
 }
 
 export function VehicleFormSheet(props: VehicleFormSheetProps) {
+  const formId = useId();
   const [values, setValues] = useState<VehicleFormValues>(() => initialValues(props.vehicle));
   const [errors, setErrors] = useState<VehicleFormErrors>({});
   const createVehicle = useCreateVehicle();
@@ -116,7 +115,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
     <BottomSheet
       description="Completá la ficha con los datos que tengas disponibles"
       footer={
-        <Button className="w-full gap-2" disabled={isPending} form={FORM_ID} type="submit">
+        <Button className="w-full gap-2" disabled={isPending} form={formId} type="submit">
           {isPending ? <Icon className="animate-spin" color="on-primary" name="Loader2" /> : null}
           <Text color="on-primary" variant="label">
             {isPending ? 'Guardando...' : submitLabel}
@@ -128,7 +127,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
       onOpenChange={props.onOpenChange}
       title={title}
     >
-      <form aria-busy={isPending} id={FORM_ID} noValidate onSubmit={handleSubmit}>
+      <form aria-busy={isPending} id={formId} noValidate onSubmit={handleSubmit}>
         <div className="rounded-[20px] border border-border bg-card p-4">
           <div className="flex items-center gap-3">
             <div className="grid size-10 place-items-center rounded-[12px] bg-neutral-100 shadow-sm">
