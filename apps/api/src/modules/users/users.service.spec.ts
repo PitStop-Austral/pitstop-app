@@ -1,13 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { User } from '../../generated/prisma/client';
-import { UsersRepository } from './users.repository';
+import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let findOwnedVehicle: jest.MockedFunction<UsersRepository['findOwnedVehicle']>;
-  let setActiveVehicle: jest.MockedFunction<UsersRepository['setActiveVehicle']>;
+  let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
+  let setActiveVehicle: jest.MockedFunction<VehiclesRepository['setActiveVehicle']>;
 
   const user = {
     id: 'user-1',
@@ -20,13 +20,13 @@ describe('UsersService', () => {
   } satisfies User;
 
   beforeEach(async () => {
-    findOwnedVehicle = jest.fn();
+    findOwnedById = jest.fn();
     setActiveVehicle = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: UsersRepository, useValue: { findOwnedVehicle, setActiveVehicle } },
+        { provide: VehiclesRepository, useValue: { findOwnedById, setActiveVehicle } },
       ],
     }).compile();
 
@@ -34,7 +34,7 @@ describe('UsersService', () => {
   });
 
   it('changes the active vehicle when it belongs to the user', async () => {
-    findOwnedVehicle.mockResolvedValue({ id: 'vehicle-2' });
+    findOwnedById.mockResolvedValue({ id: 'vehicle-2' });
     const updatedUser = { ...user, activeVehicleId: 'vehicle-2' };
     setActiveVehicle.mockResolvedValue(updatedUser);
 
@@ -45,7 +45,7 @@ describe('UsersService', () => {
   });
 
   it('rejects another user vehicle', async () => {
-    findOwnedVehicle.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue(null);
 
     await expect(service.setActiveVehicle(user.id, { vehicleId: 'vehicle-2' })).rejects.toThrow(
       NotFoundException,
@@ -54,7 +54,7 @@ describe('UsersService', () => {
   });
 
   it('returns null for a stale active vehicle', async () => {
-    findOwnedVehicle.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue(null);
 
     await expect(service.getMe(user)).resolves.toEqual({ ...user, activeVehicleId: null });
   });

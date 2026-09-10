@@ -1,25 +1,25 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
+import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { SetActiveVehicleDto } from './dto/set-active-vehicle.dto';
-import { UsersRepository } from './users.repository';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(private readonly vehiclesRepository: VehiclesRepository) {}
 
   async getMe(user: User): Promise<User> {
     if (!user.activeVehicleId) return user;
 
-    const vehicle = await this.usersRepository.findOwnedVehicle(user.activeVehicleId, user.id);
+    const vehicle = await this.vehiclesRepository.findOwnedById(user.activeVehicleId, user.id);
     return vehicle ? user : { ...user, activeVehicleId: null };
   }
 
   async setActiveVehicle(userId: string, dto: SetActiveVehicleDto): Promise<User> {
-    const vehicle = await this.usersRepository.findOwnedVehicle(dto.vehicleId, userId);
+    const vehicle = await this.vehiclesRepository.findOwnedById(dto.vehicleId, userId);
     if (!vehicle) {
       throw new NotFoundException('Vehículo no encontrado');
     }
 
-    return this.usersRepository.setActiveVehicle(userId, vehicle.id);
+    return this.vehiclesRepository.setActiveVehicle(userId, vehicle.id);
   }
 }
