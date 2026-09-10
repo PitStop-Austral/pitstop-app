@@ -1,13 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { currentUserQueryKey, useCurrentUser } from '@/features/users/queries';
-import {
-  createVehicle,
-  deleteVehicle,
-  getVehicles,
-  setActiveVehicle,
-  updateVehicle,
-} from './api';
+import { createVehicle, deleteVehicle, getVehicles, setActiveVehicle, updateVehicle } from './api';
 import type { VehicleUpdateInput } from './types';
 
 export const vehiclesQueryKey = ['vehicles'] as const;
