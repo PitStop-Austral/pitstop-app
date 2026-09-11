@@ -30,6 +30,9 @@ stale value.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
 odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
-Información has real content today (a read-only identification grid); the other tabs show a
-"coming soon" empty state. The active tab is kept in the `tab` URL search param (`/garage?tab=...`,
-defaulting to `info`) so it survives a page reload.
+Información has real content today: five read-only cards for identification, lubricants,
+transmission, tires, and lights. All technical fields remain visible when empty and display
+`A definir`; paired values fall back independently and only completed measurements receive units.
+The cards stack on smaller screens and use a two-column layout from 1280 px, with identification
+spanning both columns. The other tabs show a "coming soon" empty state. The active tab is kept in
+the `tab` URL search param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.
