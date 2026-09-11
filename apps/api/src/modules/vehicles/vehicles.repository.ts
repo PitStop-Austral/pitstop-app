@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FuelType, Prisma } from '../../generated/prisma/client';
+import { FuelType, Prisma, TransmissionType } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const vehicleSelect = {
@@ -11,6 +11,18 @@ const vehicleSelect = {
   plate: true,
   mileage: true,
   nickname: true,
+  engineOilType: true,
+  engineOilLiters: true,
+  gearboxOilType: true,
+  gearboxOilLiters: true,
+  transmission: true,
+  frontTireSize: true,
+  frontTirePressurePsi: true,
+  rearTireSize: true,
+  rearTirePressurePsi: true,
+  highBeam: true,
+  lowBeam: true,
+  fogLight: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.VehicleSelect;
@@ -25,6 +37,18 @@ export type CreateVehicleData = {
   plate: string;
   mileage: number;
   nickname: string | null;
+  engineOilType: string | null;
+  engineOilLiters: number | null;
+  gearboxOilType: string | null;
+  gearboxOilLiters: number | null;
+  transmission: TransmissionType | null;
+  frontTireSize: string | null;
+  frontTirePressurePsi: number | null;
+  rearTireSize: string | null;
+  rearTirePressurePsi: number | null;
+  highBeam: string | null;
+  lowBeam: string | null;
+  fogLight: string | null;
 };
 
 export type UpdateVehicleData = Partial<CreateVehicleData>;

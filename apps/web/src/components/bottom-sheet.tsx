@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 type BottomSheetProps = {
   open: boolean;
@@ -13,6 +14,7 @@ type BottomSheetProps = {
   children: ReactNode;
   footer?: ReactNode;
   dismissible?: boolean;
+  className?: string;
 };
 
 export function BottomSheet({
@@ -23,6 +25,7 @@ export function BottomSheet({
   children,
   footer,
   dismissible = true,
+  className,
 }: BottomSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -36,7 +39,10 @@ export function BottomSheet({
   return (
     <dialog
       aria-labelledby="bottom-sheet-title"
-      className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
+      className={cn(
+        'mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in',
+        className,
+      )}
       onCancel={(event) => {
         if (!dismissible) {
           event.preventDefault();

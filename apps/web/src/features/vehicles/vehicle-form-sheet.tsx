@@ -1,4 +1,4 @@
-import type { FormEvent, ReactNode } from 'react';
+import type { ComponentProps, FormEvent, ReactNode } from 'react';
 
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
 import { useState } from 'react';
 import { useCreateVehicle, useUpdateVehicle } from './queries';
-import { FUEL_LABELS, FUEL_TYPES } from './types';
-import type { FuelType, Vehicle } from './types';
+import { FUEL_LABELS, FUEL_TYPES, TRANSMISSION_LABELS, TRANSMISSION_TYPES } from './types';
+import type { FuelType, TransmissionType, Vehicle } from './types';
+import { VEHICLE_SECTION_ICONS } from './vehicle-section-icons';
 import {
   getVehicleEditFormSchema,
   getVehicleFormErrors,
@@ -45,6 +46,22 @@ function initialValues(vehicle?: Vehicle): VehicleFormValues {
     plate: vehicle?.plate ?? '',
     mileage: vehicle ? String(vehicle.mileage) : '',
     nickname: vehicle?.nickname ?? '',
+    engineOilType: vehicle?.engineOilType ?? '',
+    engineOilLiters:
+      vehicle?.engineOilLiters === null ? '' : String(vehicle?.engineOilLiters ?? ''),
+    gearboxOilType: vehicle?.gearboxOilType ?? '',
+    gearboxOilLiters:
+      vehicle?.gearboxOilLiters === null ? '' : String(vehicle?.gearboxOilLiters ?? ''),
+    transmission: vehicle?.transmission ?? '',
+    frontTireSize: vehicle?.frontTireSize ?? '',
+    frontTirePressurePsi:
+      vehicle?.frontTirePressurePsi === null ? '' : String(vehicle?.frontTirePressurePsi ?? ''),
+    rearTireSize: vehicle?.rearTireSize ?? '',
+    rearTirePressurePsi:
+      vehicle?.rearTirePressurePsi === null ? '' : String(vehicle?.rearTirePressurePsi ?? ''),
+    highBeam: vehicle?.highBeam ?? '',
+    lowBeam: vehicle?.lowBeam ?? '',
+    fogLight: vehicle?.fogLight ?? '',
   };
 }
 
@@ -114,6 +131,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
 
   return (
     <BottomSheet
+      className="lg:max-w-2xl"
       description="Completá la ficha con los datos que tengas disponibles"
       footer={
         <Button className="w-full gap-2" disabled={isPending} form={FORM_ID} type="submit">
@@ -128,16 +146,15 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
       onOpenChange={props.onOpenChange}
       title={title}
     >
-      <form aria-busy={isPending} id={FORM_ID} noValidate onSubmit={handleSubmit}>
-        <div className="rounded-[20px] border border-border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-[12px] bg-neutral-100 shadow-sm">
-              <Icon color="emphasis" name="CarFront" size="md" />
-            </div>
-            <Text variant="subheading">Identificación</Text>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-5">
+      <form
+        aria-busy={isPending}
+        className="space-y-4"
+        id={FORM_ID}
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        <FormSection iconSrc={VEHICLE_SECTION_ICONS.identification} title="Identificación">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
             <FormField error={errors.brand} id="vehicle-brand" label="Marca">
               <Input
                 aria-describedby={errors.brand ? 'vehicle-brand-error' : undefined}
@@ -244,9 +261,269 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
               />
             </FormField>
           </div>
-        </div>
+        </FormSection>
+
+        <FormSection iconSrc={VEHICLE_SECTION_ICONS.lubricants} title="Lubricantes">
+          <div className="space-y-5">
+            <div>
+              <Text color="muted" variant="caption-strong">
+                Aceite de motor
+              </Text>
+              <div className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(6rem,1fr)] gap-3">
+                <FormField error={errors.engineOilType} id="vehicle-engine-oil-type" label="Tipo">
+                  <Input
+                    aria-describedby={
+                      errors.engineOilType ? 'vehicle-engine-oil-type-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.engineOilType)}
+                    id="vehicle-engine-oil-type"
+                    placeholder="5W-30 sintético"
+                    value={values.engineOilType}
+                    onChange={(event) => updateField('engineOilType', event.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  error={errors.engineOilLiters}
+                  id="vehicle-engine-oil-liters"
+                  label="Cantidad"
+                >
+                  <UnitInput
+                    aria-describedby={
+                      errors.engineOilLiters ? 'vehicle-engine-oil-liters-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.engineOilLiters)}
+                    id="vehicle-engine-oil-liters"
+                    inputMode="decimal"
+                    placeholder="4.2"
+                    unit="L"
+                    value={values.engineOilLiters}
+                    onChange={(event) => updateField('engineOilLiters', event.target.value)}
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            <div>
+              <Text color="muted" variant="caption-strong">
+                Aceite de caja
+              </Text>
+              <div className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(6rem,1fr)] gap-3">
+                <FormField error={errors.gearboxOilType} id="vehicle-gearbox-oil-type" label="Tipo">
+                  <Input
+                    aria-describedby={
+                      errors.gearboxOilType ? 'vehicle-gearbox-oil-type-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.gearboxOilType)}
+                    id="vehicle-gearbox-oil-type"
+                    placeholder="ATF DW-1"
+                    value={values.gearboxOilType}
+                    onChange={(event) => updateField('gearboxOilType', event.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  error={errors.gearboxOilLiters}
+                  id="vehicle-gearbox-oil-liters"
+                  label="Cantidad"
+                >
+                  <UnitInput
+                    aria-describedby={
+                      errors.gearboxOilLiters ? 'vehicle-gearbox-oil-liters-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.gearboxOilLiters)}
+                    id="vehicle-gearbox-oil-liters"
+                    inputMode="decimal"
+                    placeholder="3.1"
+                    unit="L"
+                    value={values.gearboxOilLiters}
+                    onChange={(event) => updateField('gearboxOilLiters', event.target.value)}
+                  />
+                </FormField>
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection iconSrc={VEHICLE_SECTION_ICONS.transmission} title="Transmisión">
+          <FormField error={errors.transmission} id="vehicle-transmission" label="Tipo">
+            <Select
+              aria-describedby={errors.transmission ? 'vehicle-transmission-error' : undefined}
+              aria-invalid={Boolean(errors.transmission)}
+              id="vehicle-transmission"
+              value={values.transmission}
+              onChange={(event) =>
+                updateField('transmission', event.target.value as TransmissionType | '')
+              }
+            >
+              <option value="">Seleccioná una opción</option>
+              {TRANSMISSION_TYPES.map((transmission) => (
+                <option key={transmission} value={transmission}>
+                  {TRANSMISSION_LABELS[transmission]}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        </FormSection>
+
+        <FormSection iconSrc={VEHICLE_SECTION_ICONS.tires} title="Neumáticos">
+          <div className="space-y-5">
+            <div>
+              <Text color="muted" variant="caption-strong">
+                Delanteros
+              </Text>
+              <div className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(6rem,1fr)] gap-3">
+                <FormField error={errors.frontTireSize} id="vehicle-front-tire-size" label="Medida">
+                  <Input
+                    aria-describedby={
+                      errors.frontTireSize ? 'vehicle-front-tire-size-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.frontTireSize)}
+                    id="vehicle-front-tire-size"
+                    placeholder="215/50 R17"
+                    value={values.frontTireSize}
+                    onChange={(event) => updateField('frontTireSize', event.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  error={errors.frontTirePressurePsi}
+                  id="vehicle-front-tire-pressure"
+                  label="Presión"
+                >
+                  <UnitInput
+                    aria-describedby={
+                      errors.frontTirePressurePsi ? 'vehicle-front-tire-pressure-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.frontTirePressurePsi)}
+                    id="vehicle-front-tire-pressure"
+                    inputMode="numeric"
+                    placeholder="32"
+                    unit="PSI"
+                    value={values.frontTirePressurePsi}
+                    onChange={(event) => updateField('frontTirePressurePsi', event.target.value)}
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            <div>
+              <Text color="muted" variant="caption-strong">
+                Traseros
+              </Text>
+              <div className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(6rem,1fr)] gap-3">
+                <FormField error={errors.rearTireSize} id="vehicle-rear-tire-size" label="Medida">
+                  <Input
+                    aria-describedby={
+                      errors.rearTireSize ? 'vehicle-rear-tire-size-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.rearTireSize)}
+                    id="vehicle-rear-tire-size"
+                    placeholder="215/50 R17"
+                    value={values.rearTireSize}
+                    onChange={(event) => updateField('rearTireSize', event.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  error={errors.rearTirePressurePsi}
+                  id="vehicle-rear-tire-pressure"
+                  label="Presión"
+                >
+                  <UnitInput
+                    aria-describedby={
+                      errors.rearTirePressurePsi ? 'vehicle-rear-tire-pressure-error' : undefined
+                    }
+                    aria-invalid={Boolean(errors.rearTirePressurePsi)}
+                    id="vehicle-rear-tire-pressure"
+                    inputMode="numeric"
+                    placeholder="30"
+                    unit="PSI"
+                    value={values.rearTirePressurePsi}
+                    onChange={(event) => updateField('rearTirePressurePsi', event.target.value)}
+                  />
+                </FormField>
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection iconSrc={VEHICLE_SECTION_ICONS.lights} title="Luces">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <FormField error={errors.highBeam} id="vehicle-high-beam" label="Altas">
+              <Input
+                aria-describedby={errors.highBeam ? 'vehicle-high-beam-error' : undefined}
+                aria-invalid={Boolean(errors.highBeam)}
+                id="vehicle-high-beam"
+                placeholder="H11"
+                value={values.highBeam}
+                onChange={(event) => updateField('highBeam', event.target.value)}
+              />
+            </FormField>
+            <FormField error={errors.lowBeam} id="vehicle-low-beam" label="Bajas">
+              <Input
+                aria-describedby={errors.lowBeam ? 'vehicle-low-beam-error' : undefined}
+                aria-invalid={Boolean(errors.lowBeam)}
+                id="vehicle-low-beam"
+                placeholder="H7"
+                value={values.lowBeam}
+                onChange={(event) => updateField('lowBeam', event.target.value)}
+              />
+            </FormField>
+            <FormField
+              className="col-span-2 sm:col-span-1"
+              error={errors.fogLight}
+              id="vehicle-fog-light"
+              label="Antinieblas"
+            >
+              <Input
+                aria-describedby={errors.fogLight ? 'vehicle-fog-light-error' : undefined}
+                aria-invalid={Boolean(errors.fogLight)}
+                id="vehicle-fog-light"
+                placeholder="H8"
+                value={values.fogLight}
+                onChange={(event) => updateField('fogLight', event.target.value)}
+              />
+            </FormField>
+          </div>
+        </FormSection>
       </form>
     </BottomSheet>
+  );
+}
+
+type FormSectionProps = {
+  children: ReactNode;
+  iconSrc: string;
+  title: string;
+};
+
+function FormSection({ children, iconSrc, title }: FormSectionProps) {
+  return (
+    <div className="rounded-[18px] border border-border bg-neutral-50 p-4">
+      <div className="flex items-center gap-3">
+        <div className="grid size-9 place-items-center rounded-[11px] bg-card shadow-sm">
+          <Icon size="xl" src={iconSrc} />
+        </div>
+        <Text variant="card-title">{title}</Text>
+      </div>
+      <div className="mt-5">{children}</div>
+    </div>
+  );
+}
+
+type UnitInputProps = Omit<ComponentProps<typeof Input>, 'className'> & {
+  unit: string;
+};
+
+function UnitInput({ unit, ...props }: UnitInputProps) {
+  return (
+    <div className="relative">
+      <Input className="pr-12" {...props} />
+      <Text
+        className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2"
+        color="subtle"
+        variant="caption-strong"
+      >
+        {unit}
+      </Text>
+    </div>
   );
 }
 

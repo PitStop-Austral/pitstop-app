@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
-import { FUEL_TYPES } from './types.ts';
+import { FUEL_TYPES, TRANSMISSION_TYPES } from './types.ts';
 import type { VehicleUpdateInput } from './types.ts';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MAX_VEHICLE_MILEAGE = 2_147_483_647;
+const MAX_OIL_LITERS = 99.99;
 const PLATE_PATTERN = /^([A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/;
 const LEGACY_PLATE_PATTERN =
   /^LEGACY-[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
@@ -22,6 +23,22 @@ function createPlateSchema(allowedLegacyPlate?: string) {
       (plate) => PLATE_PATTERN.test(plate) || plate === allowedLegacyPlate,
       'Ingresá una patente válida',
     );
+}
+
+function optionalTextSchema() {
+  return z
+    .string()
+    .trim()
+    .transform((value) => value || null);
+}
+
+function optionalNumberSchema(pattern: RegExp, message: string, max: number) {
+  return z
+    .string()
+    .trim()
+    .refine((value) => value === '' || pattern.test(value), message)
+    .transform((value) => (value === '' ? null : Number(value)))
+    .refine((value) => value === null || value <= max, message);
 }
 
 export const vehicleFormSchema = z.object({
@@ -45,13 +62,63 @@ export const vehicleFormSchema = z.object({
     .string()
     .trim()
     .transform((nickname) => nickname || null),
+  engineOilType: optionalTextSchema(),
+  engineOilLiters: optionalNumberSchema(
+    /^\d+(\.\d{1,2})?$/,
+    'Ingresá una cantidad válida',
+    MAX_OIL_LITERS,
+  ),
+  gearboxOilType: optionalTextSchema(),
+  gearboxOilLiters: optionalNumberSchema(
+    /^\d+(\.\d{1,2})?$/,
+    'Ingresá una cantidad válida',
+    MAX_OIL_LITERS,
+  ),
+  transmission: z
+    .union([z.enum(TRANSMISSION_TYPES), z.literal('')])
+    .transform((value) => value || null),
+  frontTireSize: optionalTextSchema(),
+  frontTirePressurePsi: optionalNumberSchema(
+    /^\d+$/,
+    'Ingresá una presión válida',
+    MAX_VEHICLE_MILEAGE,
+  ),
+  rearTireSize: optionalTextSchema(),
+  rearTirePressurePsi: optionalNumberSchema(
+    /^\d+$/,
+    'Ingresá una presión válida',
+    MAX_VEHICLE_MILEAGE,
+  ),
+  highBeam: optionalTextSchema(),
+  lowBeam: optionalTextSchema(),
+  fogLight: optionalTextSchema(),
 });
 
 export type VehicleFormValues = z.input<typeof vehicleFormSchema>;
 type VehicleFormOutput = z.output<typeof vehicleFormSchema>;
 export type VehicleFormErrors = Partial<Record<keyof VehicleFormValues, string>>;
 
-const FORM_FIELDS = ['brand', 'model', 'year', 'fuel', 'plate', 'mileage', 'nickname'] as const;
+const FORM_FIELDS = [
+  'brand',
+  'model',
+  'year',
+  'fuel',
+  'plate',
+  'mileage',
+  'nickname',
+  'engineOilType',
+  'engineOilLiters',
+  'gearboxOilType',
+  'gearboxOilLiters',
+  'transmission',
+  'frontTireSize',
+  'frontTirePressurePsi',
+  'rearTireSize',
+  'rearTirePressurePsi',
+  'highBeam',
+  'lowBeam',
+  'fogLight',
+] as const;
 
 export function getVehicleEditFormSchema(existingPlate: string) {
   const normalizedPlate = normalizePlate(existingPlate);

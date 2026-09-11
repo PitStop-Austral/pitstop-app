@@ -18,30 +18,47 @@ const colors: Record<TextColor, string> = {
   danger: 'text-destructive',
 };
 
+export type IconName = keyof typeof LucideIcons;
+
 type IconProps = {
-  name: keyof typeof LucideIcons;
   size?: keyof typeof sizes | number;
   color?: TextColor;
   strokeWidth?: number;
   'aria-label'?: string;
   className?: string;
-};
+} & ({ name: IconName; src?: never } | { name?: never; src: string });
 
 export function Icon({
   name,
+  src,
   size = 'md',
   color = 'default',
   strokeWidth = 2,
   className,
   'aria-label': ariaLabel,
 }: IconProps) {
-  const LucideIcon = LucideIcons[name] as LucideIcon;
+  const resolvedSize = typeof size === 'number' ? size : sizes[size];
+
+  if (src) {
+    return (
+      <img
+        alt={ariaLabel ?? ''}
+        aria-hidden={ariaLabel ? undefined : true}
+        className={cn('object-contain', className)}
+        height={resolvedSize}
+        src={src}
+        width={resolvedSize}
+      />
+    );
+  }
+
+  const LucideIcon = LucideIcons[name as IconName] as LucideIcon;
   return (
     <LucideIcon
       aria-hidden={ariaLabel ? undefined : true}
       aria-label={ariaLabel}
       className={cn(colors[color], className)}
-      size={typeof size === 'number' ? size : sizes[size]}
+      size={resolvedSize}
       strokeWidth={strokeWidth}
     />
   );

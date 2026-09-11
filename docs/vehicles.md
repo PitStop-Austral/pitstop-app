@@ -1,8 +1,10 @@
 # Vehicle management
 
 PitStop stores vehicles per authenticated user. Every vehicle has a brand, model, year, fuel type,
-Argentine plate, mileage, and optional nickname. Plates are normalized to uppercase without spaces
-and must use either the `AAA000` or `AA000AA` format. A user cannot register the same plate twice.
+Argentine plate, mileage, and optional nickname. It can also store an optional technical sheet with
+engine and gearbox oil, transmission type, front and rear tire details, and bulb references. Plates
+are normalized to uppercase without spaces and must use either the `AAA000` or `AA000AA` format. A
+user cannot register the same plate twice.
 
 The authenticated vehicle API exposes:
 
@@ -14,11 +16,17 @@ The authenticated vehicle API exposes:
   and reassignment run in one transaction, and requests for another user's vehicle return 404.
 
 Request bodies are validated by Nest's global `ValidationPipe`. Years must be between 1900 and the
-current year plus one, and mileage must fit PostgreSQL's non-negative integer range.
+current year plus one, and mileage and tire pressure must fit PostgreSQL's non-negative integer
+range. Oil quantities accept up to two decimal places between 0 and 99.99 liters. Empty technical
+fields are stored as `null`; decimal quantities are serialized as JSON numbers.
 
 The Garage route uses TanStack Query for vehicle and current-user state. It shows an empty state for
 accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
 mutations invalidate the affected query caches before the form closes.
+
+The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
+Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a
+stale value.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
 odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
