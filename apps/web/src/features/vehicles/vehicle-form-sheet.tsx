@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
 
 import { BottomSheet } from '@/components/bottom-sheet';
@@ -8,7 +9,6 @@ import { Select } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
-import { useState } from 'react';
 import { useCreateVehicle, useUpdateVehicle } from './queries';
 import { FUEL_LABELS, FUEL_TYPES, TRANSMISSION_LABELS, TRANSMISSION_TYPES } from './types';
 import type { FuelType, TransmissionType, Vehicle } from './types';
@@ -34,8 +34,6 @@ type VehicleFormSheetProps = CommonProps &
         vehicle: Vehicle;
       }
   );
-
-const FORM_ID = 'vehicle-form';
 
 function initialValues(vehicle?: Vehicle): VehicleFormValues {
   return {
@@ -77,6 +75,7 @@ function isApiError(error: unknown): error is ApiError {
 }
 
 export function VehicleFormSheet(props: VehicleFormSheetProps) {
+  const formId = useId();
   const [values, setValues] = useState<VehicleFormValues>(() => initialValues(props.vehicle));
   const [errors, setErrors] = useState<VehicleFormErrors>({});
   const createVehicle = useCreateVehicle();
@@ -134,7 +133,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
       className="lg:max-w-2xl"
       description="Completá la ficha con los datos que tengas disponibles"
       footer={
-        <Button className="w-full gap-2" disabled={isPending} form={FORM_ID} type="submit">
+        <Button className="w-full gap-2" disabled={isPending} form={formId} type="submit">
           {isPending ? <Icon className="animate-spin" color="on-primary" name="Loader2" /> : null}
           <Text color="on-primary" variant="label">
             {isPending ? 'Guardando...' : submitLabel}
@@ -149,7 +148,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
       <form
         aria-busy={isPending}
         className="space-y-4"
-        id={FORM_ID}
+        id={formId}
         noValidate
         onSubmit={handleSubmit}
       >

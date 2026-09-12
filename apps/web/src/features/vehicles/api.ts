@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import type { CurrentUser } from '@/features/users/api';
 import type { Vehicle, VehicleInput, VehicleUpdateInput } from './types';
 
 export async function getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
@@ -18,4 +19,9 @@ export async function updateVehicle(id: string, input: VehicleUpdateInput): Prom
 
 export async function deleteVehicle(id: string): Promise<void> {
   await apiClient.delete(`/vehicles/${id}`);
+}
+
+export async function setActiveVehicle(vehicleId: string): Promise<CurrentUser> {
+  const response = await apiClient.patch<CurrentUser>('/me/active-vehicle', { vehicleId });
+  return response.data;
 }

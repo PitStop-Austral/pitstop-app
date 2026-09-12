@@ -15,9 +15,8 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import { useCurrentUser } from '@/features/users/queries';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
-import { useVehicles } from '@/features/vehicles/queries';
+import { useActiveVehicle } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
 const GARAGE_TABS = ['info', 'recomendados', 'historial', 'deseos'] as const;
@@ -34,10 +33,9 @@ export const Route = createFileRoute('/_app/garage')({
 function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const vehiclesQuery = useVehicles();
-  const currentUserQuery = useCurrentUser();
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
+  const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
     return (
@@ -79,10 +77,6 @@ function GaragePage() {
       </PageContainer>
     );
   }
-
-  const vehicles = vehiclesQuery.data;
-  const activeVehicle =
-    vehicles.find((vehicle) => vehicle.id === currentUserQuery.data.activeVehicleId) ?? vehicles[0];
 
   if (!activeVehicle) {
     return (

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { FuelType, Prisma, TransmissionType } from '../../generated/prisma/client';
+import { FuelType, Prisma, TransmissionType, User } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const vehicleSelect = {
@@ -69,6 +69,13 @@ export class VehiclesRepository {
     return this.prisma.vehicle.findFirst({
       where: { id, ownerId },
       select: { id: true },
+    });
+  }
+
+  async setActiveVehicle(ownerId: string, vehicleId: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: ownerId },
+      data: { activeVehicleId: vehicleId },
     });
   }
 

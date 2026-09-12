@@ -14,6 +14,8 @@ The authenticated vehicle API exposes:
 - `DELETE /vehicles/:id` to permanently delete an owned vehicle. If it was active, the oldest
   remaining vehicle becomes active; if none remain, the active vehicle is set to `null`. The delete
   and reassignment run in one transaction, and requests for another user's vehicle return 404.
+- `PATCH /me/active-vehicle` with `{ "vehicleId": "UUID" }` to change the active vehicle. The
+  vehicle must belong to the authenticated user or the API returns 404.
 
 Request bodies are validated by Nest's global `ValidationPipe`. Years must be between 1900 and the
 current year plus one, and mileage and tire pressure must fit PostgreSQL's non-negative integer
@@ -22,7 +24,9 @@ fields are stored as `null`; decimal quantities are serialized as JSON numbers.
 
 The Garage route uses TanStack Query for vehicle and current-user state. It shows an empty state for
 accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
-mutations invalidate the affected query caches before the form closes.
+mutations invalidate the affected query caches before the form closes. The mobile header and desktop
+sidebar expose the same active-vehicle picker; the selection is stored in the account and Garage falls
+back to the first vehicle if no valid active vehicle is saved.
 
 The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
 Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a
