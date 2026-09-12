@@ -1,23 +1,25 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
-import {
-  CreateVehicleData,
-  UpdateVehicleData,
-  VehiclesRepository,
-  VehicleView,
-} from './vehicles.repository';
+import { CreateVehicleData, UpdateVehicleData, VehiclesRepository } from './vehicles.repository';
+import { toVehicleResponse } from './vehicles.mapper';
+import type { VehicleResponse } from './vehicles.mapper';
 import { normalizeVehiclePlate } from './vehicle-normalization';
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  return value?.trim() || null;
+}
 
 @Injectable()
 export class VehiclesService {
   constructor(private readonly vehiclesRepository: VehiclesRepository) {}
 
-  async findByOwner(ownerId: string): Promise<VehicleView[]> {
-    return this.vehiclesRepository.findByOwner(ownerId);
+  async findByOwner(ownerId: string): Promise<VehicleResponse[]> {
+    const vehicles = await this.vehiclesRepository.findByOwner(ownerId);
+    return vehicles.map(toVehicleResponse);
   }
 
-  async create(ownerId: string, dto: CreateVehicleDto): Promise<VehicleView> {
+  async create(ownerId: string, dto: CreateVehicleDto): Promise<VehicleResponse> {
     const data: CreateVehicleData = {
       brand: dto.brand.trim(),
       model: dto.model.trim(),
@@ -25,18 +27,31 @@ export class VehiclesService {
       fuel: dto.fuel,
       plate: normalizeVehiclePlate(dto.plate),
       mileage: dto.mileage,
-      nickname: dto.nickname?.trim() || null,
+      nickname: normalizeOptionalText(dto.nickname),
+      engineOilType: normalizeOptionalText(dto.engineOilType),
+      engineOilLiters: dto.engineOilLiters ?? null,
+      gearboxOilType: normalizeOptionalText(dto.gearboxOilType),
+      gearboxOilLiters: dto.gearboxOilLiters ?? null,
+      transmission: dto.transmission ?? null,
+      frontTireSize: normalizeOptionalText(dto.frontTireSize),
+      frontTirePressurePsi: dto.frontTirePressurePsi ?? null,
+      rearTireSize: normalizeOptionalText(dto.rearTireSize),
+      rearTirePressurePsi: dto.rearTirePressurePsi ?? null,
+      highBeam: normalizeOptionalText(dto.highBeam),
+      lowBeam: normalizeOptionalText(dto.lowBeam),
+      fogLight: normalizeOptionalText(dto.fogLight),
     };
 
     try {
-      return await this.vehiclesRepository.createAndSetActive(ownerId, data);
+      const vehicle = await this.vehiclesRepository.createAndSetActive(ownerId, data);
+      return toVehicleResponse(vehicle);
     } catch (error) {
       this.throwIfDuplicatePlate(error);
       throw error;
     }
   }
 
-  async update(ownerId: string, id: string, dto: UpdateVehicleDto): Promise<VehicleView> {
+  async update(ownerId: string, id: string, dto: UpdateVehicleDto): Promise<VehicleResponse> {
     const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
     if (!ownedVehicle) {
       throw new NotFoundException('Vehículo no encontrado');
@@ -45,7 +60,8 @@ export class VehiclesService {
     const data = this.normalizeUpdate(dto);
 
     try {
-      return await this.vehiclesRepository.update(id, data);
+      const vehicle = await this.vehiclesRepository.update(id, data);
+      return toVehicleResponse(vehicle);
     } catch (error) {
       this.throwIfDuplicatePlate(error);
       throw error;
@@ -69,7 +85,23 @@ export class VehiclesService {
     if (dto.fuel !== undefined) data.fuel = dto.fuel;
     if (dto.plate !== undefined) data.plate = normalizeVehiclePlate(dto.plate);
     if (dto.mileage !== undefined) data.mileage = dto.mileage;
-    if (dto.nickname !== undefined) data.nickname = dto.nickname?.trim() || null;
+    if (dto.nickname !== undefined) data.nickname = normalizeOptionalText(dto.nickname);
+    if (dto.engineOilType !== undefined)
+      data.engineOilType = normalizeOptionalText(dto.engineOilType);
+    if (dto.engineOilLiters !== undefined) data.engineOilLiters = dto.engineOilLiters;
+    if (dto.gearboxOilType !== undefined)
+      data.gearboxOilType = normalizeOptionalText(dto.gearboxOilType);
+    if (dto.gearboxOilLiters !== undefined) data.gearboxOilLiters = dto.gearboxOilLiters;
+    if (dto.transmission !== undefined) data.transmission = dto.transmission;
+    if (dto.frontTireSize !== undefined)
+      data.frontTireSize = normalizeOptionalText(dto.frontTireSize);
+    if (dto.frontTirePressurePsi !== undefined)
+      data.frontTirePressurePsi = dto.frontTirePressurePsi;
+    if (dto.rearTireSize !== undefined) data.rearTireSize = normalizeOptionalText(dto.rearTireSize);
+    if (dto.rearTirePressurePsi !== undefined) data.rearTirePressurePsi = dto.rearTirePressurePsi;
+    if (dto.highBeam !== undefined) data.highBeam = normalizeOptionalText(dto.highBeam);
+    if (dto.lowBeam !== undefined) data.lowBeam = normalizeOptionalText(dto.lowBeam);
+    if (dto.fogLight !== undefined) data.fogLight = normalizeOptionalText(dto.fogLight);
     return data;
   }
 

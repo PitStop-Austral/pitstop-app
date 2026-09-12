@@ -3,8 +3,8 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
-import { IdentificationPanel } from '@/components/garage/identification-panel';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
+import { VehicleInformationPanel } from '@/components/garage/vehicle-information-panel';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -157,7 +157,7 @@ function GaragePage() {
           </TabsList>
 
           <TabsContent value="info">
-            <IdentificationPanel vehicle={activeVehicle} />
+            <VehicleInformationPanel vehicle={activeVehicle} />
           </TabsContent>
           <TabsContent value="recomendados">
             <EmptyState

@@ -1,8 +1,10 @@
 # Vehicle management
 
 PitStop stores vehicles per authenticated user. Every vehicle has a brand, model, year, fuel type,
-Argentine plate, mileage, and optional nickname. Plates are normalized to uppercase without spaces
-and must use either the `AAA000` or `AA000AA` format. A user cannot register the same plate twice.
+Argentine plate, mileage, and optional nickname. It can also store an optional technical sheet with
+engine and gearbox oil, transmission type, front and rear tire details, and bulb references. Plates
+are normalized to uppercase without spaces and must use either the `AAA000` or `AA000AA` format. A
+user cannot register the same plate twice.
 
 The authenticated vehicle API exposes:
 
@@ -16,7 +18,9 @@ The authenticated vehicle API exposes:
   vehicle must belong to the authenticated user or the API returns 404.
 
 Request bodies are validated by Nest's global `ValidationPipe`. Years must be between 1900 and the
-current year plus one, and mileage must fit PostgreSQL's non-negative integer range.
+current year plus one, and mileage and tire pressure must fit PostgreSQL's non-negative integer
+range. Oil quantities accept up to two decimal places between 0 and 99.99 liters. Empty technical
+fields are stored as `null`; decimal quantities are serialized as JSON numbers.
 
 The Garage route uses TanStack Query for vehicle and current-user state. It shows an empty state for
 accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
@@ -24,8 +28,15 @@ mutations invalidate the affected query caches before the form closes. The mobil
 sidebar expose the same active-vehicle picker; the selection is stored in the account and Garage falls
 back to the first vehicle if no valid active vehicle is saved.
 
+The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
+Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a
+stale value.
+
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
 odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
-Información has real content today (a read-only identification grid); the other tabs show a
-"coming soon" empty state. The active tab is kept in the `tab` URL search param (`/garage?tab=...`,
-defaulting to `info`) so it survives a page reload.
+Información has real content today: five read-only cards for identification, lubricants,
+transmission, tires, and lights. All technical fields remain visible when empty and display
+`A definir`; paired values fall back independently and only completed measurements receive units.
+The cards stack on smaller screens and use a two-column layout from 1280 px, with identification
+spanning both columns. The other tabs show a "coming soon" empty state. The active tab is kept in
+the `tab` URL search param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.

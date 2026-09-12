@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -10,8 +11,8 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { FuelType } from '../../../generated/prisma/client';
-import { MAX_VEHICLE_MILEAGE, PLATE_PATTERN } from './create-vehicle.dto';
+import { FuelType, TransmissionType } from '../../../generated/prisma/client';
+import { MAX_OIL_LITERS, MAX_VEHICLE_MILEAGE, PLATE_PATTERN } from './create-vehicle.dto';
 import { normalizeVehiclePlate } from '../vehicle-normalization';
 
 const MAX_VEHICLE_YEAR = new Date().getFullYear() + 1;
@@ -69,4 +70,67 @@ export class UpdateVehicleDto {
   @IsOptional()
   @IsString()
   nickname?: string | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  engineOilType?: string | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_OIL_LITERS)
+  engineOilLiters?: number | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  gearboxOilType?: string | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(MAX_OIL_LITERS)
+  gearboxOilLiters?: number | null;
+
+  @IsOptional()
+  @IsEnum(TransmissionType)
+  transmission?: TransmissionType | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  frontTireSize?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_VEHICLE_MILEAGE)
+  frontTirePressurePsi?: number | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  rearTireSize?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_VEHICLE_MILEAGE)
+  rearTirePressurePsi?: number | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  highBeam?: string | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  lowBeam?: string | null;
+
+  @Transform(({ value }) => trim(value))
+  @IsOptional()
+  @IsString()
+  fogLight?: string | null;
 }
