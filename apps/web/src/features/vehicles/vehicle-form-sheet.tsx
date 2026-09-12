@@ -5,7 +5,13 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
@@ -177,17 +183,23 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
 
             <FormField error={errors.fuel} id="vehicle-fuel" label="Combustible">
               <Select
-                aria-describedby={errors.fuel ? 'vehicle-fuel-error' : undefined}
-                aria-invalid={Boolean(errors.fuel)}
-                id="vehicle-fuel"
                 value={values.fuel}
-                onChange={(event) => updateField('fuel', event.target.value as FuelType)}
+                onValueChange={(value) => updateField('fuel', value as FuelType)}
               >
-                {FUEL_TYPES.map((fuel) => (
-                  <option key={fuel} value={fuel}>
-                    {FUEL_LABELS[fuel]}
-                  </option>
-                ))}
+                <SelectTrigger
+                  aria-describedby={errors.fuel ? 'vehicle-fuel-error' : undefined}
+                  aria-invalid={Boolean(errors.fuel)}
+                  id="vehicle-fuel"
+                >
+                  <SelectValue>{(value: FuelType) => FUEL_LABELS[value]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {FUEL_TYPES.map((fuel) => (
+                    <SelectItem key={fuel} value={fuel}>
+                      {FUEL_LABELS[fuel]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </FormField>
 
