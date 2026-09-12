@@ -52,6 +52,7 @@ const colors: TextColor[] = [
   'danger',
 ];
 const iconSizes = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
+const FUEL_DEMO_LABELS: Record<string, string> = { nafta: 'Nafta', diesel: 'Diésel' };
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -123,11 +124,17 @@ function UiGallery() {
               <Input disabled placeholder="Campo deshabilitado" />
               <Select defaultValue="nafta">
                 <SelectTrigger aria-label="Tipo de combustible">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string) => <Text variant="label">{FUEL_DEMO_LABELS[value]}</Text>}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nafta">Nafta</SelectItem>
-                  <SelectItem value="diesel">Diésel</SelectItem>
+                  <SelectItem value="nafta">
+                    <Text variant="label">Nafta</Text>
+                  </SelectItem>
+                  <SelectItem value="diesel">
+                    <Text variant="label">Diésel</Text>
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <label className="flex items-center gap-3">

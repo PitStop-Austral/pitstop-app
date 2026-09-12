@@ -191,12 +191,14 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
                   aria-invalid={Boolean(errors.fuel)}
                   id="vehicle-fuel"
                 >
-                  <SelectValue>{(value: FuelType) => FUEL_LABELS[value]}</SelectValue>
+                  <SelectValue>
+                    {(value: FuelType) => <Text variant="label">{FUEL_LABELS[value]}</Text>}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {FUEL_TYPES.map((fuel) => (
                     <SelectItem key={fuel} value={fuel}>
-                      {FUEL_LABELS[fuel]}
+                      <Text variant="label">{FUEL_LABELS[fuel]}</Text>
                     </SelectItem>
                   ))}
                 </SelectContent>
