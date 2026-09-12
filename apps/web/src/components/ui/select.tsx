@@ -1,5 +1,6 @@
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 
+import { useDialogContainer } from '@/components/ui/dialog-container-context';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 
@@ -39,12 +40,15 @@ export function SelectContent({
   className,
   ...props
 }: SelectContentProps) {
+  const dialogContainer = useDialogContainer();
+
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={dialogContainer}>
       <SelectPrimitive.Positioner
         align={align}
         alignItemWithTrigger={false}
         className="isolate z-50 outline-none"
+        positionMethod={dialogContainer ? 'fixed' : undefined}
         sideOffset={sideOffset}
       >
         <SelectPrimitive.Popup
