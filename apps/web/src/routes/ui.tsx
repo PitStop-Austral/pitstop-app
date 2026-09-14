@@ -12,7 +12,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog } from '@/components/ui/dialog';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text, type TextColor, type TextVariant } from '@/components/ui/text';
@@ -46,6 +52,7 @@ const colors: TextColor[] = [
   'danger',
 ];
 const iconSizes = ['xs', 'sm', 'md', 'lg', 'xl'] as const;
+const FUEL_DEMO_LABELS: Record<string, string> = { nafta: 'Nafta', diesel: 'Diésel' };
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -115,9 +122,20 @@ function UiGallery() {
               <Text variant="label">Campos</Text>
               <Input placeholder="Patente del vehículo" />
               <Input disabled placeholder="Campo deshabilitado" />
-              <Select aria-label="Tipo de combustible" defaultValue="nafta">
-                <option value="nafta">Nafta</option>
-                <option value="diesel">Diésel</option>
+              <Select defaultValue="nafta">
+                <SelectTrigger aria-label="Tipo de combustible">
+                  <SelectValue>
+                    {(value: string) => <Text variant="label">{FUEL_DEMO_LABELS[value]}</Text>}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nafta">
+                    <Text variant="label">Nafta</Text>
+                  </SelectItem>
+                  <SelectItem value="diesel">
+                    <Text variant="label">Diésel</Text>
+                  </SelectItem>
+                </SelectContent>
               </Select>
               <label className="flex items-center gap-3">
                 <Checkbox

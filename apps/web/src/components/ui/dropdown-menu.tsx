@@ -1,5 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 
+import { useDialogContainer } from '@/components/ui/dialog-container-context';
 import { cn } from '@/lib/utils';
 
 export function DropdownMenu(props: MenuPrimitive.Root.Props) {
@@ -19,11 +20,14 @@ export function DropdownMenuContent({
   className,
   ...props
 }: DropdownMenuContentProps) {
+  const dialogContainer = useDialogContainer();
+
   return (
-    <MenuPrimitive.Portal>
+    <MenuPrimitive.Portal container={dialogContainer}>
       <MenuPrimitive.Positioner
         align={align}
         className="isolate z-50 outline-none"
+        positionMethod={dialogContainer ? 'fixed' : undefined}
         sideOffset={sideOffset}
       >
         <MenuPrimitive.Popup
