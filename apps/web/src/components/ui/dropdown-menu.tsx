@@ -42,7 +42,7 @@ export function DropdownMenuItem({ className, ...props }: MenuPrimitive.Item.Pro
   return (
     <MenuPrimitive.Item
       className={cn(
-        'flex min-h-10 cursor-default items-center gap-3 rounded-[10px] px-3 outline-none select-none focus:bg-neutral-100 data-disabled:pointer-events-none data-disabled:opacity-50',
+        'flex min-h-10 items-center gap-3 rounded-[10px] px-3 outline-none select-none focus:bg-neutral-100 data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}
       {...props}
