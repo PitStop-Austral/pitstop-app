@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
@@ -40,20 +41,29 @@ export function TabsList({ children, className }: { children: ReactNode; classNa
     </div>
   );
 }
-export function TabsTrigger({ value, children }: { value: string; children: ReactNode }) {
+export function TabsTrigger({
+  value,
+  icon,
+  children,
+}: {
+  value: string;
+  icon?: ComponentProps<typeof Icon>['name'];
+  children: ReactNode;
+}) {
   const tabs = useTabs();
   const active = tabs.value === value;
   return (
     <button
       aria-selected={active}
       className={cn(
-        'shrink-0 border-b-2 px-1 pb-3',
+        'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-1 pb-3',
         active ? 'border-primary' : 'border-transparent',
       )}
       role="tab"
       type="button"
       onClick={() => tabs.setValue(value)}
     >
+      {icon && <Icon color={active ? 'default' : 'muted'} name={icon} size="sm" />}
       <Text color={active ? 'default' : 'muted'} variant="label">
         {children}
       </Text>
