@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { IdentificationPanel } from '@/components/garage/identification-panel';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
+import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -199,11 +199,5 @@ function GaragePage() {
         onOpenChange={setDeleteOpen}
       />
     </PageContainer>
-  );
-}
-
-function PageContainer({ children }: { children: ReactNode }) {
-  return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-10">{children}</section>
   );
 }
