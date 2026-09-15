@@ -146,7 +146,12 @@ function GaragePage() {
         <Tabs
           value={tab}
           onValueChange={(next) =>
-            navigate({ to: '/garage', search: { tab: next as GarageTab }, replace: true })
+            navigate({
+              to: '/garage',
+              search: { tab: next as GarageTab },
+              replace: true,
+              resetScroll: false,
+            })
           }
         >
           <TabsList className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 bg-background/92 backdrop-blur-xl lg:top-0">
