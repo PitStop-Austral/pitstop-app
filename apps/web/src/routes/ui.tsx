@@ -197,7 +197,9 @@ function UiGallery() {
           </div>
           <Tabs defaultValue="historial">
             <TabsList>
-              <TabsTrigger value="historial">Historial</TabsTrigger>
+              <TabsTrigger icon="History" value="historial">
+                Historial
+              </TabsTrigger>
               <TabsTrigger value="proximos">Próximos</TabsTrigger>
             </TabsList>
             <TabsContent value="historial">

@@ -25,7 +25,7 @@ sidebar expose the same active-vehicle picker; the selection is stored in the ac
 back to the first vehicle if no valid active vehicle is saved.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
-odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
+odometer) alongside a tabbed detail panel — Información, Recomendados, and Deseos. Only
 Información has real content today (a read-only identification grid); the other tabs show a
 "coming soon" empty state. The active tab is kept in the `tab` URL search param (`/garage?tab=...`,
 defaulting to `info`) so it survives a page reload.
