@@ -82,6 +82,20 @@ export class VehiclesRepository {
     });
   }
 
+  async updateMileageIfNotDecreased(
+    id: string,
+    ownerId: string,
+    mileage: number,
+  ): Promise<VehicleView | null> {
+    const [vehicle] = await this.prisma.vehicle.updateManyAndReturn({
+      where: { id, ownerId, mileage: { lte: mileage } },
+      data: { mileage },
+      select: vehicleSelect,
+    });
+
+    return vehicle ?? null;
+  }
+
   async deleteAndReassignActive(ownerId: string, vehicleId: string): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT 1 FROM "User" WHERE id = ${ownerId} FOR UPDATE`;

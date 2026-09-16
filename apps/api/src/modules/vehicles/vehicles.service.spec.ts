@@ -11,6 +11,9 @@ describe('VehiclesService', () => {
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let createAndSetActive: jest.MockedFunction<VehiclesRepository['createAndSetActive']>;
   let update: jest.MockedFunction<VehiclesRepository['update']>;
+  let updateMileageIfNotDecreased: jest.MockedFunction<
+    VehiclesRepository['updateMileageIfNotDecreased']
+  >;
   let deleteAndReassignActive: jest.MockedFunction<VehiclesRepository['deleteAndReassignActive']>;
 
   const vehicle: VehicleView = {
@@ -41,6 +44,7 @@ describe('VehiclesService', () => {
     findOwnedById = jest.fn();
     createAndSetActive = jest.fn();
     update = jest.fn();
+    updateMileageIfNotDecreased = jest.fn();
     deleteAndReassignActive = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,6 +57,7 @@ describe('VehiclesService', () => {
             findOwnedById,
             createAndSetActive,
             update,
+            updateMileageIfNotDecreased,
             deleteAndReassignActive,
           },
         },
@@ -123,31 +128,40 @@ describe('VehiclesService', () => {
   });
 
   it.each([48001, 48000])('updates an owned mileage of %i or greater', async (mileage) => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
-    update.mockResolvedValue({ ...vehicle, mileage });
+    updateMileageIfNotDecreased.mockResolvedValue({ ...vehicle, mileage });
 
     await expect(service.updateMileage('user-1', vehicle.id, mileage)).resolves.toEqual({
       ...vehicle,
       mileage,
     });
-    expect(update).toHaveBeenCalledWith(vehicle.id, { mileage });
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith(vehicle.id, 'user-1', mileage);
   });
 
   it('rejects a mileage lower than the saved value', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
     findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
 
     await expect(service.updateMileage('user-1', vehicle.id, 47999)).rejects.toThrow(
       'No puede ser menor a 48.000 km',
     );
-    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale concurrent mileage update', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: 50000 });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 49000)).rejects.toThrow(
+      'No puede ser menor a 50.000 km',
+    );
   });
 
   it('returns not found when updating another user vehicle mileage', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
     findOwnedById.mockResolvedValue(null);
 
     await expect(service.updateMileage('user-1', 'vehicle-2', 48001)).rejects.toThrow(
       NotFoundException,
     );
-    expect(update).not.toHaveBeenCalled();
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith('vehicle-2', 'user-1', 48001);
   });
 });

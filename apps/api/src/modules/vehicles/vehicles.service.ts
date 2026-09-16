@@ -58,18 +58,21 @@ export class VehiclesService {
   }
 
   async updateMileage(ownerId: string, id: string, mileage: number): Promise<VehicleView> {
+    const updatedVehicle = await this.vehiclesRepository.updateMileageIfNotDecreased(
+      id,
+      ownerId,
+      mileage,
+    );
+    if (updatedVehicle) return updatedVehicle;
+
     const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
     if (!ownedVehicle) {
       throw new NotFoundException('Vehículo no encontrado');
     }
 
-    if (mileage < ownedVehicle.mileage) {
-      throw new BadRequestException(
-        `No puede ser menor a ${ownedVehicle.mileage.toLocaleString('es-AR')} km`,
-      );
-    }
-
-    return this.vehiclesRepository.update(id, { mileage });
+    throw new BadRequestException(
+      `No puede ser menor a ${ownedVehicle.mileage.toLocaleString('es-AR')} km`,
+    );
   }
 
   async remove(ownerId: string, id: string): Promise<void> {
