@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
-import { IdentificationPanel } from '@/components/garage/identification-panel';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
+import { VehicleInformationPanel } from '@/components/garage/vehicle-information-panel';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import {
@@ -167,7 +167,7 @@ function GaragePage() {
           </TabsList>
 
           <TabsContent value="info">
-            <IdentificationPanel vehicle={activeVehicle} />
+            <VehicleInformationPanel vehicle={activeVehicle} />
           </TabsContent>
           <TabsContent value="recomendados">
             <EmptyState

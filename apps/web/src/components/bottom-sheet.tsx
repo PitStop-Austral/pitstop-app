@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { DialogContainerProvider } from '@/components/ui/dialog-container-context';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 
 type BottomSheetProps = {
   open: boolean;
@@ -14,6 +15,7 @@ type BottomSheetProps = {
   children: ReactNode;
   footer?: ReactNode;
   dismissible?: boolean;
+  className?: string;
 };
 
 export function BottomSheet({
@@ -24,8 +26,10 @@ export function BottomSheet({
   children,
   footer,
   dismissible = true,
+  className,
 }: BottomSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -37,8 +41,11 @@ export function BottomSheet({
   return (
     <DialogContainerProvider value={dialogRef}>
       <dialog
-        aria-labelledby="bottom-sheet-title"
-        className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
+        aria-labelledby={titleId}
+        className={cn(
+          'mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in',
+          className,
+        )}
         onCancel={(event) => {
           if (!dismissible) {
             event.preventDefault();
@@ -56,7 +63,7 @@ export function BottomSheet({
           <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
           <div className="flex items-start gap-4 px-6 pt-5 pb-4">
             <div className="flex-1">
-              <Text as="h2" id="bottom-sheet-title" variant="heading">
+              <Text as="h2" id={titleId} variant="heading">
                 {title}
               </Text>
               {description ? (

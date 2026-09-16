@@ -1,10 +1,11 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { Icon } from '@/components/ui/icon';
+import type { IconName } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 
 type EmptyStateProps = {
-  icon: ComponentProps<typeof Icon>['name'];
+  icon: IconName;
   title: string;
   description: string;
   action?: ReactNode;
