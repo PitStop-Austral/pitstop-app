@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { formatNumber } from '@/lib/format';
 import { FUEL_TYPES } from './types.ts';
 import type { VehicleUpdateInput } from './types.ts';
 
@@ -60,6 +61,21 @@ export function getVehicleEditFormSchema(existingPlate: string) {
     : undefined;
 
   return vehicleFormSchema.extend({ plate: createPlateSchema(allowedLegacyPlate) });
+}
+
+export function getMileageUpdateSchema(currentMileage: number) {
+  return z.object({
+    mileage: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, 'Ingresá un kilometraje válido')
+      .transform(Number)
+      .refine((mileage) => mileage <= MAX_VEHICLE_MILEAGE, 'Ingresá un kilometraje válido')
+      .refine(
+        (mileage) => mileage >= currentMileage,
+        `No puede ser menor a ${formatNumber(currentMileage)} km`,
+      ),
+  });
 }
 
 export function getVehicleUpdateInput(

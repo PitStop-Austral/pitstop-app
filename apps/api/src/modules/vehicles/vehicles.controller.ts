@@ -12,6 +12,7 @@ import {
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateMileageDto } from './dto/update-mileage.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehiclesService } from './vehicles.service';
 import type { VehicleView } from './vehicles.repository';
@@ -28,6 +29,15 @@ export class VehiclesController {
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreateVehicleDto): Promise<VehicleView> {
     return this.vehiclesService.create(user.id, dto);
+  }
+
+  @Patch(':id/mileage')
+  updateMileage(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMileageDto,
+  ): Promise<VehicleView> {
+    return this.vehiclesService.updateMileage(user.id, id, dto.mileage);
   }
 
   @Patch(':id')

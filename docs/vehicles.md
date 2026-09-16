@@ -9,6 +9,9 @@ The authenticated vehicle API exposes:
 - `GET /vehicles` to list the current user's vehicles in creation order.
 - `POST /vehicles` to create a vehicle and make it the user's active vehicle in one transaction.
 - `PATCH /vehicles/:id` to update an owned vehicle. Requests for another user's vehicle return 404.
+- `PATCH /vehicles/:id/mileage` with `{ "mileage": number }` to update only an owned vehicle's
+  mileage. The value cannot be lower than the saved mileage; lower values return 400 and equal
+  values are allowed.
 - `DELETE /vehicles/:id` to permanently delete an owned vehicle. If it was active, the oldest
   remaining vehicle becomes active; if none remain, the active vehicle is set to `null`. The delete
   and reassignment run in one transaction, and requests for another user's vehicle return 404.
@@ -28,4 +31,6 @@ For the active vehicle, Garage renders a hero card (photo placeholder, name, sta
 odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
 Información has real content today (a read-only identification grid); the other tabs show a
 "coming soon" empty state. The active tab is kept in the `tab` URL search param (`/garage?tab=...`,
-defaulting to `info`) so it survives a page reload.
+defaulting to `info`) so it survives a page reload. The odometer offers an "Actualizar km" action
+that opens a prefilled mileage form; successful updates refresh the displayed vehicle without a page
+reload.

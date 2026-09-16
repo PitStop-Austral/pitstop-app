@@ -99,7 +99,7 @@ describe('VehiclesService', () => {
   });
 
   it('updates only the supplied fields and normalizes the plate', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
     update.mockResolvedValue(vehicle);
 
     await expect(
@@ -109,7 +109,7 @@ describe('VehiclesService', () => {
   });
 
   it('deletes an owned vehicle through the atomic repository operation', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
 
     await expect(service.remove('user-1', vehicle.id)).resolves.toBeUndefined();
     expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
@@ -120,5 +120,34 @@ describe('VehiclesService', () => {
 
     await expect(service.remove('user-1', 'vehicle-2')).rejects.toThrow(NotFoundException);
     expect(deleteAndReassignActive).not.toHaveBeenCalled();
+  });
+
+  it.each([48001, 48000])('updates an owned mileage of %i or greater', async (mileage) => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    update.mockResolvedValue({ ...vehicle, mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, mileage)).resolves.toEqual({
+      ...vehicle,
+      mileage,
+    });
+    expect(update).toHaveBeenCalledWith(vehicle.id, { mileage });
+  });
+
+  it('rejects a mileage lower than the saved value', async () => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 47999)).rejects.toThrow(
+      'No puede ser menor a 48.000 km',
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('returns not found when updating another user vehicle mileage', async () => {
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(service.updateMileage('user-1', 'vehicle-2', 48001)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(update).not.toHaveBeenCalled();
   });
 });

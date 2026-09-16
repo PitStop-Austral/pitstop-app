@@ -41,10 +41,13 @@ export class VehiclesRepository {
     });
   }
 
-  async findOwnedById(id: string, ownerId: string): Promise<{ id: string } | null> {
+  async findOwnedById(
+    id: string,
+    ownerId: string,
+  ): Promise<{ id: string; mileage: number } | null> {
     return this.prisma.vehicle.findFirst({
       where: { id, ownerId },
-      select: { id: true },
+      select: { id: true, mileage: true },
     });
   }
 

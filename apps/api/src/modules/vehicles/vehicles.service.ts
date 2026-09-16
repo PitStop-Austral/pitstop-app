@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import {
@@ -50,6 +55,21 @@ export class VehiclesService {
       this.throwIfDuplicatePlate(error);
       throw error;
     }
+  }
+
+  async updateMileage(ownerId: string, id: string, mileage: number): Promise<VehicleView> {
+    const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
+    if (!ownedVehicle) {
+      throw new NotFoundException('Vehículo no encontrado');
+    }
+
+    if (mileage < ownedVehicle.mileage) {
+      throw new BadRequestException(
+        `No puede ser menor a ${ownedVehicle.mileage.toLocaleString('es-AR')} km`,
+      );
+    }
+
+    return this.vehiclesRepository.update(id, { mileage });
   }
 
   async remove(ownerId: string, id: string): Promise<void> {

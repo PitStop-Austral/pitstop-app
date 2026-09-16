@@ -8,6 +8,7 @@ describe('VehiclesRepository', () => {
   let transaction: jest.Mock;
   let create: jest.Mock;
   let deleteVehicle: jest.Mock;
+  let findOwnedVehicle: jest.Mock;
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
   let lockOwner: jest.Mock;
@@ -29,6 +30,7 @@ describe('VehiclesRepository', () => {
   beforeEach(async () => {
     create = jest.fn().mockResolvedValue(vehicle);
     deleteVehicle = jest.fn();
+    findOwnedVehicle = jest.fn();
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
     lockOwner = jest.fn();
@@ -46,7 +48,11 @@ describe('VehiclesRepository', () => {
         VehiclesRepository,
         {
           provide: PrismaService,
-          useValue: { $transaction: transaction, user: { update: updateUser } },
+          useValue: {
+            $transaction: transaction,
+            user: { update: updateUser },
+            vehicle: { findFirst: findOwnedVehicle },
+          },
         },
       ],
     }).compile();
@@ -86,6 +92,19 @@ describe('VehiclesRepository', () => {
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { activeVehicleId: vehicle.id },
+    });
+  });
+
+  it('finds an owned vehicle with its current mileage', async () => {
+    findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+    await expect(repository.findOwnedById(vehicle.id, 'user-1')).resolves.toEqual({
+      id: vehicle.id,
+      mileage: vehicle.mileage,
+    });
+    expect(findOwnedVehicle).toHaveBeenCalledWith({
+      where: { id: vehicle.id, ownerId: 'user-1' },
+      select: { id: true, mileage: true },
     });
   });
 

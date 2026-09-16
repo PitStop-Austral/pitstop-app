@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
 import { useActiveVehicle } from '@/features/vehicles/queries';
+import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
 const GARAGE_TABS = ['info', 'recomendados', 'historial', 'deseos'] as const;
@@ -33,6 +34,7 @@ export const Route = createFileRoute('/_app/garage')({
 function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [mileageOpen, setMileageOpen] = useState(false);
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
@@ -141,7 +143,7 @@ function GaragePage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
-        <VehicleHeroCard vehicle={activeVehicle} />
+        <VehicleHeroCard vehicle={activeVehicle} onUpdateMileage={() => setMileageOpen(true)} />
 
         <Tabs
           value={tab}
@@ -198,6 +200,9 @@ function GaragePage() {
         vehicle={activeVehicle}
         onOpenChange={setDeleteOpen}
       />
+      {mileageOpen ? (
+        <UpdateMileageSheet open vehicle={activeVehicle} onOpenChange={setMileageOpen} />
+      ) : null}
     </PageContainer>
   );
 }
