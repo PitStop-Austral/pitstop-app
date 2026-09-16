@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
 import { VehicleInformationPanel } from '@/components/garage/vehicle-information-panel';
+import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-co
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
-const GARAGE_TABS = ['info', 'recomendados', 'historial', 'deseos'] as const;
+const GARAGE_TABS = ['info', 'recomendados', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
 type GarageSearch = { tab: GarageTab };
 
@@ -146,14 +146,24 @@ function GaragePage() {
         <Tabs
           value={tab}
           onValueChange={(next) =>
-            navigate({ to: '/garage', search: { tab: next as GarageTab }, replace: true })
+            navigate({
+              to: '/garage',
+              search: { tab: next as GarageTab },
+              replace: true,
+              resetScroll: false,
+            })
           }
         >
           <TabsList className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 bg-background/92 backdrop-blur-xl lg:top-0">
-            <TabsTrigger value="info">Información</TabsTrigger>
-            <TabsTrigger value="recomendados">Recomendados</TabsTrigger>
-            <TabsTrigger value="historial">Historial</TabsTrigger>
-            <TabsTrigger value="deseos">Deseos</TabsTrigger>
+            <TabsTrigger icon="Info" value="info">
+              Información
+            </TabsTrigger>
+            <TabsTrigger icon="ThumbsUp" value="recomendados">
+              Recomendados
+            </TabsTrigger>
+            <TabsTrigger icon="Heart" value="deseos">
+              Deseos
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="info">
@@ -164,13 +174,6 @@ function GaragePage() {
               description="Pronto vamos a sugerirte mantenimientos según el kilometraje y la antigüedad de tu vehículo."
               icon="Sparkles"
               title="Todavía no tenemos recomendaciones"
-            />
-          </TabsContent>
-          <TabsContent value="historial">
-            <EmptyState
-              description="Acá vas a ver los mantenimientos que le registraste a tu vehículo."
-              icon="History"
-              title="Todavía no armamos esto"
             />
           </TabsContent>
           <TabsContent value="deseos">
@@ -199,11 +202,5 @@ function GaragePage() {
         onOpenChange={setDeleteOpen}
       />
     </PageContainer>
-  );
-}
-
-function PageContainer({ children }: { children: ReactNode }) {
-  return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-10 lg:py-10">{children}</section>
   );
 }

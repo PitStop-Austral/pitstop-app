@@ -5,7 +5,13 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
@@ -194,17 +200,25 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
 
             <FormField error={errors.fuel} id="vehicle-fuel" label="Combustible">
               <Select
-                aria-describedby={errors.fuel ? 'vehicle-fuel-error' : undefined}
-                aria-invalid={Boolean(errors.fuel)}
-                id="vehicle-fuel"
                 value={values.fuel}
-                onChange={(event) => updateField('fuel', event.target.value as FuelType)}
+                onValueChange={(value) => updateField('fuel', value as FuelType)}
               >
-                {FUEL_TYPES.map((fuel) => (
-                  <option key={fuel} value={fuel}>
-                    {FUEL_LABELS[fuel]}
-                  </option>
-                ))}
+                <SelectTrigger
+                  aria-describedby={errors.fuel ? 'vehicle-fuel-error' : undefined}
+                  aria-invalid={Boolean(errors.fuel)}
+                  id="vehicle-fuel"
+                >
+                  <SelectValue>
+                    {(value: FuelType) => <Text variant="label">{FUEL_LABELS[value]}</Text>}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {FUEL_TYPES.map((fuel) => (
+                    <SelectItem key={fuel} value={fuel}>
+                      <Text variant="label">{FUEL_LABELS[fuel]}</Text>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </FormField>
 
@@ -345,20 +359,34 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
         <FormSection iconSrc={VEHICLE_SECTION_ICONS.transmission} title="Transmisión">
           <FormField error={errors.transmission} id="vehicle-transmission" label="Tipo">
             <Select
-              aria-describedby={errors.transmission ? 'vehicle-transmission-error' : undefined}
-              aria-invalid={Boolean(errors.transmission)}
-              id="vehicle-transmission"
-              value={values.transmission}
-              onChange={(event) =>
-                updateField('transmission', event.target.value as TransmissionType | '')
-              }
+              value={values.transmission || null}
+              onValueChange={(value) => updateField('transmission', value ?? '')}
             >
-              <option value="">Seleccioná una opción</option>
-              {TRANSMISSION_TYPES.map((transmission) => (
-                <option key={transmission} value={transmission}>
-                  {TRANSMISSION_LABELS[transmission]}
-                </option>
-              ))}
+              <SelectTrigger
+                aria-describedby={errors.transmission ? 'vehicle-transmission-error' : undefined}
+                aria-invalid={Boolean(errors.transmission)}
+                id="vehicle-transmission"
+              >
+                <SelectValue>
+                  {(value: TransmissionType | null) => (
+                    <Text color={value ? 'default' : 'muted'} variant="label">
+                      {value ? TRANSMISSION_LABELS[value] : 'Seleccioná una opción'}
+                    </Text>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={null}>
+                  <Text color="muted" variant="label">
+                    Seleccioná una opción
+                  </Text>
+                </SelectItem>
+                {TRANSMISSION_TYPES.map((transmission) => (
+                  <SelectItem key={transmission} value={transmission}>
+                    <Text variant="label">{TRANSMISSION_LABELS[transmission]}</Text>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </FormField>
         </FormSection>

@@ -33,7 +33,7 @@ Tires, and Lights. Clearing a previously completed field sends `null`, so editin
 stale value.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
-odometer) alongside a tabbed detail panel — Información, Recomendados, Historial, and Deseos. Only
+odometer) alongside a tabbed detail panel — Información, Recomendados, and Deseos. Only
 Información has real content today: five read-only cards for identification, lubricants,
 transmission, tires, and lights. All technical fields remain visible when empty and display
 `A definir`; paired values fall back independently and only completed measurements receive units.

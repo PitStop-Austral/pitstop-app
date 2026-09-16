@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { DialogContainerProvider } from '@/components/ui/dialog-container-context';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -38,55 +39,57 @@ export function BottomSheet({
   }, [open]);
 
   return (
-    <dialog
-      aria-labelledby={titleId}
-      className={cn(
-        'mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in',
-        className,
-      )}
-      onCancel={(event) => {
-        if (!dismissible) {
-          event.preventDefault();
-          return;
-        }
-        onOpenChange(false);
-      }}
-      onClick={(event) => {
-        if (dismissible && event.target === event.currentTarget) onOpenChange(false);
-      }}
-      onClose={() => onOpenChange(false)}
-      ref={dialogRef}
-    >
-      <div className="flex max-h-[92dvh] flex-col">
-        <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
-        <div className="flex items-start gap-4 px-6 pt-5 pb-4">
-          <div className="flex-1">
-            <Text as="h2" id={titleId} variant="heading">
-              {title}
-            </Text>
-            {description ? (
-              <Text className="mt-1" color="muted" variant="body">
-                {description}
+    <DialogContainerProvider value={dialogRef}>
+      <dialog
+        aria-labelledby={titleId}
+        className={cn(
+          'mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in',
+          className,
+        )}
+        onCancel={(event) => {
+          if (!dismissible) {
+            event.preventDefault();
+            return;
+          }
+          onOpenChange(false);
+        }}
+        onClick={(event) => {
+          if (dismissible && event.target === event.currentTarget) onOpenChange(false);
+        }}
+        onClose={() => onOpenChange(false)}
+        ref={dialogRef}
+      >
+        <div className="flex max-h-[92dvh] flex-col">
+          <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
+          <div className="flex items-start gap-4 px-6 pt-5 pb-4">
+            <div className="flex-1">
+              <Text as="h2" id={titleId} variant="heading">
+                {title}
               </Text>
-            ) : null}
+              {description ? (
+                <Text className="mt-1" color="muted" variant="body">
+                  {description}
+                </Text>
+              ) : null}
+            </div>
+            <Button
+              aria-label="Cerrar"
+              disabled={!dismissible}
+              size="icon"
+              variant="icon"
+              onClick={() => onOpenChange(false)}
+            >
+              <Icon color="muted" name="X" size="sm" />
+            </Button>
           </div>
-          <Button
-            aria-label="Cerrar"
-            disabled={!dismissible}
-            size="icon"
-            variant="icon"
-            onClick={() => onOpenChange(false)}
-          >
-            <Icon color="muted" name="X" size="sm" />
-          </Button>
+          <div className="no-scrollbar overflow-y-auto px-6 pb-6">{children}</div>
+          {footer ? (
+            <div className="border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+              {footer}
+            </div>
+          ) : null}
         </div>
-        <div className="no-scrollbar overflow-y-auto px-6 pb-6">{children}</div>
-        {footer ? (
-          <div className="border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-            {footer}
-          </div>
-        ) : null}
-      </div>
-    </dialog>
+      </dialog>
+    </DialogContainerProvider>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { DialogContainerProvider } from '@/components/ui/dialog-container-context';
+
 type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,13 +18,15 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     if (dialog && !open && dialog.open) dialog.close();
   }, [open]);
   return (
-    <dialog
-      className={className}
-      onCancel={() => onOpenChange(false)}
-      onClose={() => onOpenChange(false)}
-      ref={ref}
-    >
-      {children}
-    </dialog>
+    <DialogContainerProvider value={ref}>
+      <dialog
+        className={className}
+        onCancel={() => onOpenChange(false)}
+        onClose={() => onOpenChange(false)}
+        ref={ref}
+      >
+        {children}
+      </dialog>
+    </DialogContainerProvider>
   );
 }
