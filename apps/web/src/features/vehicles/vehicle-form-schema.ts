@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { formatNumber } from '@/lib/format';
 import { FUEL_TYPES } from './types.ts';
 import type { VehicleUpdateInput } from './types.ts';
 
@@ -73,7 +72,7 @@ export function getMileageUpdateSchema(currentMileage: number) {
       .refine((mileage) => mileage <= MAX_VEHICLE_MILEAGE, 'Ingresá un kilometraje válido')
       .refine(
         (mileage) => mileage >= currentMileage,
-        `No puede ser menor a ${formatNumber(currentMileage)} km`,
+        `No puede ser menor a ${currentMileage.toLocaleString('es-AR')} km`,
       ),
   });
 }
