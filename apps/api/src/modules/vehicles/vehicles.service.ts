@@ -73,13 +73,13 @@ export class VehiclesService {
     }
   }
 
-  async updateMileage(ownerId: string, id: string, mileage: number): Promise<VehicleView> {
+  async updateMileage(ownerId: string, id: string, mileage: number): Promise<VehicleResponse> {
     const updatedVehicle = await this.vehiclesRepository.updateMileageIfNotDecreased(
       id,
       ownerId,
       mileage,
     );
-    if (updatedVehicle) return updatedVehicle;
+    if (updatedVehicle) return toVehicleResponse(updatedVehicle);
 
     const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
     if (!ownedVehicle) {

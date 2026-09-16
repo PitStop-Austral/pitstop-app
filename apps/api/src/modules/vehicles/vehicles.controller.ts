@@ -36,7 +36,7 @@ export class VehiclesController {
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMileageDto,
-  ): Promise<VehicleView> {
+  ): Promise<VehicleResponse> {
     return this.vehiclesService.updateMileage(user.id, id, dto.mileage);
   }
 

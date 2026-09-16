@@ -219,7 +219,7 @@ describe('VehiclesService', () => {
   });
 
   it('clears supplied technical fields without changing omitted ones', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
     update.mockResolvedValue(vehicle);
 
     await service.update('user-1', vehicle.id, {
