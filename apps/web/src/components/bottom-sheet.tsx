@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { DialogContainerProvider } from '@/components/ui/dialog-container-context';
+import { DialogContainerProvider, useNativeDialog } from '@/components/ui/dialog-container-context';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 
@@ -25,20 +25,27 @@ export function BottomSheet({
   footer,
   dismissible = true,
 }: BottomSheetProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef = useNativeDialog(open);
+  const contentRef = useRef<HTMLDivElement>(null);
 
+  // iOS ignores `overscroll-behavior: contain` on a container that isn't actually overflowing and
+  // hands the drag to the root scroller instead; `touch-action: none` is the documented fallback
+  // for that case. No dep array — the sheet re-renders whenever its content can change.
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    const el = contentRef.current;
+    if (el) el.style.touchAction = el.scrollHeight > el.clientHeight ? '' : 'none';
+  });
 
   return (
     <DialogContainerProvider value={dialogRef}>
+      {/*
+        `touch-none` blocks drags on the sheet's own non-scrolling chrome (header, footer, padding)
+        from panning the root. The intersection walk stops at the first scrolling ancestor, so the
+        content area below re-enables itself without needing an override.
+      */}
       <dialog
         aria-labelledby="bottom-sheet-title"
-        className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
+        className="mx-auto mt-auto mb-0 max-h-[92dvh] w-full max-w-none touch-none overflow-hidden rounded-t-[24px] bg-card p-0 shadow-overlay backdrop:bg-neutral-900/40 open:animate-sheet-in lg:m-auto lg:max-w-lg lg:rounded-[24px] lg:open:animate-overlay-in"
         onCancel={(event) => {
           if (!dismissible) {
             event.preventDefault();
@@ -75,7 +82,12 @@ export function BottomSheet({
               <Icon color="muted" name="X" size="sm" />
             </Button>
           </div>
-          <div className="no-scrollbar overflow-y-auto px-6 pb-6">{children}</div>
+          <div
+            className="no-scrollbar overflow-y-auto overscroll-contain px-6 pb-6"
+            ref={contentRef}
+          >
+            {children}
+          </div>
           {footer ? (
             <div className="border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {footer}

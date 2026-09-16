@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
-import { DialogContainerProvider } from '@/components/ui/dialog-container-context';
+import { DialogContainerProvider, useNativeDialog } from '@/components/ui/dialog-container-context';
+import { cn } from '@/lib/utils';
 
 type DialogProps = {
   open: boolean;
@@ -11,16 +11,11 @@ type DialogProps = {
 };
 
 export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && open && !dialog.open) dialog.showModal();
-    if (dialog && !open && dialog.open) dialog.close();
-  }, [open]);
+  const ref = useNativeDialog(open);
   return (
     <DialogContainerProvider value={ref}>
       <dialog
-        className={className}
+        className={cn('touch-none', className)}
         onCancel={() => onOpenChange(false)}
         onClose={() => onOpenChange(false)}
         ref={ref}

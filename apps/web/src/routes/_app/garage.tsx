@@ -154,7 +154,7 @@ function GaragePage() {
             })
           }
         >
-          <TabsList className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 bg-background/92 backdrop-blur-xl lg:top-0">
+          <TabsList className="sticky top-0 z-10 bg-background/92 backdrop-blur-xl">
             <TabsTrigger icon="Info" value="info">
               Información
             </TabsTrigger>

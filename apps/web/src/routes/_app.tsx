@@ -30,15 +30,18 @@ function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background lg:flex-row">
+    <div className="flex h-app overflow-hidden bg-background">
       <DesktopSidebar />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader />
-        <main className="pb-28 lg:pb-10">
+        <main
+          className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] lg:pb-10"
+          id="app-scroll"
+        >
           <Outlet />
         </main>
+        <BottomNav />
       </div>
-      <BottomNav />
     </div>
   );
 }
