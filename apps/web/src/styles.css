@@ -88,6 +88,30 @@
   }
 }
 
+/**
+ * WebKit resolves `dvh` against stale viewport metrics on a standalone-PWA cold launch and only
+ * corrects it after a real touch. In standalone there is no collapsing toolbar, so `vh` and `dvh`
+ * are the same number once settled — but `vh` is the one that's right from the first paint.
+ * Inside a browser tab the toolbar does collapse, so `dvh` stays correct there.
+ */
+:root {
+  --app-height: 100dvh;
+}
+
+@media all and (display-mode: standalone) {
+  :root {
+    --app-height: 100vh;
+  }
+}
+
+@utility h-app {
+  height: var(--app-height);
+}
+
+@utility min-h-app {
+  min-height: var(--app-height);
+}
+
 @utility safe-top {
   padding-top: env(safe-area-inset-top);
 }
@@ -116,5 +140,6 @@
 
   body {
     @apply bg-background text-foreground font-sans text-sm;
+    touch-action: manipulation;
   }
 }

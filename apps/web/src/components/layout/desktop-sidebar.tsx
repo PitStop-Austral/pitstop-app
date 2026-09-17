@@ -12,7 +12,7 @@ export function DesktopSidebar() {
 
   return (
     <aside
-      className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-border bg-card transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:flex ${collapsed ? 'w-20' : 'w-64'}`}
+      className={`sticky top-0 hidden h-app shrink-0 flex-col border-r border-border bg-card transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] lg:flex ${collapsed ? 'w-20' : 'w-64'}`}
     >
       <button
         aria-expanded={!collapsed}
