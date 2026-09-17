@@ -130,6 +130,14 @@
 }
 
 @layer base {
+  button:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input:is([type='checkbox'], [type='radio']):not(:disabled),
+  [role='menuitem']:not([data-disabled]) {
+    @apply cursor-pointer transition-transform active:scale-95;
+  }
+
   body {
     @apply bg-background text-foreground font-sans text-sm;
     touch-action: manipulation;

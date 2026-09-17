@@ -3,13 +3,14 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import type { IconName } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
 type AuthFieldProps = Omit<ComponentProps<typeof Input>, 'aria-label' | 'id'> & {
   error?: string;
-  icon: ComponentProps<typeof Icon>['name'];
+  icon: IconName;
   id: string;
   label: string;
   trailingAction?: ReactNode;

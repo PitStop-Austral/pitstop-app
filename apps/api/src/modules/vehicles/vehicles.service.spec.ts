@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { FuelType } from '../../generated/prisma/client';
+import { FuelType, Prisma, TransmissionType } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehiclesRepository, VehicleView } from './vehicles.repository';
 import { VehiclesService } from './vehicles.service';
@@ -11,6 +11,9 @@ describe('VehiclesService', () => {
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let createAndSetActive: jest.MockedFunction<VehiclesRepository['createAndSetActive']>;
   let update: jest.MockedFunction<VehiclesRepository['update']>;
+  let updateMileageIfNotDecreased: jest.MockedFunction<
+    VehiclesRepository['updateMileageIfNotDecreased']
+  >;
   let deleteAndReassignActive: jest.MockedFunction<VehiclesRepository['deleteAndReassignActive']>;
 
   const vehicle: VehicleView = {
@@ -22,6 +25,18 @@ describe('VehiclesService', () => {
     plate: 'AF812KM',
     mileage: 48000,
     nickname: null,
+    engineOilType: null,
+    engineOilLiters: null,
+    gearboxOilType: null,
+    gearboxOilLiters: null,
+    transmission: null,
+    frontTireSize: null,
+    frontTirePressurePsi: null,
+    rearTireSize: null,
+    rearTirePressurePsi: null,
+    highBeam: null,
+    lowBeam: null,
+    fogLight: null,
     createdAt: new Date('2026-09-03T00:00:00.000Z'),
     updatedAt: new Date('2026-09-03T00:00:00.000Z'),
   };
@@ -41,6 +56,7 @@ describe('VehiclesService', () => {
     findOwnedById = jest.fn();
     createAndSetActive = jest.fn();
     update = jest.fn();
+    updateMileageIfNotDecreased = jest.fn();
     deleteAndReassignActive = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -53,6 +69,7 @@ describe('VehiclesService', () => {
             findOwnedById,
             createAndSetActive,
             update,
+            updateMileageIfNotDecreased,
             deleteAndReassignActive,
           },
         },
@@ -65,11 +82,104 @@ describe('VehiclesService', () => {
   it('creates the vehicle and delegates active-vehicle assignment atomically', async () => {
     createAndSetActive.mockResolvedValue(vehicle);
 
-    await expect(service.create('user-1', createDto)).resolves.toBe(vehicle);
+    await expect(service.create('user-1', createDto)).resolves.toEqual(vehicle);
     expect(createAndSetActive).toHaveBeenCalledWith('user-1', {
       ...createDto,
       nickname: null,
+      engineOilType: null,
+      engineOilLiters: null,
+      gearboxOilType: null,
+      gearboxOilLiters: null,
+      transmission: null,
+      frontTireSize: null,
+      frontTirePressurePsi: null,
+      rearTireSize: null,
+      rearTirePressurePsi: null,
+      highBeam: null,
+      lowBeam: null,
+      fogLight: null,
     });
+  });
+
+  it('normalizes and returns a complete technical sheet', async () => {
+    const savedVehicle: VehicleView = {
+      ...vehicle,
+      engineOilType: '5W-30 sintético',
+      engineOilLiters: new Prisma.Decimal('4.2'),
+      gearboxOilType: 'ATF DW-1',
+      gearboxOilLiters: new Prisma.Decimal('3.1'),
+      transmission: TransmissionType.MANUAL,
+      frontTireSize: '215/50 R17',
+      frontTirePressurePsi: 32,
+      rearTireSize: '215/50 R17',
+      rearTirePressurePsi: 30,
+      highBeam: 'H11',
+      lowBeam: 'H7',
+      fogLight: 'H8',
+    };
+    createAndSetActive.mockResolvedValue(savedVehicle);
+
+    await expect(
+      service.create('user-1', {
+        ...createDto,
+        engineOilType: ' 5W-30 sintético ',
+        engineOilLiters: 4.2,
+        gearboxOilType: ' ATF DW-1 ',
+        gearboxOilLiters: 3.1,
+        transmission: TransmissionType.MANUAL,
+        frontTireSize: ' 215/50 R17 ',
+        frontTirePressurePsi: 32,
+        rearTireSize: ' 215/50 R17 ',
+        rearTirePressurePsi: 30,
+        highBeam: ' H11 ',
+        lowBeam: ' H7 ',
+        fogLight: ' H8 ',
+      }),
+    ).resolves.toEqual({
+      ...savedVehicle,
+      engineOilLiters: 4.2,
+      gearboxOilLiters: 3.1,
+    });
+    expect(createAndSetActive).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        engineOilType: '5W-30 sintético',
+        gearboxOilType: 'ATF DW-1',
+        frontTireSize: '215/50 R17',
+        rearTireSize: '215/50 R17',
+        highBeam: 'H11',
+        lowBeam: 'H7',
+        fogLight: 'H8',
+      }),
+    );
+  });
+
+  it('stores cleared technical text as null', async () => {
+    createAndSetActive.mockResolvedValue(vehicle);
+
+    await service.create('user-1', {
+      ...createDto,
+      engineOilType: ' ',
+      gearboxOilType: '',
+      frontTireSize: ' ',
+      rearTireSize: '',
+      highBeam: ' ',
+      lowBeam: '',
+      fogLight: ' ',
+    });
+
+    expect(createAndSetActive).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        engineOilType: null,
+        gearboxOilType: null,
+        frontTireSize: null,
+        rearTireSize: null,
+        highBeam: null,
+        lowBeam: null,
+        fogLight: null,
+      }),
+    );
   });
 
   it('normalizes a spaced lowercase plate before creating the vehicle', async () => {
@@ -99,17 +209,38 @@ describe('VehiclesService', () => {
   });
 
   it('updates only the supplied fields and normalizes the plate', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
     update.mockResolvedValue(vehicle);
 
     await expect(
       service.update('user-1', vehicle.id, { plate: ' af 812 km ', nickname: '' }),
-    ).resolves.toBe(vehicle);
+    ).resolves.toEqual(vehicle);
     expect(update).toHaveBeenCalledWith(vehicle.id, { plate: 'AF812KM', nickname: null });
   });
 
+  it('clears supplied technical fields without changing omitted ones', async () => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    update.mockResolvedValue(vehicle);
+
+    await service.update('user-1', vehicle.id, {
+      engineOilType: '',
+      engineOilLiters: null,
+      transmission: null,
+      frontTirePressurePsi: null,
+      fogLight: ' ',
+    });
+
+    expect(update).toHaveBeenCalledWith(vehicle.id, {
+      engineOilType: null,
+      engineOilLiters: null,
+      transmission: null,
+      frontTirePressurePsi: null,
+      fogLight: null,
+    });
+  });
+
   it('deletes an owned vehicle through the atomic repository operation', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
 
     await expect(service.remove('user-1', vehicle.id)).resolves.toBeUndefined();
     expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
@@ -120,5 +251,43 @@ describe('VehiclesService', () => {
 
     await expect(service.remove('user-1', 'vehicle-2')).rejects.toThrow(NotFoundException);
     expect(deleteAndReassignActive).not.toHaveBeenCalled();
+  });
+
+  it.each([48001, 48000])('updates an owned mileage of %i or greater', async (mileage) => {
+    updateMileageIfNotDecreased.mockResolvedValue({ ...vehicle, mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, mileage)).resolves.toEqual({
+      ...vehicle,
+      mileage,
+    });
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith(vehicle.id, 'user-1', mileage);
+  });
+
+  it('rejects a mileage lower than the saved value', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 47999)).rejects.toThrow(
+      'No puede ser menor a 48.000 km',
+    );
+  });
+
+  it('rejects a stale concurrent mileage update', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: 50000 });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 49000)).rejects.toThrow(
+      'No puede ser menor a 50.000 km',
+    );
+  });
+
+  it('returns not found when updating another user vehicle mileage', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(service.updateMileage('user-1', 'vehicle-2', 48001)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith('vehicle-2', 'user-1', 48001);
   });
 });

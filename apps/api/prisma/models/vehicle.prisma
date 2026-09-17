@@ -6,19 +6,39 @@ enum FuelType {
   ELECTRICO
 }
 
+enum TransmissionType {
+  MANUAL
+  AUTOMATICA
+  CVT
+  DOBLE_EMBRAGUE
+  OTRO
+}
+
 model Vehicle {
-  id        String   @id @default(uuid()) @db.Uuid
-  ownerId   String   @db.Uuid
-  brand     String
-  model     String
-  year      Int
-  fuel      FuelType
-  plate     String
-  mileage   Int
-  nickname  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  owner     User     @relation(fields: [ownerId], references: [id])
+  id                   String            @id @default(uuid()) @db.Uuid
+  ownerId              String            @db.Uuid
+  brand                String
+  model                String
+  year                 Int
+  fuel                 FuelType
+  plate                String
+  mileage              Int
+  nickname             String?
+  engineOilType        String?
+  engineOilLiters      Decimal?          @db.Decimal(4, 2)
+  gearboxOilType       String?
+  gearboxOilLiters     Decimal?          @db.Decimal(4, 2)
+  transmission         TransmissionType?
+  frontTireSize        String?
+  frontTirePressurePsi Int?
+  rearTireSize         String?
+  rearTirePressurePsi  Int?
+  highBeam             String?
+  lowBeam              String?
+  fogLight             String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  owner                User              @relation(fields: [ownerId], references: [id])
 
   @@unique([ownerId, plate])
   @@index([ownerId])

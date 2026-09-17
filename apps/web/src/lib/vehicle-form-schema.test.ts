@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getMileageUpdateSchema,
   getVehicleEditFormSchema,
   getVehicleFormErrors,
   getVehicleUpdateInput,
@@ -16,6 +17,18 @@ const validVehicle = {
   plate: 'AF812KM',
   mileage: '48000',
   nickname: '',
+  engineOilType: '',
+  engineOilLiters: '',
+  gearboxOilType: '',
+  gearboxOilLiters: '',
+  transmission: '' as const,
+  frontTireSize: '',
+  frontTirePressurePsi: '',
+  rearTireSize: '',
+  rearTirePressurePsi: '',
+  highBeam: '',
+  lowBeam: '',
+  fogLight: '',
 };
 
 test('vehicle form normalizes values for the API', () => {
@@ -34,8 +47,96 @@ test('vehicle form normalizes values for the API', () => {
       plate: 'AF812KM',
       mileage: 48000,
       nickname: 'El del laburo',
+      engineOilType: null,
+      engineOilLiters: null,
+      gearboxOilType: null,
+      gearboxOilLiters: null,
+      transmission: null,
+      frontTireSize: null,
+      frontTirePressurePsi: null,
+      rearTireSize: null,
+      rearTirePressurePsi: null,
+      highBeam: null,
+      lowBeam: null,
+      fogLight: null,
     },
   );
+});
+
+test('vehicle form normalizes a complete technical sheet', () => {
+  assert.deepStrictEqual(
+    vehicleFormSchema.parse({
+      ...validVehicle,
+      engineOilType: ' 5W-30 sintético ',
+      engineOilLiters: '4.2',
+      gearboxOilType: ' ATF DW-1 ',
+      gearboxOilLiters: '3.1',
+      transmission: 'MANUAL',
+      frontTireSize: ' 215/50 R17 ',
+      frontTirePressurePsi: '32',
+      rearTireSize: ' 215/50 R17 ',
+      rearTirePressurePsi: '30',
+      highBeam: ' H11 ',
+      lowBeam: ' H7 ',
+      fogLight: ' H8 ',
+    }),
+    {
+      brand: 'Honda',
+      model: 'Civic',
+      year: 2021,
+      fuel: 'NAFTA',
+      plate: 'AF812KM',
+      mileage: 48000,
+      nickname: null,
+      engineOilType: '5W-30 sintético',
+      engineOilLiters: 4.2,
+      gearboxOilType: 'ATF DW-1',
+      gearboxOilLiters: 3.1,
+      transmission: 'MANUAL',
+      frontTireSize: '215/50 R17',
+      frontTirePressurePsi: 32,
+      rearTireSize: '215/50 R17',
+      rearTirePressurePsi: 30,
+      highBeam: 'H11',
+      lowBeam: 'H7',
+      fogLight: 'H8',
+    },
+  );
+});
+
+test('vehicle form rejects invalid technical quantities and pressures', () => {
+  const result = vehicleFormSchema.safeParse({
+    ...validVehicle,
+    engineOilLiters: 'cuatro',
+    gearboxOilLiters: '3.123',
+    frontTirePressurePsi: '32.5',
+    rearTirePressurePsi: '-1',
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.deepStrictEqual(getVehicleFormErrors(result.error), {
+    engineOilLiters: 'Ingresá una cantidad válida',
+    gearboxOilLiters: 'Ingresá una cantidad válida',
+    frontTirePressurePsi: 'Ingresá una presión válida',
+    rearTirePressurePsi: 'Ingresá una presión válida',
+  });
+});
+
+test('vehicle form sends cleared technical fields as null', () => {
+  const result = vehicleFormSchema.parse({
+    ...validVehicle,
+    engineOilType: ' ',
+    engineOilLiters: '',
+    transmission: '',
+    frontTirePressurePsi: '',
+  });
+
+  assert.equal(result.engineOilType, null);
+  assert.equal(result.engineOilLiters, null);
+  assert.equal(result.transmission, null);
+  assert.equal(result.frontTirePressurePsi, null);
 });
 
 test('vehicle form rejects impossible identification values per field', () => {
@@ -92,6 +193,18 @@ test('vehicle edit form accepts an unchanged legacy plate and omits it from the 
     fuel: 'NAFTA',
     mileage: 48000,
     nickname: null,
+    engineOilType: null,
+    engineOilLiters: null,
+    gearboxOilType: null,
+    gearboxOilLiters: null,
+    transmission: null,
+    frontTireSize: null,
+    frontTirePressurePsi: null,
+    rearTireSize: null,
+    rearTirePressurePsi: null,
+    highBeam: null,
+    lowBeam: null,
+    fogLight: null,
   });
 });
 
@@ -130,4 +243,25 @@ test('vehicle form rejects mileage above the database range', () => {
   if (result.success) return;
 
   assert.equal(getVehicleFormErrors(result.error).mileage, 'Ingresá un kilometraje válido');
+});
+
+test('mileage update rejects empty, non-numeric, and decreasing values', () => {
+  const schema = getMileageUpdateSchema(48250);
+
+  for (const mileage of ['', '48.250', 'abc']) {
+    assert.equal(schema.safeParse({ mileage }).success, false);
+  }
+
+  const decreasingMileage = schema.safeParse({ mileage: '48249' });
+  assert.equal(decreasingMileage.success, false);
+  if (decreasingMileage.success) return;
+
+  assert.equal(decreasingMileage.error.issues[0]?.message, 'No puede ser menor a 48.250 km');
+});
+
+test('mileage update accepts equal and higher values', () => {
+  const schema = getMileageUpdateSchema(48250);
+
+  assert.deepStrictEqual(schema.parse({ mileage: '48250' }), { mileage: 48250 });
+  assert.deepStrictEqual(schema.parse({ mileage: '48251' }), { mileage: 48251 });
 });

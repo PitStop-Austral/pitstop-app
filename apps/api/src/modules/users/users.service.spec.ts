@@ -34,7 +34,7 @@ describe('UsersService', () => {
   });
 
   it('changes the active vehicle when it belongs to the user', async () => {
-    findOwnedById.mockResolvedValue({ id: 'vehicle-2' });
+    findOwnedById.mockResolvedValue({ id: 'vehicle-2', mileage: 48000 });
     const updatedUser = { ...user, activeVehicleId: 'vehicle-2' };
     setActiveVehicle.mockResolvedValue(updatedUser);
 

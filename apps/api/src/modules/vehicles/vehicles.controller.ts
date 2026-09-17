@@ -12,22 +12,32 @@ import {
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateMileageDto } from './dto/update-mileage.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehiclesService } from './vehicles.service';
-import type { VehicleView } from './vehicles.repository';
+import type { VehicleResponse } from './vehicles.mapper';
 
 @Controller('vehicles')
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}
 
   @Get()
-  findAll(@CurrentUser() user: User): Promise<VehicleView[]> {
+  findAll(@CurrentUser() user: User): Promise<VehicleResponse[]> {
     return this.vehiclesService.findByOwner(user.id);
   }
 
   @Post()
-  create(@CurrentUser() user: User, @Body() dto: CreateVehicleDto): Promise<VehicleView> {
+  create(@CurrentUser() user: User, @Body() dto: CreateVehicleDto): Promise<VehicleResponse> {
     return this.vehiclesService.create(user.id, dto);
+  }
+
+  @Patch(':id/mileage')
+  updateMileage(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMileageDto,
+  ): Promise<VehicleResponse> {
+    return this.vehiclesService.updateMileage(user.id, id, dto.mileage);
   }
 
   @Patch(':id')
@@ -35,7 +45,7 @@ export class VehiclesController {
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateVehicleDto,
-  ): Promise<VehicleView> {
+  ): Promise<VehicleResponse> {
     return this.vehiclesService.update(user.id, id, dto);
   }
 
