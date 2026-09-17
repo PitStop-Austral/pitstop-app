@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getMileageUpdateSchema,
   getVehicleEditFormSchema,
   getVehicleFormErrors,
   getVehicleUpdateInput,
@@ -242,4 +243,25 @@ test('vehicle form rejects mileage above the database range', () => {
   if (result.success) return;
 
   assert.equal(getVehicleFormErrors(result.error).mileage, 'Ingresá un kilometraje válido');
+});
+
+test('mileage update rejects empty, non-numeric, and decreasing values', () => {
+  const schema = getMileageUpdateSchema(48250);
+
+  for (const mileage of ['', '48.250', 'abc']) {
+    assert.equal(schema.safeParse({ mileage }).success, false);
+  }
+
+  const decreasingMileage = schema.safeParse({ mileage: '48249' });
+  assert.equal(decreasingMileage.success, false);
+  if (decreasingMileage.success) return;
+
+  assert.equal(decreasingMileage.error.issues[0]?.message, 'No puede ser menor a 48.250 km');
+});
+
+test('mileage update accepts equal and higher values', () => {
+  const schema = getMileageUpdateSchema(48250);
+
+  assert.deepStrictEqual(schema.parse({ mileage: '48250' }), { mileage: 48250 });
+  assert.deepStrictEqual(schema.parse({ mileage: '48251' }), { mileage: 48251 });
 });

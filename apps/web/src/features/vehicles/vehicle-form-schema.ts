@@ -129,6 +129,21 @@ export function getVehicleEditFormSchema(existingPlate: string) {
   return vehicleFormSchema.extend({ plate: createPlateSchema(allowedLegacyPlate) });
 }
 
+export function getMileageUpdateSchema(currentMileage: number) {
+  return z.object({
+    mileage: z
+      .string()
+      .trim()
+      .regex(/^\d+$/, 'Ingresá un kilometraje válido')
+      .transform(Number)
+      .refine((mileage) => mileage <= MAX_VEHICLE_MILEAGE, 'Ingresá un kilometraje válido')
+      .refine(
+        (mileage) => mileage >= currentMileage,
+        `No puede ser menor a ${currentMileage.toLocaleString('es-AR')} km`,
+      ),
+  });
+}
+
 export function getVehicleUpdateInput(
   values: VehicleFormOutput,
   existingPlate: string,

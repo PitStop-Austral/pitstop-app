@@ -65,10 +65,13 @@ export class VehiclesRepository {
     });
   }
 
-  async findOwnedById(id: string, ownerId: string): Promise<{ id: string } | null> {
+  async findOwnedById(
+    id: string,
+    ownerId: string,
+  ): Promise<{ id: string; mileage: number } | null> {
     return this.prisma.vehicle.findFirst({
       where: { id, ownerId },
-      select: { id: true },
+      select: { id: true, mileage: true },
     });
   }
 
@@ -101,6 +104,20 @@ export class VehiclesRepository {
       data,
       select: vehicleSelect,
     });
+  }
+
+  async updateMileageIfNotDecreased(
+    id: string,
+    ownerId: string,
+    mileage: number,
+  ): Promise<VehicleView | null> {
+    const [vehicle] = await this.prisma.vehicle.updateManyAndReturn({
+      where: { id, ownerId, mileage: { lte: mileage } },
+      data: { mileage },
+      select: vehicleSelect,
+    });
+
+    return vehicle ?? null;
   }
 
   async deleteAndReassignActive(ownerId: string, vehicleId: string): Promise<void> {

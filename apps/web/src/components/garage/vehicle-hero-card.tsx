@@ -1,11 +1,17 @@
 import { Odometer } from '@/components/odometer';
 import { StatusChip } from '@/components/status-chip';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { FUEL_LABELS } from '@/features/vehicles/types';
 import type { Vehicle } from '@/features/vehicles/types';
 
-export function VehicleHeroCard({ vehicle }: { vehicle: Vehicle }) {
+type VehicleHeroCardProps = {
+  vehicle: Vehicle;
+  onUpdateMileage: () => void;
+};
+
+export function VehicleHeroCard({ vehicle, onUpdateMileage }: VehicleHeroCardProps) {
   return (
     <div className="rounded-[20px] border border-border bg-card p-4 lg:sticky lg:top-10">
       <div className="grid aspect-video place-items-center rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
@@ -25,6 +31,15 @@ export function VehicleHeroCard({ vehicle }: { vehicle: Vehicle }) {
         </Text>
         <div className="mt-4">
           <Odometer value={vehicle.mileage} />
+          <Button
+            className="mt-1 h-auto px-0 hover:underline"
+            variant="ghost"
+            onClick={onUpdateMileage}
+          >
+            <Text color="primary" variant="caption-strong">
+              Actualizar km
+            </Text>
+          </Button>
         </div>
       </div>
     </div>

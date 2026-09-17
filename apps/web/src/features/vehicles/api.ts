@@ -17,6 +17,11 @@ export async function updateVehicle(id: string, input: VehicleUpdateInput): Prom
   return response.data;
 }
 
+export async function updateVehicleMileage(id: string, mileage: number): Promise<Vehicle> {
+  const response = await apiClient.patch<Vehicle>(`/vehicles/${id}/mileage`, { mileage });
+  return response.data;
+}
+
 export async function deleteVehicle(id: string): Promise<void> {
   await apiClient.delete(`/vehicles/${id}`);
 }

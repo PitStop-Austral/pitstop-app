@@ -11,6 +11,9 @@ describe('VehiclesService', () => {
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let createAndSetActive: jest.MockedFunction<VehiclesRepository['createAndSetActive']>;
   let update: jest.MockedFunction<VehiclesRepository['update']>;
+  let updateMileageIfNotDecreased: jest.MockedFunction<
+    VehiclesRepository['updateMileageIfNotDecreased']
+  >;
   let deleteAndReassignActive: jest.MockedFunction<VehiclesRepository['deleteAndReassignActive']>;
 
   const vehicle: VehicleView = {
@@ -53,6 +56,7 @@ describe('VehiclesService', () => {
     findOwnedById = jest.fn();
     createAndSetActive = jest.fn();
     update = jest.fn();
+    updateMileageIfNotDecreased = jest.fn();
     deleteAndReassignActive = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -65,6 +69,7 @@ describe('VehiclesService', () => {
             findOwnedById,
             createAndSetActive,
             update,
+            updateMileageIfNotDecreased,
             deleteAndReassignActive,
           },
         },
@@ -204,7 +209,7 @@ describe('VehiclesService', () => {
   });
 
   it('updates only the supplied fields and normalizes the plate', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
     update.mockResolvedValue(vehicle);
 
     await expect(
@@ -214,7 +219,7 @@ describe('VehiclesService', () => {
   });
 
   it('clears supplied technical fields without changing omitted ones', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
     update.mockResolvedValue(vehicle);
 
     await service.update('user-1', vehicle.id, {
@@ -235,7 +240,7 @@ describe('VehiclesService', () => {
   });
 
   it('deletes an owned vehicle through the atomic repository operation', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
 
     await expect(service.remove('user-1', vehicle.id)).resolves.toBeUndefined();
     expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
@@ -246,5 +251,43 @@ describe('VehiclesService', () => {
 
     await expect(service.remove('user-1', 'vehicle-2')).rejects.toThrow(NotFoundException);
     expect(deleteAndReassignActive).not.toHaveBeenCalled();
+  });
+
+  it.each([48001, 48000])('updates an owned mileage of %i or greater', async (mileage) => {
+    updateMileageIfNotDecreased.mockResolvedValue({ ...vehicle, mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, mileage)).resolves.toEqual({
+      ...vehicle,
+      mileage,
+    });
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith(vehicle.id, 'user-1', mileage);
+  });
+
+  it('rejects a mileage lower than the saved value', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 47999)).rejects.toThrow(
+      'No puede ser menor a 48.000 km',
+    );
+  });
+
+  it('rejects a stale concurrent mileage update', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: 50000 });
+
+    await expect(service.updateMileage('user-1', vehicle.id, 49000)).rejects.toThrow(
+      'No puede ser menor a 50.000 km',
+    );
+  });
+
+  it('returns not found when updating another user vehicle mileage', async () => {
+    updateMileageIfNotDecreased.mockResolvedValue(null);
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(service.updateMileage('user-1', 'vehicle-2', 48001)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(updateMileageIfNotDecreased).toHaveBeenCalledWith('vehicle-2', 'user-1', 48001);
   });
 });
