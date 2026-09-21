@@ -22,6 +22,15 @@ import {
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text, type TextColor, type TextVariant } from '@/components/ui/text';
+import {
+  DEFAULT_SERVICE,
+  SERVICE_OPTIONS,
+  toServiceFieldValue,
+} from '@/features/maintenances/service-catalog';
+import type { ServiceFieldValue, ServiceOptionName } from '@/features/maintenances/service-catalog';
+import { ServiceField } from '@/features/maintenances/service-field';
+import { ServiceIcon } from '@/features/maintenances/service-icon';
+import { ServiceSelector } from '@/features/maintenances/service-selector';
 
 export const Route = createFileRoute('/ui')({ component: UiGallery });
 
@@ -69,6 +78,10 @@ function UiGallery() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [serviceFieldValue, setServiceFieldValue] = useState<ServiceFieldValue>(() =>
+    toServiceFieldValue(),
+  );
+  const [selectedService, setSelectedService] = useState<ServiceOptionName>('Batería');
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl bg-background p-4 sm:p-8">
@@ -209,6 +222,45 @@ function UiGallery() {
               <Text variant="body">Servicio recomendado en 1.000 km.</Text>
             </TabsContent>
           </Tabs>
+        </Section>
+        <Section title="Servicios">
+          <div className="grid items-start gap-8 lg:grid-cols-2">
+            <div className="grid max-w-lg gap-6">
+              <ServiceField value={serviceFieldValue} onChange={setServiceFieldValue} />
+              <div>
+                <Text className="mb-2 block" variant="label">
+                  Servicios con opciones no disponibles
+                </Text>
+                <ServiceSelector
+                  disabledValues={[DEFAULT_SERVICE, 'Filtro de aire']}
+                  value={selectedService}
+                  onChange={setSelectedService}
+                />
+              </div>
+            </div>
+            <div>
+              <Text className="mb-3 block" color="muted" variant="overline">
+                Catálogo de íconos
+              </Text>
+              <div className="flex flex-wrap gap-3">
+                {SERVICE_OPTIONS.map((service) => (
+                  <div
+                    className="flex min-w-36 items-center gap-2 rounded-lg border border-border bg-background p-2"
+                    key={service.name}
+                  >
+                    <div className="flex shrink-0 items-end gap-1">
+                      <ServiceIcon size="xs" type={service.name} />
+                      <ServiceIcon size="sm" type={service.name} />
+                      <ServiceIcon type={service.name} />
+                    </div>
+                    <Text className="min-w-0" variant="caption-strong">
+                      {service.name}
+                    </Text>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </Section>
         <Section title="Componentes propios">
           <div className="grid items-start gap-6 md:grid-cols-2">
