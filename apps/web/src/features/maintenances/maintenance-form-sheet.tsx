@@ -192,10 +192,8 @@ export function MaintenanceFormSheet({
               aria-invalid={Boolean(errors.cost)}
               id="maintenance-cost"
               inputMode="decimal"
-              min={0}
               placeholder="42000"
-              step="0.01"
-              type="number"
+              type="text"
               value={values.cost}
               onChange={(event) => updateField('cost', event.target.value)}
             />
