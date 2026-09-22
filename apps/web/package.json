@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "check-types": "tsc -b",
-    "test": "node --import ./src/test/register-assets.mjs --test src/lib/*.test.ts"
+    "test": "node --import ./src/test/register-assets.mjs --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

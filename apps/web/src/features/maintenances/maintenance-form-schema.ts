@@ -9,6 +9,7 @@ import type { Vehicle } from '../vehicles/types.ts';
 const MAX_VEHICLE_MILEAGE = 2_147_483_647;
 const MAX_MAINTENANCE_COST = 9_999_999_999.99;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ARGENTINA_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 function isServiceFieldValue(value: unknown): value is ServiceFieldValue {
   return (
@@ -40,14 +41,16 @@ const serviceSchema = z
   .refine((value) => resolveServiceType(value).length > 0, 'Escribí el nombre del servicio')
   .refine((value) => resolveServiceType(value).length <= 60, 'Ingresá hasta 60 caracteres');
 
-export function getLocalDateValue(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export function getArgentinaDateValue(date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARGENTINA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
-export function getMaintenanceFormSchema(today = getLocalDateValue()) {
+export function getMaintenanceFormSchema(today = getArgentinaDateValue()) {
   return z
     .object({
       service: serviceSchema,
@@ -122,7 +125,7 @@ export function getInitialMaintenanceFormValues(
   return {
     service: toServiceFieldValue(maintenance?.type),
     category: maintenance?.category ?? 'MANTENIMIENTO',
-    date: maintenance?.date ?? getLocalDateValue(today),
+    date: maintenance?.date ?? getArgentinaDateValue(today),
     mileage: String(maintenance?.mileage ?? vehicle.mileage),
     workshop: maintenance?.workshop ?? '',
     cost: maintenance?.cost === null ? '' : String(maintenance?.cost ?? ''),

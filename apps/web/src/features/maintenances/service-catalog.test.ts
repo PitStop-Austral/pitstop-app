@@ -4,12 +4,13 @@ import test from 'node:test';
 import {
   DEFAULT_SERVICE,
   isKnownService,
+  normalizeServiceType,
   OTHER_SERVICE,
   resolveServiceType,
   SERVICE_OPTIONS,
   serviceIconFor,
   toServiceFieldValue,
-} from '../features/maintenances/service-catalog.ts';
+} from './service-catalog.ts';
 
 const expectedServices = [
   'Cambio de aceite',
@@ -76,6 +77,7 @@ test('defines the canonical service catalog in the required order', () => {
 });
 
 test('matches known services without distinguishing letter case', () => {
+  assert.equal(normalizeServiceType('FILTRO DE AIRE'), 'filtro de aire');
   assert.equal(isKnownService('cambio de aceite'), true);
   assert.equal(isKnownService('FILTRO DE AIRE'), true);
   assert.equal(isKnownService(OTHER_SERVICE), false);

@@ -4,7 +4,7 @@ import type { KeyboardEvent } from 'react';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
-import { SERVICE_OPTIONS } from './service-catalog';
+import { normalizeServiceType, SERVICE_OPTIONS } from './service-catalog';
 import type { ServiceOptionName } from './service-catalog';
 import { ServiceIcon } from './service-icon';
 
@@ -15,10 +15,6 @@ type ServiceSelectorProps = {
   disabledValues?: string[];
   'aria-describedby'?: string;
 };
-
-function normalizeServiceType(type: string): string {
-  return type.toLocaleLowerCase('es-AR');
-}
 
 export function ServiceSelector({
   value,

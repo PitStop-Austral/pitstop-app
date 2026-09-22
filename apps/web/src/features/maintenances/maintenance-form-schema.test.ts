@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getArgentinaDateValue,
   getInitialMaintenanceFormValues,
-  getLocalDateValue,
   getMaintenanceFormErrors,
   getMaintenanceFormSchema,
-} from '../features/maintenances/maintenance-form-schema.ts';
-import type { Vehicle } from '../features/vehicles/types.ts';
+} from './maintenance-form-schema.ts';
+import type { Vehicle } from '../vehicles/types.ts';
 
 const vehicle: Vehicle = {
   id: 'vehicle-1',
@@ -34,20 +34,19 @@ const vehicle: Vehicle = {
   updatedAt: '2026-09-01T00:00:00.000Z',
 };
 
-test('maintenance form uses the browser-local calendar date and vehicle mileage', () => {
-  assert.equal(getLocalDateValue(new Date(2026, 8, 17, 21, 30)), '2026-09-17');
-  assert.deepStrictEqual(
-    getInitialMaintenanceFormValues(vehicle, undefined, new Date(2026, 8, 17, 21, 30)),
-    {
-      service: { option: 'Cambio de aceite', customName: '' },
-      category: 'MANTENIMIENTO',
-      date: '2026-09-17',
-      mileage: '48250',
-      workshop: '',
-      cost: '',
-      notes: '',
-    },
-  );
+test('maintenance form uses the Argentina calendar date and vehicle mileage', () => {
+  const afterMidnightUtc = new Date('2026-09-18T01:30:00.000Z');
+
+  assert.equal(getArgentinaDateValue(afterMidnightUtc), '2026-09-17');
+  assert.deepStrictEqual(getInitialMaintenanceFormValues(vehicle, undefined, afterMidnightUtc), {
+    service: { option: 'Cambio de aceite', customName: '' },
+    category: 'MANTENIMIENTO',
+    date: '2026-09-17',
+    mileage: '48250',
+    workshop: '',
+    cost: '',
+    notes: '',
+  });
 });
 
 test('maintenance form resolves custom services and normalizes optional values', () => {

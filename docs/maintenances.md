@@ -29,9 +29,11 @@ and the Prisma decimal cost as `number | null`.
 
 ## Web flow
 
-The form defaults to the service catalog's oil-change option, `MANTENIMIENTO`, the browser's local
-calendar date, and the active vehicle mileage. Choosing `Otro` enables a custom trimmed service
-name. Empty workshop, cost, and notes fields are sent as `null`.
+The form defaults to the service catalog's oil-change option, `MANTENIMIENTO`, the current calendar
+date in `America/Argentina/Buenos_Aires`, and the active vehicle mileage. The same timezone boundary
+is enforced by the API, so the form never offers a locally valid date that the server considers
+future. Choosing `Otro` enables a custom trimmed service name. Empty workshop, cost, and notes
+fields are sent as `null`.
 
 On success, the form closes, shows `Servicio registrado`, and invalidates the `vehicles` query
 prefix. This refreshes the active vehicle and its odometer without reloading, while also covering

@@ -48,7 +48,7 @@ export type ServiceFieldValue = {
   customName: string;
 };
 
-function normalizeServiceType(type: string): string {
+export function normalizeServiceType(type: string): string {
   return type.toLocaleLowerCase('es-AR');
 }
 

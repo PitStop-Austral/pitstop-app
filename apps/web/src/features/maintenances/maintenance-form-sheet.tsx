@@ -14,7 +14,7 @@ import type { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
   getInitialMaintenanceFormValues,
-  getLocalDateValue,
+  getArgentinaDateValue,
   getMaintenanceFormErrors,
   getMaintenanceFormSchema,
 } from './maintenance-form-schema';
@@ -153,7 +153,7 @@ export function MaintenanceFormSheet({
               aria-describedby={errors.date ? 'maintenance-date-error' : undefined}
               aria-invalid={Boolean(errors.date)}
               id="maintenance-date"
-              max={getLocalDateValue()}
+              max={getArgentinaDateValue()}
               type="date"
               value={values.date}
               onChange={(event) => updateField('date', event.target.value)}
