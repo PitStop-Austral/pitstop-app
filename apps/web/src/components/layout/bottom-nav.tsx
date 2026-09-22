@@ -2,9 +2,13 @@ import { Link } from '@tanstack/react-router';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useMaintenanceSheet } from '@/features/maintenances/maintenance-sheet-context';
 import { NAV_ITEMS } from '@/lib/navigation';
 
 export function BottomNav() {
+  const { canRegister, isDisabled, openRegisterMaintenance } = useMaintenanceSheet();
+  const actionLabel = canRegister ? 'Registrar mantenimiento' : 'Agregar vehículo';
+
   return (
     <nav
       aria-label="Navegación principal"
@@ -15,9 +19,11 @@ export function BottomNav() {
           <NavItem item={item} key={item.to} />
         ))}
         <button
-          aria-label="Registrar mantenimiento"
+          aria-label={actionLabel}
           className="grid size-[52px] shrink-0 -translate-y-3 place-items-center rounded-full bg-primary shadow-lg transition hover:bg-red-700 active:scale-95 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          disabled={isDisabled}
           type="button"
+          onClick={openRegisterMaintenance}
         >
           <Icon color="on-primary" name="Plus" size="lg" strokeWidth={2.5} />
         </button>

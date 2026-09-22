@@ -37,6 +37,7 @@ yarn-error.log*
 
 # Misc
 .DS_Store
+STACK_STARTUP.md
 *.pem
 *serviceAccountKey*.json
 *firebase-adminsdk*.json

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
 
 import { BottomSheet } from '@/components/bottom-sheet';
+import { FormField } from '@/components/form-field';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -550,30 +551,6 @@ function UnitInput({ unit, ...props }: UnitInputProps) {
       >
         {unit}
       </Text>
-    </div>
-  );
-}
-
-type FormFieldProps = {
-  children: ReactNode;
-  className?: string;
-  error?: string;
-  id: string;
-  label: string;
-};
-
-function FormField({ children, className, error, id, label }: FormFieldProps) {
-  return (
-    <div className={className}>
-      <Text as="label" className="mb-2 block" color="emphasis" htmlFor={id} variant="label">
-        {label}
-      </Text>
-      {children}
-      {error ? (
-        <Text className="mt-1.5 block" color="danger" id={`${id}-error`} variant="caption">
-          {error}
-        </Text>
-      ) : null}
     </div>
   );
 }
