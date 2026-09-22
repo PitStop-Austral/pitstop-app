@@ -34,6 +34,14 @@ export type CreateMaintenanceData = {
 export class MaintenancesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async findManyByVehicle(vehicleId: string): Promise<MaintenanceView[]> {
+    return this.prisma.maintenance.findMany({
+      where: { vehicleId },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: maintenanceSelect,
+    });
+  }
+
   async createWithMileageUpdate(
     vehicleId: string,
     data: CreateMaintenanceData,

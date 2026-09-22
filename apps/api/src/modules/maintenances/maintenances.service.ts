@@ -23,6 +23,16 @@ export class MaintenancesService {
     private readonly vehiclesRepository: VehiclesRepository,
   ) {}
 
+  async findByVehicle(ownerId: string, vehicleId: string): Promise<MaintenanceResponse[]> {
+    const vehicle = await this.vehiclesRepository.findOwnedById(vehicleId, ownerId);
+    if (!vehicle) {
+      throw new NotFoundException('Vehículo no encontrado');
+    }
+
+    const maintenances = await this.maintenancesRepository.findManyByVehicle(vehicleId);
+    return maintenances.map(toMaintenanceResponse);
+  }
+
   async create(
     ownerId: string,
     vehicleId: string,
