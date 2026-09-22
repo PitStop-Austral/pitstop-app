@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -20,6 +22,9 @@ export function ActiveVehicleButton({
   isLoading = false,
   onClick,
 }: ActiveVehicleButtonProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [activeVehicle?.photoUrl]);
   const vehicleName = activeVehicle
     ? `${activeVehicle.brand} ${activeVehicle.model}`
     : 'Agregar vehículo';
@@ -38,7 +43,16 @@ export function ActiveVehicleButton({
       onClick={onClick}
     >
       <div className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-100">
-        <Icon color="muted" name="CarFront" size="sm" />
+        {activeVehicle?.photoUrl && !imageFailed ? (
+          <img
+            alt={`${activeVehicle.brand} ${activeVehicle.model}`}
+            className="size-full rounded-full object-cover"
+            src={activeVehicle.photoUrl}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <Icon color="muted" name="CarFront" size="sm" />
+        )}
       </div>
       {!compact ? (
         <Text className="min-w-0 flex-1 truncate text-left" variant="label">

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { DecodedIdToken, getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
 
 @Injectable()
 export class FirebaseService {
@@ -30,5 +31,12 @@ export class FirebaseService {
 
   verifyIdToken(idToken: string): Promise<DecodedIdToken> {
     return getAuth(this.app).verifyIdToken(idToken);
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    await getStorage(this.app)
+      .bucket(process.env.FIREBASE_STORAGE_BUCKET)
+      .file(path)
+      .delete({ ignoreNotFound: true });
   }
 }

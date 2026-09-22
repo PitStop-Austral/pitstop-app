@@ -63,7 +63,7 @@ describe('MaintenancesService', () => {
   });
 
   it('creates a maintenance for an owned vehicle on the current Argentina date', async () => {
-    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000 });
+    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000, photoPath: null });
     createWithMileageUpdate.mockResolvedValue(maintenance);
 
     await expect(service.create('user-1', maintenance.vehicleId, dto)).resolves.toEqual({
@@ -90,7 +90,7 @@ describe('MaintenancesService', () => {
   });
 
   it('rejects a date after today in Argentina', async () => {
-    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000 });
+    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000, photoPath: null });
 
     await expect(
       service.create('user-1', maintenance.vehicleId, { ...dto, date: '2026-09-18' }),

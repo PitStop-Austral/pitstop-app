@@ -1,7 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FuelType, Prisma, TransmissionType } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { FirebaseService } from '../../firebase/firebase.service';
 import { VehiclesRepository, VehicleView } from './vehicles.repository';
 import { VehiclesService } from './vehicles.service';
 
@@ -15,6 +16,8 @@ describe('VehiclesService', () => {
     VehiclesRepository['updateMileageIfNotDecreased']
   >;
   let deleteAndReassignActive: jest.MockedFunction<VehiclesRepository['deleteAndReassignActive']>;
+  let setPhoto: jest.MockedFunction<VehiclesRepository['setPhoto']>;
+  let deleteFile: jest.MockedFunction<FirebaseService['deleteFile']>;
 
   const vehicle: VehicleView = {
     id: 'vehicle-1',
@@ -37,6 +40,7 @@ describe('VehiclesService', () => {
     highBeam: null,
     lowBeam: null,
     fogLight: null,
+    photoUrl: null,
     createdAt: new Date('2026-09-03T00:00:00.000Z'),
     updatedAt: new Date('2026-09-03T00:00:00.000Z'),
   };
@@ -58,6 +62,8 @@ describe('VehiclesService', () => {
     update = jest.fn();
     updateMileageIfNotDecreased = jest.fn();
     deleteAndReassignActive = jest.fn();
+    setPhoto = jest.fn();
+    deleteFile = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -71,7 +77,12 @@ describe('VehiclesService', () => {
             update,
             updateMileageIfNotDecreased,
             deleteAndReassignActive,
+            setPhoto,
           },
+        },
+        {
+          provide: FirebaseService,
+          useValue: { deleteFile },
         },
       ],
     }).compile();
@@ -209,7 +220,7 @@ describe('VehiclesService', () => {
   });
 
   it('updates only the supplied fields and normalizes the plate', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
     update.mockResolvedValue(vehicle);
 
     await expect(
@@ -219,7 +230,7 @@ describe('VehiclesService', () => {
   });
 
   it('clears supplied technical fields without changing omitted ones', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
     update.mockResolvedValue(vehicle);
 
     await service.update('user-1', vehicle.id, {
@@ -240,10 +251,108 @@ describe('VehiclesService', () => {
   });
 
   it('deletes an owned vehicle through the atomic repository operation', async () => {
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
 
     await expect(service.remove('user-1', vehicle.id)).resolves.toBeUndefined();
     expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
+    expect(deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('saves a photo for an owned vehicle', async () => {
+    const user = { id: 'user-1', firebaseUid: 'firebase-user-1' };
+    const photoPath = `${user.firebaseUid}/vehicles/${vehicle.id}/photo.webp`;
+    const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/pitstop/o/photo.webp';
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
+    setPhoto.mockResolvedValue({ ...vehicle, photoUrl });
+
+    await expect(service.setPhoto(user, vehicle.id, { photoPath, photoUrl })).resolves.toEqual({
+      ...vehicle,
+      photoUrl,
+    });
+    expect(setPhoto).toHaveBeenCalledWith(vehicle.id, photoPath, photoUrl);
+  });
+
+  it('returns not found when saving a photo for another user vehicle', async () => {
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(
+      service.setPhoto({ id: 'user-1', firebaseUid: 'firebase-user-1' }, 'vehicle-2', {
+        photoPath: 'firebase-user-1/vehicles/vehicle-2/photo.webp',
+        photoUrl: 'https://firebasestorage.googleapis.com/v0/b/pitstop/o/photo.webp',
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects a photo path outside the vehicle folder', async () => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
+
+    await expect(
+      service.setPhoto({ id: 'user-1', firebaseUid: 'firebase-user-1' }, vehicle.id, {
+        photoPath: 'other-user/vehicles/vehicle-1/photo.webp',
+        photoUrl: 'https://firebasestorage.googleapis.com/v0/b/pitstop/o/photo.webp',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(setPhoto).not.toHaveBeenCalled();
+  });
+
+  it('rejects a photo URL outside Firebase Storage', async () => {
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
+
+    await expect(
+      service.setPhoto({ id: 'user-1', firebaseUid: 'firebase-user-1' }, vehicle.id, {
+        photoPath: 'firebase-user-1/vehicles/vehicle-1/photo.webp',
+        photoUrl: 'https://example.com/photo.webp',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('deletes the previous photo after replacing it', async () => {
+    const oldPhotoPath = 'firebase-user-1/vehicles/vehicle-1/old.webp';
+    const newPhotoPath = 'firebase-user-1/vehicles/vehicle-1/new.webp';
+    const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/pitstop/o/new.webp';
+    findOwnedById.mockResolvedValue({
+      id: vehicle.id,
+      mileage: vehicle.mileage,
+      photoPath: oldPhotoPath,
+    });
+    setPhoto.mockResolvedValue({ ...vehicle, photoUrl });
+
+    await service.setPhoto({ id: 'user-1', firebaseUid: 'firebase-user-1' }, vehicle.id, {
+      photoPath: newPhotoPath,
+      photoUrl,
+    });
+
+    expect(deleteFile).toHaveBeenCalledWith(oldPhotoPath);
+  });
+
+  it('returns the saved vehicle when previous photo deletion fails', async () => {
+    const oldPhotoPath = 'firebase-user-1/vehicles/vehicle-1/old.webp';
+    const newPhotoPath = 'firebase-user-1/vehicles/vehicle-1/new.webp';
+    const photoUrl = 'https://firebasestorage.googleapis.com/v0/b/pitstop/o/new.webp';
+    findOwnedById.mockResolvedValue({
+      id: vehicle.id,
+      mileage: vehicle.mileage,
+      photoPath: oldPhotoPath,
+    });
+    setPhoto.mockResolvedValue({ ...vehicle, photoUrl });
+    deleteFile.mockRejectedValue(new Error('Storage unavailable'));
+
+    await expect(
+      service.setPhoto({ id: 'user-1', firebaseUid: 'firebase-user-1' }, vehicle.id, {
+        photoPath: newPhotoPath,
+        photoUrl,
+      }),
+    ).resolves.toEqual({ ...vehicle, photoUrl });
+  });
+
+  it('deletes a vehicle photo after deleting the vehicle', async () => {
+    const photoPath = 'firebase-user-1/vehicles/vehicle-1/photo.webp';
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath });
+
+    await service.remove('user-1', vehicle.id);
+
+    expect(deleteAndReassignActive).toHaveBeenCalledWith('user-1', vehicle.id);
+    expect(deleteFile).toHaveBeenCalledWith(photoPath);
   });
 
   it('returns not found when deleting another user vehicle', async () => {
@@ -265,7 +374,7 @@ describe('VehiclesService', () => {
 
   it('rejects a mileage lower than the saved value', async () => {
     updateMileageIfNotDecreased.mockResolvedValue(null);
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage, photoPath: null });
 
     await expect(service.updateMileage('user-1', vehicle.id, 47999)).rejects.toThrow(
       'No puede ser menor a 48.000 km',
@@ -274,7 +383,7 @@ describe('VehiclesService', () => {
 
   it('rejects a stale concurrent mileage update', async () => {
     updateMileageIfNotDecreased.mockResolvedValue(null);
-    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: 50000 });
+    findOwnedById.mockResolvedValue({ id: vehicle.id, mileage: 50000, photoPath: null });
 
     await expect(service.updateMileage('user-1', vehicle.id, 49000)).rejects.toThrow(
       'No puede ser menor a 50.000 km',
