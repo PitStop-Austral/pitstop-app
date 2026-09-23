@@ -32,7 +32,7 @@ function CalendarHeader({ vehicle }: { vehicle?: Vehicle }) {
 function CalendarPage() {
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const maintenancesQuery = useMaintenances(activeVehicle?.id);
-  const { openRegisterMaintenance } = useMaintenanceSheet();
+  const { openMaintenanceDetail, openRegisterMaintenance } = useMaintenanceSheet();
 
   function page(children: ReactNode) {
     return (
@@ -133,7 +133,11 @@ function CalendarPage() {
       </Text>
       <div className="mt-3 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
         {maintenances.map((maintenance) => (
-          <MaintenanceCard key={maintenance.id} maintenance={maintenance} />
+          <MaintenanceCard
+            key={maintenance.id}
+            maintenance={maintenance}
+            onClick={() => openMaintenanceDetail(maintenance.id)}
+          />
         ))}
       </div>
     </section>,

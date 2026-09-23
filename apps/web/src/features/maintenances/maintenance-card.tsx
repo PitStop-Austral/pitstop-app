@@ -65,8 +65,8 @@ export function MaintenanceCard({ maintenance, onClick }: MaintenanceCardProps) 
     </>
   );
 
-  // Until PIT-51 wires the detail view there is nothing to activate, so the card stays
-  // a plain container instead of a focusable button that does nothing.
+  // Without an action the card stays a plain container instead of a focusable button
+  // that does nothing.
   if (!onClick) {
     return <div className={cardClassName}>{content}</div>;
   }

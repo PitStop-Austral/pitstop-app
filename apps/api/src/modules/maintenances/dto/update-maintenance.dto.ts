@@ -11,42 +11,43 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { MaintenanceCategory } from '../../../generated/prisma/client';
 import { MAX_VEHICLE_MILEAGE } from '../../vehicles/dto/create-vehicle.dto';
+import {
+  DATE_PATTERN,
+  MAX_MAINTENANCE_COST,
+  normalizeOptionalText,
+  trim,
+} from './create-maintenance.dto';
 
-export const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-export const MAX_MAINTENANCE_COST = 9_999_999_999.99;
-
-export function trim(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
-export function normalizeOptionalText(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  return value.trim() || null;
-}
-
-export class CreateMaintenanceDto {
+// Hand-written instead of PartialType: @IsOptional would also accept null for the required
+// columns and surface as a database error instead of a 400.
+export class UpdateMaintenanceDto {
   @Transform(({ value }) => trim(value))
+  @ValidateIf((_object, value) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   @MaxLength(60)
-  type: string;
+  type?: string;
 
   @Transform(({ value }) => trim(value))
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(MaintenanceCategory)
-  category: MaintenanceCategory;
+  category?: MaintenanceCategory;
 
   @Transform(({ value }) => trim(value))
+  @ValidateIf((_object, value) => value !== undefined)
   @Matches(DATE_PATTERN)
   @IsDateString({ strict: true, strictSeparator: true })
-  date: string;
+  date?: string;
 
+  @ValidateIf((_object, value) => value !== undefined)
   @IsInt()
   @Min(0)
   @Max(MAX_VEHICLE_MILEAGE)
-  mileage: number;
+  mileage?: number;
 
   @Transform(({ value }) => normalizeOptionalText(value))
   @IsOptional()

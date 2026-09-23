@@ -13,6 +13,7 @@ describe('MaintenancesRepository', () => {
   let createMaintenance: jest.Mock;
   let updateVehicleMileage: jest.Mock;
   let findManyMaintenances: jest.Mock;
+  let updateMaintenance: jest.Mock;
 
   const vehicleId = '22222222-2222-4222-8222-222222222222';
   const data: CreateMaintenanceData = {
@@ -37,9 +38,10 @@ describe('MaintenancesRepository', () => {
     createMaintenance = jest.fn().mockResolvedValue(maintenance);
     updateVehicleMileage = jest.fn().mockResolvedValue({ count: 1 });
     findManyMaintenances = jest.fn().mockResolvedValue([maintenance]);
+    updateMaintenance = jest.fn().mockResolvedValue(maintenance);
     transaction = jest.fn(async (callback) =>
       callback({
-        maintenance: { create: createMaintenance },
+        maintenance: { create: createMaintenance, update: updateMaintenance },
         vehicle: { updateMany: updateVehicleMileage },
       }),
     );
@@ -96,4 +98,25 @@ describe('MaintenancesRepository', () => {
       });
     },
   );
+
+  it('updates the maintenance and only raises mileage in one transaction', async () => {
+    await expect(
+      repository.updateWithMileageUpdate(vehicleId, maintenance.id, { mileage: 70000 }),
+    ).resolves.toBe(maintenance);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(updateMaintenance).toHaveBeenCalledWith({
+      where: { id: maintenance.id, vehicleId },
+      data: { mileage: 70000 },
+      select: expect.any(Object),
+    });
+    expect(updateVehicleMileage).toHaveBeenCalledWith({
+      where: { id: vehicleId, mileage: { lt: 70000 } },
+      data: { mileage: 70000 },
+    });
+  });
+
+  it('leaves the vehicle untouched when the mileage is not updated', async () => {
+    await repository.updateWithMileageUpdate(vehicleId, maintenance.id, { notes: null });
+    expect(updateVehicleMileage).not.toHaveBeenCalled();
+  });
 });

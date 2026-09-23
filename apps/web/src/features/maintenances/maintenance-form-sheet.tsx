@@ -19,7 +19,7 @@ import {
   getMaintenanceFormSchema,
 } from './maintenance-form-schema';
 import type { MaintenanceFormErrors, MaintenanceFormValues } from './maintenance-form-schema';
-import { useCreateMaintenance } from './queries';
+import { useCreateMaintenance, useUpdateMaintenance } from './queries';
 import { ServiceField } from './service-field';
 import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES } from './types';
 import type { Maintenance, MaintenanceCategory } from './types';
@@ -53,7 +53,9 @@ export function MaintenanceFormSheet({
   );
   const [errors, setErrors] = useState<MaintenanceFormErrors>({});
   const createMaintenance = useCreateMaintenance();
-  const isPending = createMaintenance.isPending;
+  const updateMaintenance = useUpdateMaintenance();
+  const isEditing = Boolean(maintenance);
+  const isPending = createMaintenance.isPending || updateMaintenance.isPending;
 
   function updateField<Field extends keyof MaintenanceFormValues>(
     field: Field,
@@ -75,9 +77,19 @@ export function MaintenanceFormSheet({
     setErrors({});
 
     try {
-      await createMaintenance.mutateAsync({ vehicleId: vehicle.id, input: result.data });
+      // Every field is sent, including the cleared optional ones as null, so emptying the
+      // cost, workshop or notes while editing actually clears them.
+      if (maintenance) {
+        await updateMaintenance.mutateAsync({
+          vehicleId: vehicle.id,
+          id: maintenance.id,
+          input: result.data,
+        });
+      } else {
+        await createMaintenance.mutateAsync({ vehicleId: vehicle.id, input: result.data });
+      }
       onOpenChange(false);
-      toast.success('Servicio registrado');
+      toast.success(isEditing ? 'Cambios guardados' : 'Servicio registrado');
     } catch (error) {
       toast.error(isApiError(error) ? error.message : 'No pudimos guardar el servicio');
     }
@@ -85,19 +97,19 @@ export function MaintenanceFormSheet({
 
   return (
     <BottomSheet
-      description="Anotá el trabajo realizado"
+      description={isEditing ? undefined : 'Anotá el trabajo realizado'}
       dismissible={!isPending}
       footer={
         <Button className="w-full gap-2" disabled={isPending} form={formId} type="submit">
           {isPending ? <Icon className="animate-spin" color="on-primary" name="Loader2" /> : null}
           <Text color="on-primary" variant="label">
-            {isPending ? 'Guardando...' : 'Guardar servicio'}
+            {isPending ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar servicio'}
           </Text>
         </Button>
       }
       open={open}
       onOpenChange={onOpenChange}
-      title="Registrar servicio"
+      title={isEditing ? 'Editar servicio' : 'Registrar servicio'}
     >
       <form
         aria-busy={isPending}
