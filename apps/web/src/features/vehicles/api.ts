@@ -2,6 +2,11 @@ import { apiClient } from '@/lib/api-client';
 import type { CurrentUser } from '@/features/users/api';
 import type { Vehicle, VehicleInput, VehicleUpdateInput } from './types';
 
+export type SetVehiclePhotoInput = {
+  photoPath: string;
+  photoUrl: string;
+};
+
 export async function getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
   const response = await apiClient.get<Vehicle[]>('/vehicles', { signal });
   return response.data;
@@ -19,6 +24,11 @@ export async function updateVehicle(id: string, input: VehicleUpdateInput): Prom
 
 export async function updateVehicleMileage(id: string, mileage: number): Promise<Vehicle> {
   const response = await apiClient.patch<Vehicle>(`/vehicles/${id}/mileage`, { mileage });
+  return response.data;
+}
+
+export async function setVehiclePhoto(id: string, input: SetVehiclePhotoInput): Promise<Vehicle> {
+  const response = await apiClient.put<Vehicle>(`/vehicles/${id}/photo`, input);
   return response.data;
 }
 

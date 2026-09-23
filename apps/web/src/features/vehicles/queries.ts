@@ -5,10 +5,12 @@ import {
   createVehicle,
   deleteVehicle,
   getVehicles,
+  setVehiclePhoto,
   setActiveVehicle,
   updateVehicle,
   updateVehicleMileage,
 } from './api';
+import type { SetVehiclePhotoInput } from './api';
 import type { VehicleUpdateInput } from './types';
 
 export const vehiclesQueryKey = ['vehicles'] as const;
@@ -65,6 +67,18 @@ export function useUpdateVehicleMileage() {
   return useMutation({
     mutationFn: ({ id, mileage }: { id: string; mileage: number }) =>
       updateVehicleMileage(id, mileage),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+    },
+  });
+}
+
+export function useSetVehiclePhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: SetVehiclePhotoInput }) =>
+      setVehiclePhoto(id, input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
     },

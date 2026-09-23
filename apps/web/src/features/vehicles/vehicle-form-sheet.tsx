@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import type { ComponentProps, FormEvent, ReactNode } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import type { ChangeEvent, ComponentProps, FormEvent, ReactNode } from 'react';
 
 import { BottomSheet } from '@/components/bottom-sheet';
 import { FormField } from '@/components/form-field';
@@ -16,7 +16,7 @@ import {
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
-import { useCreateVehicle, useUpdateVehicle } from './queries';
+import { useCreateVehicle, useSetVehiclePhoto, useUpdateVehicle } from './queries';
 import { FUEL_LABELS, FUEL_TYPES, TRANSMISSION_LABELS, TRANSMISSION_TYPES } from './types';
 import type { FuelType, TransmissionType, Vehicle } from './types';
 import { VEHICLE_SECTION_ICONS } from './vehicle-section-icons';
@@ -27,6 +27,7 @@ import {
   vehicleFormSchema,
 } from './vehicle-form-schema';
 import type { VehicleFormErrors, VehicleFormValues } from './vehicle-form-schema';
+import { resizePhoto, uploadVehiclePhoto, validatePhotoFile } from './vehicle-photo';
 
 type CommonProps = {
   open: boolean;
@@ -85,9 +86,22 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
   const formId = useId();
   const [values, setValues] = useState<VehicleFormValues>(() => initialValues(props.vehicle));
   const [errors, setErrors] = useState<VehicleFormErrors>({});
+  const [photoError, setPhotoError] = useState<string>();
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const previewUrl = useRef<string | null>(null);
   const createVehicle = useCreateVehicle();
   const updateVehicle = useUpdateVehicle();
-  const isPending = createVehicle.isPending || updateVehicle.isPending;
+  const setVehiclePhoto = useSetVehiclePhoto();
+  const isPending = createVehicle.isPending || updateVehicle.isPending || isUploadingPhoto;
+
+  useEffect(
+    () => () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    },
+    [],
+  );
 
   function updateField<Field extends keyof VehicleFormValues>(
     field: Field,
@@ -95,6 +109,37 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
   ) {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function selectPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const error = validatePhotoFile(file);
+    if (error) {
+      setPhotoError(error);
+      return;
+    }
+
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = URL.createObjectURL(file);
+    setPhotoFile(file);
+    setPhotoPreview(previewUrl.current);
+    setPhotoError(undefined);
+  }
+
+  function clearPhotoSelection() {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = null;
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoError(undefined);
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (!open) clearPhotoSelection();
+    props.onOpenChange(open);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -111,16 +156,32 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
     setErrors({});
 
     try {
-      if (props.mode === 'add') {
-        await createVehicle.mutateAsync(result.data);
-      } else {
-        await updateVehicle.mutateAsync({
-          id: props.vehicle.id,
-          input: getVehicleUpdateInput(result.data, props.vehicle.plate),
-        });
+      const vehicle =
+        props.mode === 'add'
+          ? await createVehicle.mutateAsync(result.data)
+          : await updateVehicle.mutateAsync({
+              id: props.vehicle.id,
+              input: getVehicleUpdateInput(result.data, props.vehicle.plate),
+            });
+
+      if (photoFile) {
+        setIsUploadingPhoto(true);
+        try {
+          const resizedPhoto = await resizePhoto(photoFile);
+          const uploadedPhoto = await uploadVehiclePhoto(vehicle.id, resizedPhoto);
+          await setVehiclePhoto.mutateAsync({ id: vehicle.id, input: uploadedPhoto });
+        } catch {
+          handleOpenChange(false);
+          toast.error(
+            'Guardamos el vehículo, pero no pudimos subir la foto. Probá de nuevo desde Editar.',
+          );
+          return;
+        } finally {
+          setIsUploadingPhoto(false);
+        }
       }
 
-      props.onOpenChange(false);
+      handleOpenChange(false);
       toast.success(props.mode === 'add' ? 'Vehículo guardado' : 'Cambios guardados');
     } catch (error) {
       if (isApiError(error) && error.status === 409) {
@@ -143,13 +204,13 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
         <Button className="w-full gap-2" disabled={isPending} form={formId} type="submit">
           {isPending ? <Icon className="animate-spin" color="on-primary" name="Loader2" /> : null}
           <Text color="on-primary" variant="label">
-            {isPending ? 'Guardando...' : submitLabel}
+            {isUploadingPhoto ? 'Subiendo foto...' : isPending ? 'Guardando...' : submitLabel}
           </Text>
         </Button>
       }
       dismissible={!isPending}
       open={props.open}
-      onOpenChange={props.onOpenChange}
+      onOpenChange={handleOpenChange}
       title={title}
     >
       <form
@@ -160,6 +221,12 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
         onSubmit={handleSubmit}
       >
         <FormSection iconSrc={VEHICLE_SECTION_ICONS.identification} title="Identificación">
+          <PhotoField
+            error={photoError}
+            photoUrl={photoPreview ?? props.vehicle?.photoUrl ?? null}
+            uploading={isUploadingPhoto}
+            onChange={selectPhoto}
+          />
           <div className="grid grid-cols-2 gap-x-3 gap-y-5">
             <FormField error={errors.brand} id="vehicle-brand" label="Marca">
               <Input
@@ -513,6 +580,81 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
         </FormSection>
       </form>
     </BottomSheet>
+  );
+}
+
+type PhotoFieldProps = {
+  error?: string;
+  photoUrl: string | null;
+  uploading: boolean;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+};
+
+function PhotoField({ error, photoUrl, uploading, onChange }: PhotoFieldProps) {
+  const inputId = useId();
+  const [imageFailed, setImageFailed] = useState(false);
+  const source = imageFailed ? null : photoUrl;
+
+  useEffect(() => setImageFailed(false), [photoUrl]);
+
+  return (
+    <div className="mb-5">
+      <Text as="label" className="mb-2 block" color="emphasis" htmlFor={inputId} variant="label">
+        Foto
+      </Text>
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+        {source ? (
+          <>
+            <img
+              alt="Vista previa del vehículo"
+              className="size-full object-cover"
+              src={source}
+              onError={() => setImageFailed(true)}
+            />
+            <button
+              className="absolute right-3 bottom-3 flex h-9 items-center gap-2 rounded-full bg-card px-3 shadow-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              disabled={uploading}
+              type="button"
+              onClick={() => document.getElementById(inputId)?.click()}
+            >
+              <Icon name="Camera" size="sm" />
+              <Text variant="caption-strong">Cambiar foto</Text>
+            </button>
+          </>
+        ) : (
+          <button
+            className="flex size-full flex-col items-center justify-center border border-dashed border-border bg-card transition hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            disabled={uploading}
+            type="button"
+            onClick={() => document.getElementById(inputId)?.click()}
+          >
+            <Icon color="subtle" name="ImagePlus" size="lg" strokeWidth={1.75} />
+            <Text className="mt-2" color="emphasis" variant="label">
+              Agregar foto
+            </Text>
+            <Text className="mt-1" color="muted" variant="caption">
+              JPG, PNG o WebP · hasta 10 MB
+            </Text>
+          </button>
+        )}
+        {uploading ? (
+          <div className="absolute inset-0 grid place-items-center bg-neutral-900/40">
+            <div className="flex flex-col items-center gap-2">
+              <Icon className="animate-spin" color="on-primary" name="Loader2" size="lg" />
+              <Text color="on-primary" variant="label">
+                Subiendo foto...
+              </Text>
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <input accept="image/*" className="sr-only" id={inputId} type="file" onChange={onChange} />
+      {error ? (
+        <Text className="mt-1.5 block" color="danger" variant="caption">
+          {error}
+        </Text>
+      ) : null}
+    </div>
   );
 }
 

@@ -8,12 +8,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateMileageDto } from './dto/update-mileage.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
+import { SetVehiclePhotoDto } from './dto/set-vehicle-photo.dto';
 import { VehiclesService } from './vehicles.service';
 import type { VehicleResponse } from './vehicles.mapper';
 
@@ -47,6 +49,15 @@ export class VehiclesController {
     @Body() dto: UpdateVehicleDto,
   ): Promise<VehicleResponse> {
     return this.vehiclesService.update(user.id, id, dto);
+  }
+
+  @Put(':id/photo')
+  setPhoto(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetVehiclePhotoDto,
+  ): Promise<VehicleResponse> {
+    return this.vehiclesService.setPhoto(user, id, dto);
   }
 
   @Delete(':id')

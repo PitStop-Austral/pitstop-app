@@ -36,6 +36,8 @@ model Vehicle {
   highBeam             String?
   lowBeam              String?
   fogLight             String?
+  photoUrl             String?
+  photoPath            String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   owner                User              @relation(fields: [ownerId], references: [id])
