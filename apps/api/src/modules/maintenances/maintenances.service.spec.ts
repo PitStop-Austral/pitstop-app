@@ -12,6 +12,7 @@ describe('MaintenancesService', () => {
   let createWithMileageUpdate: jest.MockedFunction<
     MaintenancesRepository['createWithMileageUpdate']
   >;
+  let findManyByVehicle: jest.MockedFunction<MaintenancesRepository['findManyByVehicle']>;
 
   const dto: CreateMaintenanceDto = {
     type: 'Cambio de aceite',
@@ -40,13 +41,14 @@ describe('MaintenancesService', () => {
     jest.setSystemTime(new Date('2026-09-18T00:30:00.000Z'));
     findOwnedById = jest.fn();
     createWithMileageUpdate = jest.fn();
+    findManyByVehicle = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MaintenancesService,
         {
           provide: MaintenancesRepository,
-          useValue: { createWithMileageUpdate },
+          useValue: { createWithMileageUpdate, findManyByVehicle },
         },
         {
           provide: VehiclesRepository,
@@ -96,5 +98,31 @@ describe('MaintenancesService', () => {
       service.create('user-1', maintenance.vehicleId, { ...dto, date: '2026-09-18' }),
     ).rejects.toThrow(BadRequestException);
     expect(createWithMileageUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lists the maintenances of an owned vehicle as responses', async () => {
+    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000 });
+    findManyByVehicle.mockResolvedValue([maintenance]);
+
+    await expect(service.findByVehicle('user-1', maintenance.vehicleId)).resolves.toEqual([
+      { ...maintenance, date: '2026-09-17', cost: 42000 },
+    ]);
+    expect(findManyByVehicle).toHaveBeenCalledWith(maintenance.vehicleId);
+  });
+
+  it('returns an empty list for a vehicle without maintenances', async () => {
+    findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000 });
+    findManyByVehicle.mockResolvedValue([]);
+
+    await expect(service.findByVehicle('user-1', maintenance.vehicleId)).resolves.toEqual([]);
+  });
+
+  it('hides an absent or unowned vehicle behind not found when listing', async () => {
+    findOwnedById.mockResolvedValue(null);
+
+    await expect(service.findByVehicle('user-1', maintenance.vehicleId)).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(findManyByVehicle).not.toHaveBeenCalled();
   });
 });

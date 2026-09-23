@@ -12,6 +12,7 @@ describe('MaintenancesRepository', () => {
   let transaction: jest.Mock;
   let createMaintenance: jest.Mock;
   let updateVehicleMileage: jest.Mock;
+  let findManyMaintenances: jest.Mock;
 
   const vehicleId = '22222222-2222-4222-8222-222222222222';
   const data: CreateMaintenanceData = {
@@ -35,6 +36,7 @@ describe('MaintenancesRepository', () => {
   beforeEach(async () => {
     createMaintenance = jest.fn().mockResolvedValue(maintenance);
     updateVehicleMileage = jest.fn().mockResolvedValue({ count: 1 });
+    findManyMaintenances = jest.fn().mockResolvedValue([maintenance]);
     transaction = jest.fn(async (callback) =>
       callback({
         maintenance: { create: createMaintenance },
@@ -47,12 +49,24 @@ describe('MaintenancesRepository', () => {
         MaintenancesRepository,
         {
           provide: PrismaService,
-          useValue: { $transaction: transaction },
+          useValue: {
+            $transaction: transaction,
+            maintenance: { findMany: findManyMaintenances },
+          },
         },
       ],
     }).compile();
 
     repository = module.get(MaintenancesRepository);
+  });
+
+  it('lists a vehicle maintenances newest first, breaking ties by creation', async () => {
+    await expect(repository.findManyByVehicle(vehicleId)).resolves.toEqual([maintenance]);
+    expect(findManyMaintenances).toHaveBeenCalledWith({
+      where: { vehicleId },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: expect.any(Object),
+    });
   });
 
   it('creates the maintenance and only raises mileage in one transaction', async () => {

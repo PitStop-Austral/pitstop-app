@@ -39,3 +39,23 @@ On success, the form closes, shows `Servicio registrado`, and invalidates the `v
 prefix. This refreshes the active vehicle and its odometer without reloading, while also covering
 future per-vehicle maintenance queries. During submission the footer shows `Guardando...` and the
 sheet cannot be dismissed.
+
+## Maintenance history
+
+`GET /vehicles/:vehicleId/maintenances` returns the vehicle's full history, newest first: ordered by
+`date` descending and, for records sharing a date, by `createdAt` descending, so the last one
+registered that day leads. It reuses the same ownership check and response mapper as creation, so an
+unowned or missing vehicle returns `404` and a non-UUID id returns `400`.
+
+The Calendario route lists that history for the active vehicle. Its query key includes the vehicle
+id, so each vehicle caches its own list and switching the active vehicle swaps the list without a
+reload. Registering a maintenance already invalidates the `vehicles` prefix, which covers this query
+too, so a new record appears at the top of the list immediately.
+
+The route shows, in order, a loading indicator, a retryable error state, an invitation to pick a
+vehicle when the account has none, and an empty state that opens the registration form when the
+vehicle has no records. The error state only replaces the list while there is nothing cached, so a
+failed background refetch leaves the records already on screen untouched. The list itself is a
+single column on phones and two columns from 1024 px. Each card shows the service icon and name, a
+badge for maintenance or repair, and the last service date and mileage; the next-service line is a
+placeholder until frequencies exist.
