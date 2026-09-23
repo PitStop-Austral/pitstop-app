@@ -59,3 +59,30 @@ failed background refetch leaves the records already on screen untouched. The li
 single column on phones and two columns from 1024 px. Each card shows the service icon and name, a
 badge for maintenance or repair, and the last service date and mileage; the next-service line is a
 placeholder until frequencies exist.
+
+## Detail, edit, and delete
+
+`GET`, `PATCH`, and `DELETE /vehicles/:vehicleId/maintenances/:id` look the record up by id, vehicle,
+and owner together, so a maintenance belonging to another user or to another vehicle returns `404`;
+non-UUID ids return `400`. If the record disappears between that check and the write, Prisma's
+`P2025` is also mapped to `404`. `DELETE` answers `204` without a body.
+
+`PATCH` changes only the fields present in the body. Required fields reject `null`; `null` or an
+empty string clears the optional workshop, cost, and notes. The date follows the same
+Argentina-local non-future rule as creation. A new mileage raises the vehicle odometer through the
+same conditional update as creation, but lowering a record's mileage or deleting it never lowers the
+odometer; the odometer is corrected from the vehicle itself.
+
+In Calendario, tapping a history card opens the detail sheet: service, category badge, date,
+mileage, workshop, cost, and notes, with `No especificado` for a missing workshop or cost and no
+notes block when there are none. Its `⋮` menu offers `Editar`, which opens the registration form
+prefilled (a service outside the catalog opens as `Otro` with its name), and `Eliminar`, which opens
+a confirmation sheet. `MaintenanceSheetProvider` keeps a single open-sheet state, so moving from the
+detail to edit or delete replaces the sheet instead of stacking dialogs. On phones the detail has a
+`Cerrar` footer; on desktop it closes with the X, Escape, or a click outside.
+
+The detail reads the cached history list as its initial data, so it opens without waiting. A saved
+edit writes the response into the detail cache before invalidating the `vehicles` prefix, and a
+delete removes the detail query first, so neither a reopened detail nor the refetch shows stale or
+missing data. If the detail cannot be loaded or no longer exists, the sheet closes with an error
+toast.

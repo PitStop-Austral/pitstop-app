@@ -14,6 +14,8 @@ type BottomSheetProps = {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  footerClassName?: string;
+  headerAction?: ReactNode;
   dismissible?: boolean;
   className?: string;
 };
@@ -25,6 +27,8 @@ export function BottomSheet({
   description,
   children,
   footer,
+  footerClassName,
+  headerAction,
   dismissible = true,
   className,
 }: BottomSheetProps) {
@@ -79,6 +83,7 @@ export function BottomSheet({
                 </Text>
               ) : null}
             </div>
+            {headerAction}
             <Button
               aria-label="Cerrar"
               disabled={!dismissible}
@@ -96,7 +101,12 @@ export function BottomSheet({
             {children}
           </div>
           {footer ? (
-            <div className="border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div
+              className={cn(
+                'border-t border-border px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]',
+                footerClassName,
+              )}
+            >
               {footer}
             </div>
           ) : null}

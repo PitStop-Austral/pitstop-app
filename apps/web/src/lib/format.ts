@@ -12,3 +12,11 @@ export function formatDate(iso: string): string {
     year: 'numeric',
   }).format(new Date(`${iso}T00:00:00`));
 }
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(value);
+}

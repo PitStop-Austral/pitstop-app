@@ -42,6 +42,40 @@ export class MaintenancesRepository {
     });
   }
 
+  async findOwned(ownerId: string, vehicleId: string, id: string): Promise<MaintenanceView | null> {
+    return this.prisma.maintenance.findFirst({
+      where: { id, vehicleId, vehicle: { ownerId } },
+      select: maintenanceSelect,
+    });
+  }
+
+  async updateWithMileageUpdate(
+    vehicleId: string,
+    id: string,
+    data: Partial<CreateMaintenanceData>,
+  ): Promise<MaintenanceView> {
+    return this.prisma.$transaction(async (transaction) => {
+      const maintenance = await transaction.maintenance.update({
+        where: { id, vehicleId },
+        data,
+        select: maintenanceSelect,
+      });
+
+      if (data.mileage !== undefined) {
+        await transaction.vehicle.updateMany({
+          where: { id: vehicleId, mileage: { lt: data.mileage } },
+          data: { mileage: data.mileage },
+        });
+      }
+
+      return maintenance;
+    });
+  }
+
+  async delete(vehicleId: string, id: string): Promise<void> {
+    await this.prisma.maintenance.delete({ where: { id, vehicleId } });
+  }
+
   async createWithMileageUpdate(
     vehicleId: string,
     data: CreateMaintenanceData,
