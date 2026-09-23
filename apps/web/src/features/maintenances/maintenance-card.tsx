@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { formatDate, formatNumber } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { ServiceIcon } from './service-icon';
 import { CATEGORY_LABELS } from './types';
 import type { Maintenance } from './types';
@@ -71,7 +72,7 @@ export function MaintenanceCard({ maintenance, onClick }: MaintenanceCardProps) 
   }
 
   return (
-    <button className={cardClassName} type="button" onClick={onClick}>
+    <button className={cn(cardClassName, 'cursor-pointer')} type="button" onClick={onClick}>
       {content}
     </button>
   );
