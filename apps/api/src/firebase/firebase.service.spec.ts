@@ -51,6 +51,13 @@ describe('FirebaseService', () => {
     expect(initializeApp).not.toHaveBeenCalled();
   });
 
+  it('throws when the Storage bucket is missing', () => {
+    delete process.env.FIREBASE_STORAGE_BUCKET;
+
+    expect(() => new FirebaseService()).toThrow(/FIREBASE_STORAGE_BUCKET/);
+    expect(initializeApp).not.toHaveBeenCalled();
+  });
+
   it('resolves with the decoded token uid for a valid token', async () => {
     verifyIdToken.mockResolvedValue({ uid: 'abc123' });
 

@@ -42,11 +42,11 @@ export function ActiveVehicleButton({
       type="button"
       onClick={onClick}
     >
-      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-100">
+      <div className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-neutral-100">
         {activeVehicle?.photoUrl && !imageFailed ? (
           <img
             alt={`${activeVehicle.brand} ${activeVehicle.model}`}
-            className="size-full rounded-full object-cover"
+            className="block size-full object-cover"
             src={activeVehicle.photoUrl}
             onError={() => setImageFailed(true)}
           />
