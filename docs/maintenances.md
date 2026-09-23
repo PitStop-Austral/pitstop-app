@@ -67,11 +67,12 @@ and owner together, so a maintenance belonging to another user or to another veh
 non-UUID ids return `400`. If the record disappears between that check and the write, Prisma's
 `P2025` is also mapped to `404`. `DELETE` answers `204` without a body.
 
-`PATCH` changes only the fields present in the body. Required fields reject `null`; `null` or an
-empty string clears the optional workshop, cost, and notes. The date follows the same
-Argentina-local non-future rule as creation. A new mileage raises the vehicle odometer through the
-same conditional update as creation, but lowering a record's mileage or deleting it never lowers the
-odometer; the odometer is corrected from the vehicle itself.
+`PATCH` changes only the fields present in the body. Required fields reject `null`; `null` clears
+the optional workshop, cost, and notes, and an empty or blank string also clears workshop and notes
+(an empty cost is a `400`). The date follows the same Argentina-local non-future rule as creation. A
+new mileage raises the vehicle odometer through the same conditional update as creation, but
+lowering a record's mileage or deleting it never lowers the odometer; the odometer is corrected from
+the vehicle itself.
 
 In Calendario, tapping a history card opens the detail sheet: service, category badge, date,
 mileage, workshop, cost, and notes, with `No especificado` for a missing workshop or cost and no

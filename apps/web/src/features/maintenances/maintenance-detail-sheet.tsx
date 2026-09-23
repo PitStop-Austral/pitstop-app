@@ -125,9 +125,11 @@ export function MaintenanceDetailSheet({
               <Text color="muted" variant="caption-strong">
                 Notas
               </Text>
-              <Text className="mt-1 whitespace-pre-line" color="default" variant="body">
-                {maintenance.notes}
-              </Text>
+              <div className="whitespace-pre-line">
+                <Text className="mt-1" color="default" variant="body">
+                  {maintenance.notes}
+                </Text>
+              </div>
             </div>
           ) : null}
         </div>
@@ -146,9 +148,11 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <Text color="muted" variant="body">
         {label}
       </Text>
-      <Text className="max-w-[62%] text-right break-words" color="default" variant="body-strong">
-        {value}
-      </Text>
+      <div className="max-w-[62%] text-right break-words">
+        <Text color="default" variant="body-strong">
+          {value}
+        </Text>
+      </div>
     </div>
   );
 }

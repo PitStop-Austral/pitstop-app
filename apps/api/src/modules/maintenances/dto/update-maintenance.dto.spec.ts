@@ -22,6 +22,7 @@ describe('UpdateMaintenanceDto', () => {
     ['a null mileage', { mileage: null }],
     ['a null date', { date: null }],
     ['an empty type', { type: '  ' }],
+    ['an empty cost', { cost: '' }],
   ])('rejects %s', async (_, body) => {
     await expect(pipe.transform(body, metadata)).rejects.toThrow(BadRequestException);
   });
