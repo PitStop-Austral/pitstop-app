@@ -19,7 +19,10 @@ test('keeps the calendar day of an ISO date instead of shifting it in UTC', () =
   assert.equal(formatDate('2026-01-01'), '01 ene 2026');
 });
 
-test('formats a cost as whole Argentine pesos', () => {
+test('formats a whole cost without decimals and a cost with cents with two', () => {
   // es-AR puts a non-breaking space between the symbol and the amount.
-  assert.equal(formatCurrency(42000).replace(/\s/g, ' '), '$ 42.000');
+  const format = (value: number) => formatCurrency(value).replace(/\s/g, ' ');
+  assert.equal(format(42000), '$ 42.000');
+  assert.equal(format(1.5), '$ 1,50');
+  assert.equal(format(1234.56), '$ 1.234,56');
 });

@@ -13,10 +13,13 @@ export function formatDate(iso: string): string {
   }).format(new Date(`${iso}T00:00:00`));
 }
 
+// Whole amounts drop the decimals; amounts with cents always show two (1.5 → "$ 1,50").
 export function formatCurrency(value: number): string {
+  const fractionDigits = Number.isInteger(value) ? 0 : 2;
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value);
 }
