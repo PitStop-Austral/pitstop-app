@@ -2,9 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { User } from '../../generated/prisma/client';
+import { FirebaseService } from '../../firebase/firebase.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { SetVehiclePhotoDto } from './dto/set-vehicle-photo.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { CreateVehicleData, UpdateVehicleData, VehiclesRepository } from './vehicles.repository';
 import { toVehicleResponse } from './vehicles.mapper';
@@ -17,7 +21,12 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
 @Injectable()
 export class VehiclesService {
-  constructor(private readonly vehiclesRepository: VehiclesRepository) {}
+  private readonly logger = new Logger(VehiclesService.name);
+
+  constructor(
+    private readonly vehiclesRepository: VehiclesRepository,
+    private readonly firebaseService: FirebaseService,
+  ) {}
 
   async findByOwner(ownerId: string): Promise<VehicleResponse[]> {
     const vehicles = await this.vehiclesRepository.findByOwner(ownerId);
@@ -91,6 +100,33 @@ export class VehiclesService {
     );
   }
 
+  async setPhoto(
+    user: Pick<User, 'id' | 'firebaseUid'>,
+    id: string,
+    dto: SetVehiclePhotoDto,
+  ): Promise<VehicleResponse> {
+    const vehicle = await this.vehiclesRepository.findOwnedById(id, user.id);
+    if (!vehicle) {
+      throw new NotFoundException('Vehículo no encontrado');
+    }
+
+    if (!dto.photoPath.startsWith(`${user.firebaseUid}/vehicles/${id}/`)) {
+      throw new BadRequestException('La foto no pertenece a este vehículo');
+    }
+
+    if (new URL(dto.photoUrl).hostname !== 'firebasestorage.googleapis.com') {
+      throw new BadRequestException('La URL de la foto no es válida');
+    }
+
+    const updatedVehicle = await this.vehiclesRepository.setPhoto(id, dto.photoPath, dto.photoUrl);
+
+    if (vehicle.photoPath && vehicle.photoPath !== dto.photoPath) {
+      await this.deleteFileSafely(vehicle.photoPath);
+    }
+
+    return toVehicleResponse(updatedVehicle);
+  }
+
   async remove(ownerId: string, id: string): Promise<void> {
     const ownedVehicle = await this.vehiclesRepository.findOwnedById(id, ownerId);
     if (!ownedVehicle) {
@@ -98,6 +134,9 @@ export class VehiclesService {
     }
 
     await this.vehiclesRepository.deleteAndReassignActive(ownerId, id);
+    if (ownedVehicle.photoPath) {
+      await this.deleteFileSafely(ownedVehicle.photoPath);
+    }
   }
 
   private normalizeUpdate(dto: UpdateVehicleDto): UpdateVehicleData {
@@ -131,6 +170,17 @@ export class VehiclesService {
   private throwIfDuplicatePlate(error: unknown): void {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
       throw new ConflictException('Ya existe un vehículo con esa patente');
+    }
+  }
+
+  private async deleteFileSafely(path: string): Promise<void> {
+    try {
+      await this.firebaseService.deleteFile(path);
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete vehicle photo at ${path}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

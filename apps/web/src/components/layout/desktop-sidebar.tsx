@@ -4,11 +4,14 @@ import { useState } from 'react';
 import pitstopLogo from '@/assets/pitstop-logo.png';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useMaintenanceSheet } from '@/features/maintenances/maintenance-sheet-context';
 import { VehiclePicker } from '@/features/vehicles/vehicle-picker';
 import { NAV_ITEMS } from '@/lib/navigation';
 
 export function DesktopSidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const { canRegister, isDisabled, openRegisterMaintenance } = useMaintenanceSheet();
+  const actionLabel = canRegister ? 'Registrar mantenimiento' : 'Agregar vehículo';
 
   return (
     <aside
@@ -66,14 +69,17 @@ export function DesktopSidebar() {
 
       <div className="mt-auto p-4">
         <button
-          aria-label="Registrar mantenimiento"
+          aria-label={actionLabel}
           className={`flex min-h-12 items-center justify-center rounded-full bg-primary shadow-sm transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${collapsed ? 'size-12' : 'w-full gap-2 px-4'}`}
+          disabled={isDisabled}
+          title={collapsed ? actionLabel : undefined}
           type="button"
+          onClick={openRegisterMaintenance}
         >
           <Icon color="on-primary" name="Plus" size="md" />
           {!collapsed && (
             <Text color="on-primary" variant="label">
-              Registrar mantenimiento
+              {actionLabel}
             </Text>
           )}
         </button>

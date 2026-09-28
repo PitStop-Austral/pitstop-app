@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { Odometer } from '@/components/odometer';
 import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
@@ -12,10 +14,23 @@ type VehicleHeroCardProps = {
 };
 
 export function VehicleHeroCard({ vehicle, onUpdateMileage }: VehicleHeroCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [vehicle.photoUrl]);
+
   return (
     <div className="rounded-[20px] border border-border bg-card p-4 lg:sticky lg:top-10">
-      <div className="grid aspect-video place-items-center rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
-        <Icon color="subtle" name="CarFront" size="xl" strokeWidth={1.5} />
+      <div className="grid aspect-video place-items-center overflow-hidden rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
+        {vehicle.photoUrl && !imageFailed ? (
+          <img
+            alt={`${vehicle.brand} ${vehicle.model}`}
+            className="size-full rounded-[16px] object-cover"
+            src={vehicle.photoUrl}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <Icon color="subtle" name="CarFront" size="xl" strokeWidth={1.5} />
+        )}
       </div>
 
       <div className="mt-4">

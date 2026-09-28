@@ -1,0 +1,21 @@
+enum MaintenanceCategory {
+  MANTENIMIENTO
+  ARREGLO
+}
+
+model Maintenance {
+  id        String              @id @default(uuid()) @db.Uuid
+  vehicleId String              @db.Uuid
+  type      String
+  category  MaintenanceCategory
+  date      DateTime            @db.Date
+  mileage   Int
+  workshop  String?
+  cost      Decimal?            @db.Decimal(12, 2)
+  notes     String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  vehicle   Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, date])
+}

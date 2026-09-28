@@ -132,8 +132,9 @@ own local credentials:
    `VITE_FIREBASE_MESSAGING_SENDER_ID`, and `VITE_FIREBASE_APP_ID`.
 3. In the console, go to Project settings > Service accounts > Generate new private key. Open the
    downloaded JSON, copy `project_id`, `client_email`, and `private_key` into `apps/api/.env` as
-   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, then delete the
-   downloaded JSON file. Never commit it.
+   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, and copy the web
+   app's `storageBucket` value as `FIREBASE_STORAGE_BUCKET`, then delete the downloaded JSON file.
+   Never commit it.
 4. Confirm the Email/Password provider is enabled under Authentication > Sign-in method (this is a
    one-time, project-level setting, not per-dev).
 5. Confirm the Storage bucket exists, then paste the contents of the repository's `storage.rules`
@@ -223,8 +224,8 @@ hand if you change one.
 PORT=4000 pnpm dev:api
 ```
 
-It also holds the Firebase Admin credentials, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
-`FIREBASE_PRIVATE_KEY`:
+It also holds the Firebase Admin credentials, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`,
+`FIREBASE_PRIVATE_KEY`, and `FIREBASE_STORAGE_BUCKET`:
 
 ```bash
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQ...\n-----END PRIVATE KEY-----\n"

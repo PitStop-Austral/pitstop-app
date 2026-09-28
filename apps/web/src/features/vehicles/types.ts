@@ -49,9 +49,10 @@ export type Vehicle = {
   highBeam: string | null;
   lowBeam: string | null;
   fogLight: string | null;
+  photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>;
+export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'photoUrl'>;
 export type VehicleUpdateInput = Partial<VehicleInput>;

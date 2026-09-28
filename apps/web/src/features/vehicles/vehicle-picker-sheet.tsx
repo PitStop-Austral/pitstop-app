@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -80,9 +82,7 @@ export function VehiclePickerSheet({
               type="button"
               onClick={() => void selectVehicle(vehicle)}
             >
-              <div className="grid h-14 w-20 shrink-0 place-items-center rounded-[12px] bg-neutral-100">
-                <Icon color="muted" name="CarFront" size="lg" />
-              </div>
+              <VehicleThumbnail vehicle={vehicle} />
               <div className="min-w-0 flex-1">
                 <Text className="block truncate" variant="subheading">
                   {vehicle.brand} {vehicle.model}
@@ -101,5 +101,26 @@ export function VehiclePickerSheet({
         })}
       </div>
     </BottomSheet>
+  );
+}
+
+function VehicleThumbnail({ vehicle }: { vehicle: Vehicle }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [vehicle.photoUrl]);
+
+  return (
+    <div className="grid h-14 w-20 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-neutral-100">
+      {vehicle.photoUrl && !imageFailed ? (
+        <img
+          alt={`${vehicle.brand} ${vehicle.model}`}
+          className="size-full rounded-[12px] object-cover"
+          src={vehicle.photoUrl}
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <Icon color="muted" name="CarFront" size="lg" />
+      )}
+    </div>
   );
 }

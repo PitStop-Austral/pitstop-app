@@ -28,11 +28,13 @@ describe('AppModule (e2e)', () => {
   let findManyVehicles: jest.Mock;
   let findOwnedVehicle: jest.Mock;
   let createVehicle: jest.Mock;
+  let createMaintenance: jest.Mock;
   let deleteVehicle: jest.Mock;
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
   let lockOwner: jest.Mock;
   let updateVehicle: jest.Mock;
+  let updateMaintenanceMileage: jest.Mock;
   let updateActiveUser: jest.Mock;
   let transaction: jest.Mock;
 
@@ -75,6 +77,28 @@ describe('AppModule (e2e)', () => {
     updatedAt: vehicle.updatedAt.toISOString(),
   };
 
+  const maintenance = {
+    id: '33333333-3333-4333-8333-333333333333',
+    vehicleId: vehicle.id,
+    type: 'Cambio de aceite',
+    category: 'MANTENIMIENTO',
+    date: new Date('2026-09-17T00:00:00.000Z'),
+    mileage: 60500,
+    workshop: 'Lubricentro',
+    cost: { toNumber: () => 42000 },
+    notes: null,
+    createdAt: new Date('2026-09-17T12:00:00.000Z'),
+    updatedAt: new Date('2026-09-17T12:00:00.000Z'),
+  };
+
+  const serializedMaintenance = {
+    ...maintenance,
+    date: '2026-09-17',
+    cost: 42000,
+    createdAt: maintenance.createdAt.toISOString(),
+    updatedAt: maintenance.updatedAt.toISOString(),
+  };
+
   beforeEach(async () => {
     queryRaw = jest.fn().mockResolvedValue([{ result: 1 }]);
     verifyIdToken = jest.fn();
@@ -83,16 +107,24 @@ describe('AppModule (e2e)', () => {
     findManyVehicles = jest.fn();
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
+    createMaintenance = jest.fn();
     deleteVehicle = jest.fn();
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
     lockOwner = jest.fn();
     updateVehicle = jest.fn();
+    updateMaintenanceMileage = jest.fn();
     updateActiveUser = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
-        vehicle: { create: createVehicle, delete: deleteVehicle, findFirst: findReplacement },
+        maintenance: { create: createMaintenance },
+        vehicle: {
+          create: createVehicle,
+          delete: deleteVehicle,
+          findFirst: findReplacement,
+          updateMany: updateMaintenanceMileage,
+        },
         user: { findUnique: findTransactionUser, update: updateActiveUser },
       }),
     );
@@ -337,6 +369,82 @@ describe('AppModule (e2e)', () => {
       return request(app.getHttpServer())
         .delete(`/vehicles/${vehicle.id}`)
         .set('Authorization', 'Bearer valid-token')
+        .expect(404);
+    });
+  });
+
+  describe('/vehicles/:vehicleId/maintenances', () => {
+    const payload = {
+      type: 'Cambio de aceite',
+      category: 'MANTENIMIENTO',
+      date: '2026-09-17',
+      mileage: 60500,
+      workshop: 'Lubricentro',
+      cost: 42000,
+      notes: null,
+    };
+
+    it('requires authentication', () => {
+      return request(app.getHttpServer())
+        .post(`/vehicles/${vehicle.id}/maintenances`)
+        .send(payload)
+        .expect(401);
+    });
+
+    it('creates a maintenance for an owned vehicle', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      createMaintenance.mockResolvedValue(maintenance);
+      updateMaintenanceMileage.mockResolvedValue({ count: 1 });
+
+      await request(app.getHttpServer())
+        .post(`/vehicles/${vehicle.id}/maintenances`)
+        .set('Authorization', 'Bearer valid-token')
+        .send(payload)
+        .expect(201)
+        .expect(serializedMaintenance);
+
+      expect(updateMaintenanceMileage).toHaveBeenCalledWith({
+        where: { id: vehicle.id, mileage: { lt: payload.mileage } },
+        data: { mileage: payload.mileage },
+      });
+    });
+
+    it('rejects an invalid vehicle id', () => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .post('/vehicles/not-a-uuid/maintenances')
+        .set('Authorization', 'Bearer valid-token')
+        .send(payload)
+        .expect(400);
+    });
+
+    it('rejects an invalid payload or future date', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+      await request(app.getHttpServer())
+        .post(`/vehicles/${vehicle.id}/maintenances`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ ...payload, type: '', mileage: -1 })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .post(`/vehicles/${vehicle.id}/maintenances`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ ...payload, date: '9999-12-31' })
+        .expect(400);
+    });
+
+    it('returns not found for an absent or unowned vehicle', () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue(null);
+
+      return request(app.getHttpServer())
+        .post(`/vehicles/${vehicle.id}/maintenances`)
+        .set('Authorization', 'Bearer valid-token')
+        .send(payload)
         .expect(404);
     });
   });

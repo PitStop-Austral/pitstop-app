@@ -36,6 +36,7 @@ describe('VehiclesRepository', () => {
     highBeam: null,
     lowBeam: null,
     fogLight: null,
+    photoUrl: null,
     createdAt: new Date('2026-09-03T00:00:00.000Z'),
     updatedAt: new Date('2026-09-03T00:00:00.000Z'),
   };
@@ -122,15 +123,20 @@ describe('VehiclesRepository', () => {
   });
 
   it('finds an owned vehicle with its current mileage', async () => {
-    findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+    findOwnedVehicle.mockResolvedValue({
+      id: vehicle.id,
+      mileage: vehicle.mileage,
+      photoPath: null,
+    });
 
     await expect(repository.findOwnedById(vehicle.id, 'user-1')).resolves.toEqual({
       id: vehicle.id,
       mileage: vehicle.mileage,
+      photoPath: null,
     });
     expect(findOwnedVehicle).toHaveBeenCalledWith({
       where: { id: vehicle.id, ownerId: 'user-1' },
-      select: { id: true, mileage: true },
+      select: { id: true, mileage: true, photoPath: true },
     });
   });
 

@@ -23,6 +23,7 @@ const vehicleSelect = {
   highBeam: true,
   lowBeam: true,
   fogLight: true,
+  photoUrl: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.VehicleSelect;
@@ -68,10 +69,10 @@ export class VehiclesRepository {
   async findOwnedById(
     id: string,
     ownerId: string,
-  ): Promise<{ id: string; mileage: number } | null> {
+  ): Promise<{ id: string; mileage: number; photoPath: string | null } | null> {
     return this.prisma.vehicle.findFirst({
       where: { id, ownerId },
-      select: { id: true, mileage: true },
+      select: { id: true, mileage: true, photoPath: true },
     });
   }
 
@@ -102,6 +103,14 @@ export class VehiclesRepository {
     return this.prisma.vehicle.update({
       where: { id },
       data,
+      select: vehicleSelect,
+    });
+  }
+
+  async setPhoto(id: string, photoPath: string, photoUrl: string): Promise<VehicleView> {
+    return this.prisma.vehicle.update({
+      where: { id },
+      data: { photoPath, photoUrl },
       select: vehicleSelect,
     });
   }
