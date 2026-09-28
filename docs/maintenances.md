@@ -87,3 +87,26 @@ edit writes the response into the detail cache before invalidating the `vehicles
 delete removes the detail query first, so neither a reopened detail nor the refetch shows stale or
 missing data. If the detail cannot be loaded or no longer exists, the sheet closes with an error
 toast.
+
+## Maintenance frequencies
+
+PIT-52 adds one schedule per vehicle and normalized service type. A schedule stores optional positive
+integer month and kilometer intervals, with at least one required. The database unique constraint
+prevents duplicates even when two requests arrive together. `POST /vehicles/:vehicleId/schedules`
+creates a schedule, and `GET /vehicles/:vehicleId/schedules` lists that vehicle's saved rules;
+both require ownership. Duplicate creation returns `409`.
+
+The baseline is the latest maintenance record of the same service type, ordered by service date and
+creation time. Without one, creation captures the Argentina-local calendar date and current vehicle
+mileage. The API stores that baseline but does not calculate a due date yet.
+
+Garage's Recomendados tab opens the responsive frequency form. It reuses the service catalog,
+supports custom services, and allows months, kilometers, or both. The vehicle-specific schedules
+query prevents duplicate selection and refreshes after creation. Viewing, editing, deleting, and
+calculating due dates are covered by later tickets.
+
+The database-backed schedule roundtrip is a separate check. Set `TEST_DATABASE_URL` to a dedicated
+PostgreSQL database whose name ends in `_test`, apply migrations with
+`DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" pnpm --filter api exec prisma migrate deploy`,
+then run `pnpm --filter api test:e2e:db`. The test seeds and removes its own user and vehicle; it
+never falls back to the application's `DATABASE_URL`.

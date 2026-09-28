@@ -29,6 +29,10 @@ describe('AppModule (e2e)', () => {
   let findOwnedVehicle: jest.Mock;
   let createVehicle: jest.Mock;
   let createMaintenance: jest.Mock;
+  let createSchedule: jest.Mock;
+  let findSchedules: jest.Mock;
+  let findBaselineMaintenance: jest.Mock;
+  let findScheduleVehicle: jest.Mock;
   let deleteVehicle: jest.Mock;
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
@@ -99,6 +103,18 @@ describe('AppModule (e2e)', () => {
     updatedAt: maintenance.updatedAt.toISOString(),
   };
 
+  const schedule = {
+    id: '44444444-4444-4444-8444-444444444444',
+    vehicleId: vehicle.id,
+    type: 'Filtros',
+    intervalMonths: 6,
+    intervalKm: 10000,
+    baselineDate: new Date('2026-09-17T00:00:00.000Z'),
+    baselineMileage: 48000,
+    createdAt: new Date('2026-09-18T00:00:00.000Z'),
+    updatedAt: new Date('2026-09-18T00:00:00.000Z'),
+  };
+
   beforeEach(async () => {
     queryRaw = jest.fn().mockResolvedValue([{ result: 1 }]);
     verifyIdToken = jest.fn();
@@ -108,6 +124,10 @@ describe('AppModule (e2e)', () => {
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
     createMaintenance = jest.fn();
+    createSchedule = jest.fn();
+    findSchedules = jest.fn();
+    findBaselineMaintenance = jest.fn();
+    findScheduleVehicle = jest.fn();
     deleteVehicle = jest.fn();
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
@@ -118,11 +138,13 @@ describe('AppModule (e2e)', () => {
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
-        maintenance: { create: createMaintenance },
+        maintenance: { create: createMaintenance, findFirst: findBaselineMaintenance },
+        schedule: { create: createSchedule },
         vehicle: {
           create: createVehicle,
           delete: deleteVehicle,
           findFirst: findReplacement,
+          findUniqueOrThrow: findScheduleVehicle,
           updateMany: updateMaintenanceMileage,
         },
         user: { findUnique: findTransactionUser, update: updateActiveUser },
@@ -142,6 +164,8 @@ describe('AppModule (e2e)', () => {
           findFirst: findOwnedVehicle,
           update: updateVehicle,
         },
+        maintenance: { findFirst: findBaselineMaintenance },
+        schedule: { findMany: findSchedules },
       })
       .overrideProvider(FirebaseService)
       .useValue({
@@ -446,6 +470,89 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .send(payload)
         .expect(404);
+    });
+  });
+
+  describe('/vehicles/:vehicleId/schedules', () => {
+    const path = `/vehicles/${vehicle.id}/schedules`;
+
+    it('requires authentication', () => request(app.getHttpServer()).get(path).expect(401));
+
+    it.each([
+      { intervalMonths: 6, intervalKm: null },
+      { intervalMonths: null, intervalKm: 10000 },
+      { intervalMonths: 6, intervalKm: 10000 },
+    ])('creates and fetches a schedule with %j', async (intervals) => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findScheduleVehicle.mockResolvedValue({ mileage: vehicle.mileage });
+      findBaselineMaintenance.mockResolvedValue(null);
+      createSchedule.mockImplementation(({ data }) => Promise.resolve({ ...schedule, ...data }));
+      const payload = { type: 'Filtros', ...intervals };
+
+      const created = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send(payload)
+        .expect(201);
+      expect(created.body).toMatchObject({ ...payload, baselineMileage: vehicle.mileage });
+      expect(created.body.baselineDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      findSchedules.mockResolvedValue([{ ...schedule, ...intervals }]);
+      const listed = await request(app.getHttpServer())
+        .get(path)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200);
+      expect(listed.body).toHaveLength(1);
+      expect(listed.body[0]).toMatchObject({ ...payload, baselineDate: '2026-09-17' });
+    });
+
+    it.each([
+      {},
+      { intervalMonths: 0 },
+      { intervalMonths: -1 },
+      { intervalMonths: 1.5 },
+      { intervalKm: 0 },
+      { intervalKm: -1 },
+      { intervalKm: 1.5 },
+    ])('rejects missing or invalid intervals: %j', async (intervals) => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', ...intervals })
+        .expect(400);
+    });
+
+    it('rejects an unowned vehicle', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue(null);
+      await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', intervalKm: 10000 })
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(path)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(404);
+    });
+
+    it('turns a unique collision into a clear conflict', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findScheduleVehicle.mockResolvedValue({ mileage: vehicle.mileage });
+      findBaselineMaintenance.mockResolvedValue(null);
+      createSchedule.mockRejectedValue({ code: 'P2002' });
+      await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'fIlTrOs', intervalKm: 10000 })
+        .expect(409)
+        .expect(({ body }) =>
+          expect(body.message).toBe('Ya existe una frecuencia para este servicio'),
+        );
     });
   });
 
