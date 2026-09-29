@@ -42,6 +42,7 @@ model Vehicle {
   updatedAt            DateTime          @updatedAt
   owner                User              @relation(fields: [ownerId], references: [id])
   maintenances         Maintenance[]
+  schedules            Schedule[]
 
   @@unique([ownerId, plate])
   @@index([ownerId])

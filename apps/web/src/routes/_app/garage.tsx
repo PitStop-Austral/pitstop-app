@@ -15,6 +15,8 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
+import { useSchedules } from '@/features/schedules/queries';
+import { ScheduleFormSheet } from '@/features/schedules/schedule-form-sheet';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
@@ -35,9 +37,11 @@ function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mileageOpen, setMileageOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
+  const schedulesQuery = useSchedules(activeVehicle?.id);
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
     return (
@@ -172,6 +176,46 @@ function GaragePage() {
             <VehicleInformationPanel vehicle={activeVehicle} />
           </TabsContent>
           <TabsContent value="recomendados">
+            <div className="mt-4 mb-3 flex justify-end">
+              <Button
+                className="gap-2"
+                disabled={schedulesQuery.isPending || schedulesQuery.isLoadingError}
+                onClick={() => setScheduleOpen(true)}
+              >
+                <Icon color="on-primary" name="Plus" size="sm" />
+                <Text color="on-primary" variant="label">
+                  Nueva frecuencia
+                </Text>
+              </Button>
+            </div>
+            {schedulesQuery.isLoadingError ? (
+              <EmptyState
+                action={
+                  <Button variant="secondary" onClick={() => void schedulesQuery.refetch()}>
+                    <Text variant="label">Volver a intentar</Text>
+                  </Button>
+                }
+                description="Revisá tu conexión y volvé a intentarlo."
+                icon="TriangleAlert"
+                title="No pudimos cargar las frecuencias"
+              />
+            ) : null}
+            {schedulesQuery.isRefetchError ? (
+              <div className="mt-4 flex items-center gap-3">
+                <Text color="danger" variant="caption">
+                  No pudimos actualizar las frecuencias.
+                </Text>
+                <Button variant="secondary" onClick={() => void schedulesQuery.refetch()}>
+                  <Text variant="label">Volver a intentar</Text>
+                </Button>
+              </div>
+            ) : null}
+            {schedulesQuery.data?.length ? (
+              <Text className="mt-4" color="muted" variant="caption">
+                {schedulesQuery.data.length}{' '}
+                {schedulesQuery.data.length === 1 ? 'frecuencia guardada' : 'frecuencias guardadas'}
+              </Text>
+            ) : null}
             <EmptyState
               description="Pronto vamos a sugerirte mantenimientos según el kilometraje y la antigüedad de tu vehículo."
               icon="Sparkles"
@@ -205,6 +249,14 @@ function GaragePage() {
       />
       {mileageOpen ? (
         <UpdateMileageSheet open vehicle={activeVehicle} onOpenChange={setMileageOpen} />
+      ) : null}
+      {scheduleOpen && schedulesQuery.data ? (
+        <ScheduleFormSheet
+          existingTypes={schedulesQuery.data.map((schedule) => schedule.type)}
+          open
+          vehicle={activeVehicle}
+          onOpenChange={setScheduleOpen}
+        />
       ) : null}
     </PageContainer>
   );

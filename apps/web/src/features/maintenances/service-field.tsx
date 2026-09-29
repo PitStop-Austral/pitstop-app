@@ -11,9 +11,16 @@ type ServiceFieldProps = {
   onChange: (value: ServiceFieldValue) => void;
   error?: string;
   disabledValues?: string[];
+  label?: string;
 };
 
-export function ServiceField({ value, onChange, error, disabledValues }: ServiceFieldProps) {
+export function ServiceField({
+  value,
+  onChange,
+  error,
+  disabledValues,
+  label = 'Servicio',
+}: ServiceFieldProps) {
   const customNameId = useId();
   const errorId = useId();
   const isCustomService = value.option === OTHER_SERVICE;
@@ -21,7 +28,7 @@ export function ServiceField({ value, onChange, error, disabledValues }: Service
   return (
     <div>
       <Text as="div" className="mb-2" variant="label">
-        Servicio
+        {label}
       </Text>
       <ServiceSelector
         aria-describedby={error && !isCustomService ? errorId : undefined}
