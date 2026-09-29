@@ -63,6 +63,14 @@ export class SchedulesService {
       ) {
         throw new ConflictException('Ya existe una frecuencia para este servicio');
       }
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Vehículo no encontrado');
+      }
       throw error;
     }
   }

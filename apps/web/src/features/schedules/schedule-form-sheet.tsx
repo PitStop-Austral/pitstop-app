@@ -132,6 +132,7 @@ export function ScheduleFormSheet({
                   <Input
                     aria-describedby={errors.km ? 'schedule-km-error' : undefined}
                     aria-invalid={Boolean(errors.km)}
+                    className="pr-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     id="schedule-km"
                     inputMode="numeric"
                     min={1}
@@ -176,6 +177,7 @@ export function ScheduleFormSheet({
                   <Input
                     aria-describedby={errors.months ? 'schedule-months-error' : undefined}
                     aria-invalid={Boolean(errors.months)}
+                    className="pr-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                     id="schedule-months"
                     inputMode="numeric"
                     min={1}

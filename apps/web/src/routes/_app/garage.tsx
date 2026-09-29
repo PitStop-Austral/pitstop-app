@@ -176,7 +176,7 @@ function GaragePage() {
             <VehicleInformationPanel vehicle={activeVehicle} />
           </TabsContent>
           <TabsContent value="recomendados">
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 mb-3 flex justify-end">
               <Button
                 className="gap-2"
                 disabled={schedulesQuery.isPending || schedulesQuery.isLoadingError}

@@ -79,6 +79,13 @@ describe('SchedulesService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
+  it('returns 404 when the vehicle disappears after the ownership check', async () => {
+    createWithBaseline.mockRejectedValue({ code: 'P2025' });
+    await expect(
+      service.create(ownerId, vehicleId, { type: 'Filtros', intervalKm: 10000 }),
+    ).rejects.toThrow(new NotFoundException('Vehículo no encontrado'));
+  });
+
   it('hides an unowned vehicle for list and create', async () => {
     findOwnedById.mockResolvedValue(null);
     await expect(service.findByVehicle(ownerId, vehicleId)).rejects.toThrow(NotFoundException);
