@@ -14,7 +14,7 @@ export class SchedulesController {
     @CurrentUser() user: User,
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
   ): Promise<ScheduleResponse[]> {
-    return this.schedulesService.findByVehicle(user.id, vehicleId);
+    return this.schedulesService.findByVehicle(user, vehicleId);
   }
 
   @Post()
@@ -23,6 +23,6 @@ export class SchedulesController {
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
     @Body() dto: CreateScheduleDto,
   ): Promise<ScheduleResponse> {
-    return this.schedulesService.create(user.id, vehicleId, dto);
+    return this.schedulesService.create(user, vehicleId, dto);
   }
 }

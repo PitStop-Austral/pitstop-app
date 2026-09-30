@@ -98,12 +98,24 @@ both require ownership. Duplicate creation returns `409`.
 
 The baseline is the latest maintenance record of the same service type, ordered by service date and
 creation time. Without one, creation captures the Argentina-local calendar date and current vehicle
-mileage. The API stores that baseline but does not calculate a due date yet.
+mileage.
+
+PIT-53 computes due state on the server (`apps/api/src/modules/schedules/schedule-due.ts`) and both
+schedule endpoints return it: `nextDueDate` (baseline + calendar months, clamped to month end),
+`nextDueMileage` (baseline + km), `remainingDays`, `remainingKm`, `status`, and `dueReason`. A
+missing interval yields `null` for its fields and is ignored. `status` is `overdue` when today >=
+`nextDueDate` or current mileage >= `nextDueMileage`; otherwise `upcoming` when either remaining
+value is within the user's thresholds (`User.upcomingThresholdDays` 30 and `upcomingThresholdKm`
+1500 by default, no editing UI yet); otherwise `on_track`. Limits are inclusive and `overdue` wins.
+`dueReason` is `date`, `mileage`, or `both` for the criteria that triggered the status, `null` when
+on track. All dates are UTC midnight of the Argentina calendar day, so `remainingDays` is a whole
+number. The result is computed per request from the current vehicle mileage, so mileage updates
+change it without touching the schedule; the web consumes it as-is and never recalculates it.
 
 Garage's Recomendados tab opens the responsive frequency form. It reuses the service catalog,
 supports custom services, and allows months, kilometers, or both. The vehicle-specific schedules
 query prevents duplicate selection and refreshes after creation. Viewing, editing, deleting, and
-calculating due dates are covered by later tickets.
+showing due state in Garage are covered by later tickets.
 
 The database-backed schedule roundtrip is a separate check. Set `TEST_DATABASE_URL` to a dedicated
 PostgreSQL database whose name ends in `_test`, apply migrations with

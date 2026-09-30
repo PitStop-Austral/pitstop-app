@@ -48,6 +48,8 @@ describe('AppModule (e2e)', () => {
     email: 'driver@example.com',
     name: 'Driver One',
     activeVehicleId: null,
+    upcomingThresholdDays: 30,
+    upcomingThresholdKm: 1500,
   };
 
   const vehicle = {
@@ -505,6 +507,12 @@ describe('AppModule (e2e)', () => {
         .expect(200);
       expect(listed.body).toHaveLength(1);
       expect(listed.body[0]).toMatchObject({ ...payload, baselineDate: '2026-09-17' });
+      expect(listed.body[0]).toMatchObject({
+        nextDueDate: intervals.intervalMonths ? '2027-03-17' : null,
+        nextDueMileage: intervals.intervalKm ? 58000 : null,
+        remainingKm: intervals.intervalKm ? 10000 - (vehicle.mileage - 48000) : null,
+      });
+      expect(['overdue', 'upcoming', 'on_track']).toContain(listed.body[0].status);
     });
 
     it.each([
