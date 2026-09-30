@@ -120,8 +120,14 @@ change it without touching the schedule; the web consumes it as-is and never rec
 
 Garage's Recomendados tab opens the responsive frequency form. It reuses the service catalog,
 supports custom services, and allows months, kilometers, or both. The vehicle-specific schedules
-query prevents duplicate selection and refreshes after creation. Viewing, editing, deleting, and
-showing due state in Garage are covered by later tickets.
+query prevents duplicate selection and refreshes after creation. PIT-56 lists the active vehicle's
+schedules in that tab as cards with the API status, next due date/mileage, and remaining margin
+(`formatRemaining` words each criterion by its own sign; the due day reads "Venció hoy" because the
+API already counts it as overdue). `sortSchedules` orders them overdue, upcoming, on track, then by
+fewest remaining days and kilometers (missing values last), and breaks ties by name with
+`localeCompare`. The list is one column below 1360 px and two from there. `ScheduleCard` already
+accepts an optional `onClick` (a button with a chevron when set, a plain container otherwise);
+Garage doesn't pass one yet, and PIT-57 connects it to the schedule detail, editing, and deleting.
 
 The database-backed schedule roundtrip is a separate check. Set `TEST_DATABASE_URL` to a dedicated
 PostgreSQL database whose name ends in `_test`, apply migrations with
