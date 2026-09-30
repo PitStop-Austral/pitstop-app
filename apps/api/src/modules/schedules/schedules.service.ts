@@ -4,13 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { computeScheduleDue } from './schedule-due';
 import { toScheduleResponse } from './schedules.mapper';
 import type { ScheduleResponse } from './schedules.mapper';
 import { SchedulesRepository } from './schedules.repository';
+import type { ScheduleView } from './schedules.repository';
 
-function argentinaDateToday(): Date {
+type ScheduleOwner = Pick<User, 'id' | 'upcomingThresholdDays' | 'upcomingThresholdKm'>;
+
+// UTC midnight of today's calendar day in Argentina — the date convention schedule-due.ts relies on.
+export function argentinaDateToday(): Date {
   const date = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
     year: 'numeric',
@@ -27,18 +33,22 @@ export class SchedulesService {
     private readonly vehiclesRepository: VehiclesRepository,
   ) {}
 
-  async findByVehicle(ownerId: string, vehicleId: string): Promise<ScheduleResponse[]> {
-    await this.assertOwned(ownerId, vehicleId);
+  async findByVehicle(owner: ScheduleOwner, vehicleId: string): Promise<ScheduleResponse[]> {
+    const vehicle = await this.assertOwned(owner.id, vehicleId);
     const schedules = await this.schedulesRepository.findManyByVehicle(vehicleId);
-    return schedules.map(toScheduleResponse);
+    const today = argentinaDateToday();
+    return schedules.map((schedule) => this.toResponse(schedule, owner, vehicle.mileage, today));
   }
 
   async create(
-    ownerId: string,
+    owner: ScheduleOwner,
     vehicleId: string,
     dto: CreateScheduleDto,
   ): Promise<ScheduleResponse> {
-    await this.assertOwned(ownerId, vehicleId);
+    // One "today" for both the baseline fallback and the due calculation, so they can't
+    // straddle midnight.
+    const today = argentinaDateToday();
+    const vehicle = await this.assertOwned(owner.id, vehicleId);
     if (dto.intervalMonths == null && dto.intervalKm == null) {
       throw new BadRequestException('Ingresá meses, kilómetros o ambos');
     }
@@ -51,9 +61,9 @@ export class SchedulesService {
         normalizedType: type.toLocaleLowerCase('es-AR'),
         intervalMonths: dto.intervalMonths ?? null,
         intervalKm: dto.intervalKm ?? null,
-        fallbackDate: argentinaDateToday(),
+        fallbackDate: today,
       });
-      return toScheduleResponse(schedule);
+      return this.toResponse(schedule, owner, vehicle.mileage, today);
     } catch (error) {
       if (
         typeof error === 'object' &&
@@ -75,8 +85,26 @@ export class SchedulesService {
     }
   }
 
-  private async assertOwned(ownerId: string, vehicleId: string): Promise<void> {
+  private toResponse(
+    schedule: ScheduleView,
+    owner: ScheduleOwner,
+    currentMileage: number,
+    today: Date,
+  ): ScheduleResponse {
+    return toScheduleResponse(
+      schedule,
+      computeScheduleDue(schedule, {
+        currentMileage,
+        today,
+        thresholdDays: owner.upcomingThresholdDays,
+        thresholdKm: owner.upcomingThresholdKm,
+      }),
+    );
+  }
+
+  private async assertOwned(ownerId: string, vehicleId: string): Promise<{ mileage: number }> {
     const vehicle = await this.vehiclesRepository.findOwnedById(vehicleId, ownerId);
     if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
+    return vehicle;
   }
 }

@@ -1,7 +1,16 @@
+import type { ScheduleDue } from './schedule-due';
 import type { ScheduleView } from './schedules.repository';
 
-export type ScheduleResponse = Omit<ScheduleView, 'baselineDate'> & { baselineDate: string };
+export type ScheduleResponse = Omit<ScheduleView, 'baselineDate'> &
+  Omit<ScheduleDue, 'nextDueDate'> & { baselineDate: string; nextDueDate: string | null };
 
-export function toScheduleResponse(schedule: ScheduleView): ScheduleResponse {
-  return { ...schedule, baselineDate: schedule.baselineDate.toISOString().slice(0, 10) };
+const toDateOnly = (date: Date) => date.toISOString().slice(0, 10);
+
+export function toScheduleResponse(schedule: ScheduleView, due: ScheduleDue): ScheduleResponse {
+  return {
+    ...schedule,
+    ...due,
+    baselineDate: toDateOnly(schedule.baselineDate),
+    nextDueDate: due.nextDueDate && toDateOnly(due.nextDueDate),
+  };
 }

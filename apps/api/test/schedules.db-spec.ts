@@ -158,6 +158,50 @@ describe('Schedules persistence (PostgreSQL)', () => {
       ]),
     );
     expect(fetched.body).toHaveLength(2);
+    expect(fetched.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: maintenanceBaseline.body.id,
+          nextDueDate: '2026-08-12',
+          nextDueMileage: 52000,
+          remainingKm: 4000,
+        }),
+      ]),
+    );
+  });
+
+  it('recomputes the status when the vehicle mileage changes, without touching the schedule', async () => {
+    const path = `/vehicles/${vehicleId}/schedules`;
+    const created = await request(app.getHttpServer())
+      .post(path)
+      .set('Authorization', token)
+      .send({ type: 'Aceite', intervalKm: 5000 })
+      .expect(201);
+    expect(created.body).toMatchObject({
+      nextDueMileage: 53000,
+      remainingKm: 5000,
+      status: 'on_track',
+    });
+
+    const statusAt = async (mileage: number) => {
+      await prisma.vehicle.update({ where: { id: vehicleId }, data: { mileage } });
+      const listed = await request(app.getHttpServer())
+        .get(path)
+        .set('Authorization', token)
+        .expect(200);
+      return listed.body.find((schedule: { id: string }) => schedule.id === created.body.id);
+    };
+
+    await expect(statusAt(51500)).resolves.toMatchObject({
+      remainingKm: 1500,
+      status: 'upcoming',
+      dueReason: 'mileage',
+    });
+    await expect(statusAt(53000)).resolves.toMatchObject({
+      remainingKm: 0,
+      status: 'overdue',
+      dueReason: 'mileage',
+    });
 
     await request(app.getHttpServer())
       .post(path)

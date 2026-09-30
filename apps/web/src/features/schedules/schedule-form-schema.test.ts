@@ -34,6 +34,19 @@ test('rejects no interval and invalid selected intervals', () => {
   }
 });
 
+test('caps months at 240 but keeps the large km limit', () => {
+  const base = getInitialScheduleFormValues();
+  assert.deepEqual(
+    parseScheduleForm({ ...base, useMonths: true, months: '240' }, []).success,
+    true,
+  );
+  assert.deepEqual(parseScheduleForm({ ...base, useMonths: true, months: '241' }, []), {
+    success: false,
+    errors: { months: 'Ingresá hasta 240 meses' },
+  });
+  assert.deepEqual(parseScheduleForm({ ...base, useKm: true, km: '2147483647' }, []).success, true);
+});
+
 test('accepts custom services and rejects case-insensitive duplicates', () => {
   const base = { ...getInitialScheduleFormValues(), useKm: true, km: '10000' };
   const custom = { ...base, service: toServiceFieldValue('Revisión de dirección') };

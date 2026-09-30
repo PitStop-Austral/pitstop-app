@@ -48,6 +48,8 @@ describe('AppModule (e2e)', () => {
     email: 'driver@example.com',
     name: 'Driver One',
     activeVehicleId: null,
+    upcomingThresholdDays: 30,
+    upcomingThresholdKm: 1500,
   };
 
   const vehicle = {
@@ -505,6 +507,12 @@ describe('AppModule (e2e)', () => {
         .expect(200);
       expect(listed.body).toHaveLength(1);
       expect(listed.body[0]).toMatchObject({ ...payload, baselineDate: '2026-09-17' });
+      expect(listed.body[0]).toMatchObject({
+        nextDueDate: intervals.intervalMonths ? '2027-03-17' : null,
+        nextDueMileage: intervals.intervalKm ? 58000 : null,
+        remainingKm: intervals.intervalKm ? 10000 - (vehicle.mileage - 48000) : null,
+      });
+      expect(['overdue', 'upcoming', 'on_track']).toContain(listed.body[0].status);
     });
 
     it.each([
@@ -523,6 +531,30 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({ type: 'Filtros', ...intervals })
         .expect(400);
+    });
+
+    it('caps intervalMonths at 240 so the due date stays in range', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findScheduleVehicle.mockResolvedValue({ mileage: vehicle.mileage });
+      findBaselineMaintenance.mockResolvedValue(null);
+      createSchedule.mockImplementation(({ data }) => Promise.resolve({ ...schedule, ...data }));
+
+      const rejected = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', intervalMonths: 241 })
+        .expect(400);
+      expect(rejected.body.message).toContain('Ingresá hasta 240 meses');
+      expect(createSchedule).not.toHaveBeenCalled();
+
+      const accepted = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', intervalMonths: 240 })
+        .expect(201);
+      expect(accepted.body).toMatchObject({ intervalMonths: 240, intervalKm: null });
+      expect(accepted.body.nextDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it('rejects an unowned vehicle', async () => {
