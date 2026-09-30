@@ -60,6 +60,11 @@ single column on phones and two columns from 1024 px. Each card shows the servic
 badge for maintenance or repair, and the last service date and mileage; the next-service line is a
 placeholder until frequencies exist.
 
+The history controls run locally on the loaded active-vehicle list: text search matches service
+type, workshop, and notes without case or accent differences; category filters combine with a
+descending date, mileage, or cost order. Missing costs sort last, and a no-match state can reset
+all controls without affecting the distinct empty-history state.
+
 ## Detail, edit, and delete
 
 `GET`, `PATCH`, and `DELETE /vehicles/:vehicleId/maintenances/:id` look the record up by id, vehicle,

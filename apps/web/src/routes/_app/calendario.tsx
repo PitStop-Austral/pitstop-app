@@ -1,11 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
+import {
+  filterAndSortMaintenances,
+  HISTORY_CATEGORIES,
+  HISTORY_SORTS,
+} from '@/features/maintenances/history-controls';
+import type { HistoryCategory, HistorySort } from '@/features/maintenances/history-controls';
 import { MaintenanceCard } from '@/features/maintenances/maintenance-card';
 import { useMaintenanceSheet } from '@/features/maintenances/maintenance-sheet-context';
 import { useMaintenances } from '@/features/maintenances/queries';
@@ -15,6 +30,18 @@ import type { Vehicle } from '@/features/vehicles/types';
 export const Route = createFileRoute('/_app/calendario')({
   component: CalendarPage,
 });
+
+const CATEGORY_LABELS: Record<HistoryCategory, string> = {
+  TODOS: 'Todos',
+  MANTENIMIENTO: 'Mantenimiento',
+  ARREGLO: 'Arreglo',
+};
+
+const SORT_LABELS: Record<HistorySort, string> = {
+  date: 'Fecha',
+  mileage: 'Kilometraje',
+  cost: 'Costo',
+};
 
 function CalendarHeader({ vehicle }: { vehicle?: Vehicle }) {
   return (
@@ -30,6 +57,9 @@ function CalendarHeader({ vehicle }: { vehicle?: Vehicle }) {
 }
 
 function CalendarPage() {
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<HistoryCategory>('TODOS');
+  const [sort, setSort] = useState<HistorySort>('date');
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const maintenancesQuery = useMaintenances(activeVehicle?.id);
   const { openMaintenanceDetail, openRegisterMaintenance } = useMaintenanceSheet();
@@ -126,20 +156,101 @@ function CalendarPage() {
     );
   }
 
+  const visibleMaintenances = filterAndSortMaintenances(maintenances, { search, category, sort });
+  const clearFilters = () => {
+    setSearch('');
+    setCategory('TODOS');
+    setSort('date');
+  };
+
   return page(
     <section className="mt-8">
       <Text as="h2" className="px-1" color="muted" variant="overline">
         Historial completo
       </Text>
-      <div className="mt-3 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-        {maintenances.map((maintenance) => (
-          <MaintenanceCard
-            key={maintenance.id}
-            maintenance={maintenance}
-            onClick={() => openMaintenanceDetail(maintenance.id)}
+      <div className="mt-3 flex flex-col gap-3">
+        <div className="relative">
+          <Icon
+            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            color="muted"
+            name="Search"
+            size="sm"
           />
-        ))}
+          <Input
+            aria-label="Buscar en el historial"
+            className="pl-11"
+            placeholder="Buscar en el historial"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="flex flex-wrap gap-2">
+            {HISTORY_CATEGORIES.map((option) => {
+              const selected = option === category;
+              return (
+                <Button
+                  key={option}
+                  aria-pressed={selected}
+                  variant={selected ? 'primary' : 'secondary'}
+                  onClick={() => setCategory(option)}
+                >
+                  <Text color={selected ? 'on-primary' : 'muted'} variant="caption-strong">
+                    {CATEGORY_LABELS[option]}
+                  </Text>
+                </Button>
+              );
+            })}
+          </div>
+
+          <div className="w-full lg:ml-auto lg:w-52">
+            <Text className="mb-1.5" color="muted" variant="caption">
+              Ordenar por
+            </Text>
+            <Select value={sort} onValueChange={(value) => setSort(value as HistorySort)}>
+              <SelectTrigger aria-label="Ordenar historial">
+                <SelectValue>
+                  {(value: HistorySort) => <Text variant="label">{SORT_LABELS[value]}</Text>}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {HISTORY_SORTS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    <Text variant="label">{SORT_LABELS[option]}</Text>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
+
+      {visibleMaintenances.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState
+            action={
+              <Button variant="secondary" onClick={clearFilters}>
+                <Text variant="label">Limpiar filtros</Text>
+              </Button>
+            }
+            description="Probá con otra búsqueda o restablecé los filtros para ver todos los servicios."
+            icon="SearchX"
+            title="No encontramos coincidencias"
+          />
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+          {visibleMaintenances.map((maintenance) => (
+            <MaintenanceCard
+              key={maintenance.id}
+              maintenance={maintenance}
+              onClick={() => openMaintenanceDetail(maintenance.id)}
+            />
+          ))}
+        </div>
+      )}
     </section>,
   );
 }
