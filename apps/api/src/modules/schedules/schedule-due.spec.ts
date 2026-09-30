@@ -8,6 +8,11 @@ describe('addCalendarMonths', () => {
     expect(addCalendarMonths(day('2028-01-31'), 1)).toEqual(day('2028-02-29'));
     expect(addCalendarMonths(day('2026-08-31'), 6)).toEqual(day('2027-02-28'));
     expect(addCalendarMonths(day('2026-03-17'), 12)).toEqual(day('2027-03-17'));
+    // MAX_SCHEDULE_INTERVAL_MONTHS: 20 years, still a valid, serializable date.
+    expect(addCalendarMonths(day('2026-03-17'), 240)).toEqual(day('2046-03-17'));
+    expect(addCalendarMonths(day('2028-02-29'), 240).toISOString()).toBe(
+      '2048-02-29T00:00:00.000Z',
+    );
   });
 });
 

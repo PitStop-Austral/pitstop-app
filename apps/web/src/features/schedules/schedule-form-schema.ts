@@ -10,6 +10,8 @@ import type { ServiceFieldValue } from '../maintenances/service-catalog.ts';
 import type { ScheduleInput } from './types.ts';
 
 const MAX_INTERVAL = 2_147_483_647;
+// Mirrors the API's MAX_SCHEDULE_INTERVAL_MONTHS (20 years).
+const MAX_INTERVAL_MONTHS = 240;
 
 export type ScheduleFormValues = {
   service: ServiceFieldValue;
@@ -60,9 +62,17 @@ export function parseScheduleForm(
 
   function parseInterval(enabled: boolean, value: string, field: 'months' | 'km'): number | null {
     if (!enabled) return null;
-    const result = z.coerce.number().int().min(1).max(MAX_INTERVAL).safeParse(value.trim());
+    const result = z.coerce.number().int().min(1).safeParse(value.trim());
     if (!value.trim() || !/^\d+$/.test(value.trim()) || !result.success) {
       errors[field] = 'Ingresá un número entero mayor que cero';
+      return null;
+    }
+    const max = field === 'months' ? MAX_INTERVAL_MONTHS : MAX_INTERVAL;
+    if (result.data > max) {
+      errors[field] =
+        field === 'months'
+          ? `Ingresá hasta ${MAX_INTERVAL_MONTHS} meses`
+          : 'Ingresá un número entero mayor que cero';
       return null;
     }
     return result.data;

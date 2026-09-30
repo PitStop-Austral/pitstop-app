@@ -91,7 +91,8 @@ toast.
 ## Maintenance frequencies
 
 PIT-52 adds one schedule per vehicle and normalized service type. A schedule stores optional positive
-integer month and kilometer intervals, with at least one required. The database unique constraint
+integer month and kilometer intervals, with at least one required. Months are capped at 240
+(20 years, enforced by the API and the Garage form) so the due date stays within the `Date` range. The database unique constraint
 prevents duplicates even when two requests arrive together. `POST /vehicles/:vehicleId/schedules`
 creates a schedule, and `GET /vehicles/:vehicleId/schedules` lists that vehicle's saved rules;
 both require ownership. Duplicate creation returns `409`.

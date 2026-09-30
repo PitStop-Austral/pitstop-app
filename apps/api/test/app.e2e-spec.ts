@@ -533,6 +533,30 @@ describe('AppModule (e2e)', () => {
         .expect(400);
     });
 
+    it('caps intervalMonths at 240 so the due date stays in range', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findScheduleVehicle.mockResolvedValue({ mileage: vehicle.mileage });
+      findBaselineMaintenance.mockResolvedValue(null);
+      createSchedule.mockImplementation(({ data }) => Promise.resolve({ ...schedule, ...data }));
+
+      const rejected = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', intervalMonths: 241 })
+        .expect(400);
+      expect(rejected.body.message).toContain('Ingresá hasta 240 meses');
+      expect(createSchedule).not.toHaveBeenCalled();
+
+      const accepted = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Filtros', intervalMonths: 240 })
+        .expect(201);
+      expect(accepted.body).toMatchObject({ intervalMonths: 240, intervalKm: null });
+      expect(accepted.body.nextDueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
     it('rejects an unowned vehicle', async () => {
       authenticate();
       findOwnedVehicle.mockResolvedValue(null);
