@@ -10,19 +10,24 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import { ServiceField } from '@/features/maintenances/service-field';
+import { normalizeServiceType, resolveServiceType } from '@/features/maintenances/service-catalog';
 import type { Vehicle } from '@/features/vehicles/types';
+import { formatDate, formatNumber } from '@/lib/format';
 import {
   getDisabledScheduleOptions,
   getInitialScheduleFormValues,
+  getScheduleFormValues,
   parseScheduleForm,
 } from './schedule-form-schema';
 import type { ScheduleFormErrors, ScheduleFormValues } from './schedule-form-schema';
-import { useCreateSchedule } from './queries';
+import { useCreateSchedule, useUpdateSchedule } from './queries';
+import type { Schedule } from './types';
 
 type ScheduleFormSheetProps = {
   open: boolean;
   vehicle: Vehicle;
   existingTypes: string[];
+  schedule?: Schedule;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -39,14 +44,29 @@ export function ScheduleFormSheet({
   open,
   vehicle,
   existingTypes,
+  schedule,
   onOpenChange,
 }: ScheduleFormSheetProps) {
   const formId = useId();
   const [values, setValues] = useState<ScheduleFormValues>(() =>
-    getInitialScheduleFormValues(existingTypes),
+    schedule ? getScheduleFormValues(schedule) : getInitialScheduleFormValues(existingTypes),
   );
   const [errors, setErrors] = useState<ScheduleFormErrors>({});
   const createSchedule = useCreateSchedule();
+  const updateSchedule = useUpdateSchedule();
+  const isEditing = Boolean(schedule);
+  const isPending = createSchedule.isPending || updateSchedule.isPending;
+  const otherTypes = schedule
+    ? existingTypes.filter(
+        (type) => normalizeServiceType(type) !== normalizeServiceType(schedule.type),
+      )
+    : existingTypes;
+  const selectedType = resolveServiceType(values.service);
+  const changesType = Boolean(
+    schedule &&
+    selectedType &&
+    normalizeServiceType(selectedType) !== normalizeServiceType(schedule.type),
+  );
 
   function updateField<Field extends keyof ScheduleFormValues>(
     field: Field,
@@ -58,8 +78,8 @@ export function ScheduleFormSheet({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (createSchedule.isPending) return;
-    const result = parseScheduleForm(values, existingTypes);
+    if (isPending) return;
+    const result = parseScheduleForm(values, otherTypes);
     if (!result.success) {
       setErrors(result.errors);
       return;
@@ -67,9 +87,17 @@ export function ScheduleFormSheet({
 
     setErrors({});
     try {
-      await createSchedule.mutateAsync({ vehicleId: vehicle.id, input: result.data });
+      if (schedule) {
+        await updateSchedule.mutateAsync({
+          vehicleId: vehicle.id,
+          id: schedule.id,
+          input: result.data,
+        });
+      } else {
+        await createSchedule.mutateAsync({ vehicleId: vehicle.id, input: result.data });
+      }
       onOpenChange(false);
-      toast.success('Frecuencia creada');
+      toast.success(isEditing ? 'Frecuencia actualizada' : 'Frecuencia creada');
     } catch (error) {
       toast.error(errorMessage(error));
     }
@@ -79,30 +107,25 @@ export function ScheduleFormSheet({
     <BottomSheet
       className="lg:max-w-2xl"
       description="Definí cada cuánto repetir este servicio"
-      dismissible={!createSchedule.isPending}
+      dismissible={!isPending}
       footer={
-        <Button
-          className="w-full gap-2"
-          disabled={createSchedule.isPending}
-          form={formId}
-          type="submit"
-        >
-          {createSchedule.isPending ? (
+        <Button className="w-full gap-2" disabled={isPending} form={formId} type="submit">
+          {isPending ? (
             <Icon className="animate-spin" color="on-primary" name="Loader2" size="sm" />
           ) : null}
           <Text color="on-primary" variant="label">
-            {createSchedule.isPending ? 'Guardando...' : 'Crear frecuencia'}
+            {isPending ? 'Guardando...' : isEditing ? 'Guardar frecuencia' : 'Crear frecuencia'}
           </Text>
         </Button>
       }
       open={open}
-      title="Nueva frecuencia"
+      title={isEditing ? 'Editar frecuencia' : 'Nueva frecuencia'}
       onOpenChange={onOpenChange}
     >
       <form id={formId} noValidate onSubmit={handleSubmit}>
-        <fieldset className="flex flex-col gap-4" disabled={createSchedule.isPending}>
+        <fieldset className="flex flex-col gap-4" disabled={isPending}>
           <ServiceField
-            disabledValues={getDisabledScheduleOptions(existingTypes)}
+            disabledValues={getDisabledScheduleOptions(otherTypes)}
             error={errors.service}
             label="Mantenimiento"
             value={values.service}
@@ -204,10 +227,33 @@ export function ScheduleFormSheet({
               {errors.intervals}
             </Text>
           ) : null}
-          <Text color="muted" variant="caption">
-            La referencia inicial será el último registro de este tipo. Si todavía no existe, se
-            usarán la fecha y el kilometraje actuales.
-          </Text>
+          {schedule ? (
+            <div className="rounded-lg bg-neutral-100 p-4">
+              {changesType ? (
+                <Text color="muted" variant="body">
+                  La referencia se actualizará al guardar según el último mantenimiento de este
+                  tipo. Si todavía no existe, se usarán la fecha y el kilometraje actuales.
+                </Text>
+              ) : (
+                <Text color="muted" variant="body">
+                  La próxima referencia se calcula desde el{' '}
+                  <Text as="strong" variant="body-strong">
+                    {formatDate(schedule.baselineDate)}
+                  </Text>{' '}
+                  y los{' '}
+                  <Text as="strong" variant="body-strong">
+                    {formatNumber(schedule.baselineMileage)} km
+                  </Text>
+                  .
+                </Text>
+              )}
+            </div>
+          ) : (
+            <Text color="muted" variant="caption">
+              La referencia inicial será el último registro de este tipo. Si todavía no existe, se
+              usarán la fecha y el kilometraje actuales.
+            </Text>
+          )}
         </fieldset>
       </form>
     </BottomSheet>

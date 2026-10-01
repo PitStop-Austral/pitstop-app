@@ -95,7 +95,7 @@ export function BottomSheet({
             </Button>
           </div>
           <div
-            className="no-scrollbar overflow-y-auto overscroll-contain px-6 pb-6"
+            className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6"
             ref={contentRef}
           >
             {children}

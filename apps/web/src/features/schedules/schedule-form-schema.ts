@@ -7,7 +7,7 @@ import {
   toServiceFieldValue,
 } from '../maintenances/service-catalog.ts';
 import type { ServiceFieldValue } from '../maintenances/service-catalog.ts';
-import type { ScheduleInput } from './types.ts';
+import type { Schedule, ScheduleInput } from './types.ts';
 
 const MAX_INTERVAL = 2_147_483_647;
 // Mirrors the API's MAX_SCHEDULE_INTERVAL_MONTHS (20 years).
@@ -36,6 +36,16 @@ export function getInitialScheduleFormValues(existingTypes: string[] = []): Sche
     months: '',
     useKm: false,
     km: '',
+  };
+}
+
+export function getScheduleFormValues(schedule: Schedule): ScheduleFormValues {
+  return {
+    service: toServiceFieldValue(schedule.type),
+    useMonths: schedule.intervalMonths !== null,
+    months: schedule.intervalMonths?.toString() ?? '',
+    useKm: schedule.intervalKm !== null,
+    km: schedule.intervalKm?.toString() ?? '',
   };
 }
 
