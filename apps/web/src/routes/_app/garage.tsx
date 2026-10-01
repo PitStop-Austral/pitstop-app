@@ -16,7 +16,9 @@ import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useSchedules } from '@/features/schedules/queries';
+import { ScheduleCard } from '@/features/schedules/schedule-card';
 import { ScheduleFormSheet } from '@/features/schedules/schedule-form-sheet';
+import { sortSchedules } from '@/features/schedules/sort-schedules';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
@@ -69,7 +71,13 @@ function GaragePage() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  void Promise.all([vehiclesQuery.refetch(), currentUserQuery.refetch()]);
+                  // refetch() ignores `enabled`, so without an active vehicle it would
+                  // request /vehicles//schedules.
+                  void Promise.all([
+                    vehiclesQuery.refetch(),
+                    currentUserQuery.refetch(),
+                    ...(activeVehicle ? [schedulesQuery.refetch()] : []),
+                  ]);
                 }}
               >
                 <Text variant="label">Volver a intentar</Text>
@@ -201,7 +209,7 @@ function GaragePage() {
               />
             ) : null}
             {schedulesQuery.isRefetchError ? (
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mb-3 flex items-center gap-3">
                 <Text color="danger" variant="caption">
                   No pudimos actualizar las frecuencias.
                 </Text>
@@ -210,17 +218,38 @@ function GaragePage() {
                 </Button>
               </div>
             ) : null}
-            {schedulesQuery.data?.length ? (
-              <Text className="mt-4" color="muted" variant="caption">
-                {schedulesQuery.data.length}{' '}
-                {schedulesQuery.data.length === 1 ? 'frecuencia guardada' : 'frecuencias guardadas'}
-              </Text>
+            {schedulesQuery.isPending ? (
+              <div className="grid min-h-48 place-items-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
+                  <Text color="muted" variant="body">
+                    Cargando frecuencias...
+                  </Text>
+                </div>
+              </div>
             ) : null}
-            <EmptyState
-              description="Pronto vamos a sugerirte mantenimientos según el kilometraje y la antigüedad de tu vehículo."
-              icon="Sparkles"
-              title="Todavía no tenemos recomendaciones"
-            />
+            {schedulesQuery.data?.length === 0 ? (
+              <EmptyState
+                action={
+                  <Button className="gap-2" onClick={() => setScheduleOpen(true)}>
+                    <Icon color="on-primary" name="Plus" size="sm" />
+                    <Text color="on-primary" variant="label">
+                      Crear frecuencia
+                    </Text>
+                  </Button>
+                }
+                description="Definí cada cuántos kilómetros o meses repetir un servicio y te avisamos cuando se acerque o se venza."
+                icon="CalendarClock"
+                title="Todavía no tenés frecuencias"
+              />
+            ) : null}
+            {schedulesQuery.data?.length ? (
+              <div className="grid grid-cols-1 gap-3 min-[1360px]:grid-cols-2">
+                {sortSchedules(schedulesQuery.data).map((schedule) => (
+                  <ScheduleCard key={schedule.id} schedule={schedule} />
+                ))}
+              </div>
+            ) : null}
           </TabsContent>
           <TabsContent value="deseos">
             <EmptyState
