@@ -125,9 +125,25 @@ schedules in that tab as cards showing the service icon, the name (up to two lin
 intervals ("Cada X km", "Cada N meses") side by side, with a chevron. `sortSchedules` orders them by
 the API status (overdue, upcoming, on track), then by fewest remaining days and kilometers (missing
 values last), and breaks ties by name with `localeCompare`. The list is one column below 1360 px
-and two from there. `ScheduleCard` accepts an optional `onClick` (it renders a button when set, a
-plain container otherwise); Garage doesn't pass one yet, and PIT-57 connects it to the schedule
-detail, editing, and deleting.
+and two from there.
+
+PIT-57 adds schedule detail, editing, and deletion. `GET /vehicles/:vehicleId/schedules/:scheduleId`
+returns one owned schedule with the same computed due fields as the list. `PATCH` accepts a partial
+schedule update (`type`, `intervalMonths`, and `intervalKm`), requires at least one positive
+interval after merging with the current row, maps duplicate normalized service types to `409`, and
+returns the updated computed schedule. Editing only intervals preserves the original baseline;
+changing the normalized type recalculates the baseline from the latest matching maintenance or,
+without one, the current Argentina-local date and vehicle mileage. `DELETE` removes one owned
+schedule and returns `204`; missing, unowned, or mismatched vehicle schedules return `404`.
+
+In Garage, tapping a schedule card opens its detail sheet immediately from the cached list and then
+revalidates it through the detail endpoint. The detail shows the service, status, intervals,
+baseline date and mileage, and next due values. Its `⋮` menu offers `Editar` and `Eliminar`.
+Editing reuses the frequency form with prefilled values, excludes the current type from duplicate
+validation, shows the saved reference while the type is unchanged, and explains that the reference
+will be recalculated after saving when the type changes. Deletion uses a destructive confirmation
+sheet. Schedule create, detail, edit, and delete share one discriminated Garage state so those
+overlays replace each other instead of stacking.
 
 The database-backed schedule roundtrip is a separate check. Set `TEST_DATABASE_URL` to a dedicated
 PostgreSQL database whose name ends in `_test`, apply migrations with

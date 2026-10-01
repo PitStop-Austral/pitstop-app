@@ -52,7 +52,6 @@ export function ScheduleCard({ schedule, onClick }: ScheduleCardProps) {
     </>
   );
 
-  // PIT-57 passes onClick to open the detail; until then the card is a plain container.
   if (!onClick) {
     return <div className={cardClassName}>{content}</div>;
   }

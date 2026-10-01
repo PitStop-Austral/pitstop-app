@@ -22,7 +22,10 @@ describe('SchedulesService', () => {
   };
   const findOwnedById = jest.fn();
   const findManyByVehicle = jest.fn();
+  const findById = jest.fn();
   const createWithBaseline = jest.fn();
+  const updateWithBaseline = jest.fn();
+  const deleteSchedule = jest.fn();
   let service: SchedulesService;
 
   beforeEach(async () => {
@@ -34,7 +37,16 @@ describe('SchedulesService', () => {
       providers: [
         SchedulesService,
         { provide: VehiclesRepository, useValue: { findOwnedById } },
-        { provide: SchedulesRepository, useValue: { findManyByVehicle, createWithBaseline } },
+        {
+          provide: SchedulesRepository,
+          useValue: {
+            findManyByVehicle,
+            findById,
+            createWithBaseline,
+            updateWithBaseline,
+            delete: deleteSchedule,
+          },
+        },
       ],
     }).compile();
     service = module.get(SchedulesService);
@@ -119,6 +131,141 @@ describe('SchedulesService', () => {
     ]);
     expect(findManyByVehicle).toHaveBeenCalledWith(vehicleId);
     expect(findOwnedById).toHaveBeenCalledWith(vehicleId, ownerId);
+  });
+
+  it('returns one owned schedule with the central due calculation', async () => {
+    findById.mockResolvedValue(schedule);
+    await expect(service.findOne(owner, vehicleId, schedule.id)).resolves.toMatchObject({
+      id: schedule.id,
+      baselineDate: '2026-09-17',
+      nextDueDate: '2027-03-17',
+      nextDueMileage: 58000,
+    });
+    expect(findById).toHaveBeenCalledWith(vehicleId, schedule.id);
+  });
+
+  it('updates intervals without resetting the baseline', async () => {
+    updateWithBaseline.mockResolvedValue({ ...schedule, intervalMonths: null, intervalKm: 12000 });
+
+    await service.update(owner, vehicleId, schedule.id, {
+      intervalMonths: null,
+      intervalKm: 12000,
+    });
+
+    expect(updateWithBaseline).toHaveBeenCalledWith({
+      id: schedule.id,
+      vehicleId,
+      fallbackDate: new Date('2026-09-17T00:00:00.000Z'),
+      resolve: expect.any(Function),
+    });
+    const [{ resolve }] = updateWithBaseline.mock.calls[0];
+    expect(resolve(schedule)).toEqual({
+      type: 'Filtros',
+      normalizedType: 'filtros',
+      intervalMonths: null,
+      intervalKm: 12000,
+      resetBaseline: false,
+    });
+  });
+
+  it('resets the baseline when the normalized type changes', async () => {
+    const updated = {
+      ...schedule,
+      type: 'Cambio de aceite',
+      baselineDate: new Date('2026-08-10T00:00:00.000Z'),
+      baselineMileage: 45000,
+    };
+    updateWithBaseline.mockResolvedValue(updated);
+
+    await service.update(owner, vehicleId, schedule.id, { type: ' Cambio de aceite ' });
+
+    const [{ resolve }] = updateWithBaseline.mock.calls[0];
+    expect(resolve(schedule)).toEqual(
+      expect.objectContaining({
+        type: 'Cambio de aceite',
+        normalizedType: 'cambio de aceite',
+        resetBaseline: true,
+      }),
+    );
+  });
+
+  it('keeps the baseline for a casing-only type edit', async () => {
+    updateWithBaseline.mockResolvedValue({ ...schedule, type: 'FILTROS' });
+    await service.update(owner, vehicleId, schedule.id, { type: 'FILTROS' });
+    const [{ resolve }] = updateWithBaseline.mock.calls[0];
+    expect(resolve(schedule)).toEqual(expect.objectContaining({ resetBaseline: false }));
+  });
+
+  it('merges a partial edit with the row read inside the transaction', async () => {
+    updateWithBaseline.mockResolvedValue({
+      ...schedule,
+      type: 'Cambio de aceite',
+      baselineMileage: 45000,
+      intervalKm: 12000,
+    });
+    await service.update(owner, vehicleId, schedule.id, { intervalKm: 12000 });
+    const [{ resolve }] = updateWithBaseline.mock.calls[0];
+    const concurrentlyRenamed = {
+      ...schedule,
+      type: 'Cambio de aceite',
+      baselineMileage: 45000,
+    };
+
+    expect(resolve(concurrentlyRenamed)).toEqual({
+      type: 'Cambio de aceite',
+      normalizedType: 'cambio de aceite',
+      intervalMonths: 6,
+      intervalKm: 12000,
+      resetBaseline: false,
+    });
+  });
+
+  it('rejects an update that clears both intervals', async () => {
+    updateWithBaseline.mockImplementation(({ resolve }) => resolve(schedule));
+    await expect(
+      service.update(owner, vehicleId, schedule.id, {
+        intervalMonths: null,
+        intervalKm: null,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('returns 409 when an edit collides with another schedule type', async () => {
+    updateWithBaseline.mockRejectedValue({ code: 'P2002' });
+    await expect(
+      service.update(owner, vehicleId, schedule.id, { type: 'Cambio de aceite' }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('deletes an owned schedule', async () => {
+    findById.mockResolvedValue(schedule);
+    await expect(service.remove(owner, vehicleId, schedule.id)).resolves.toBeUndefined();
+    expect(deleteSchedule).toHaveBeenCalledWith(vehicleId, schedule.id);
+  });
+
+  it('returns 404 when a schedule is missing or disappears during a mutation', async () => {
+    findById.mockResolvedValue(null);
+    await expect(service.findOne(owner, vehicleId, schedule.id)).rejects.toThrow(
+      new NotFoundException('Frecuencia no encontrada'),
+    );
+
+    findById.mockResolvedValue(schedule);
+    deleteSchedule.mockRejectedValue({ code: 'P2025' });
+    await expect(service.remove(owner, vehicleId, schedule.id)).rejects.toThrow(
+      new NotFoundException('Frecuencia no encontrada'),
+    );
+  });
+
+  it('does not read or mutate schedules when the vehicle is unowned', async () => {
+    findOwnedById.mockResolvedValue(null);
+    await expect(service.findOne(owner, vehicleId, schedule.id)).rejects.toThrow(NotFoundException);
+    await expect(service.update(owner, vehicleId, schedule.id, {})).rejects.toThrow(
+      NotFoundException,
+    );
+    await expect(service.remove(owner, vehicleId, schedule.id)).rejects.toThrow(NotFoundException);
+    expect(findById).not.toHaveBeenCalled();
+    expect(updateWithBaseline).not.toHaveBeenCalled();
+    expect(deleteSchedule).not.toHaveBeenCalled();
   });
 
   it('recomputes the status from the current vehicle mileage and user thresholds', async () => {

@@ -31,6 +31,10 @@ describe('AppModule (e2e)', () => {
   let createMaintenance: jest.Mock;
   let createSchedule: jest.Mock;
   let findSchedules: jest.Mock;
+  let findSchedule: jest.Mock;
+  let findScheduleOrThrow: jest.Mock;
+  let updateSchedule: jest.Mock;
+  let deleteSchedule: jest.Mock;
   let findBaselineMaintenance: jest.Mock;
   let findScheduleVehicle: jest.Mock;
   let deleteVehicle: jest.Mock;
@@ -128,6 +132,10 @@ describe('AppModule (e2e)', () => {
     createMaintenance = jest.fn();
     createSchedule = jest.fn();
     findSchedules = jest.fn();
+    findSchedule = jest.fn();
+    findScheduleOrThrow = jest.fn();
+    updateSchedule = jest.fn();
+    deleteSchedule = jest.fn();
     findBaselineMaintenance = jest.fn();
     findScheduleVehicle = jest.fn();
     deleteVehicle = jest.fn();
@@ -141,7 +149,11 @@ describe('AppModule (e2e)', () => {
       callback({
         $queryRaw: lockOwner,
         maintenance: { create: createMaintenance, findFirst: findBaselineMaintenance },
-        schedule: { create: createSchedule },
+        schedule: {
+          create: createSchedule,
+          findFirstOrThrow: findScheduleOrThrow,
+          update: updateSchedule,
+        },
         vehicle: {
           create: createVehicle,
           delete: deleteVehicle,
@@ -167,7 +179,11 @@ describe('AppModule (e2e)', () => {
           update: updateVehicle,
         },
         maintenance: { findFirst: findBaselineMaintenance },
-        schedule: { findMany: findSchedules },
+        schedule: {
+          delete: deleteSchedule,
+          findFirst: findSchedule,
+          findMany: findSchedules,
+        },
       })
       .overrideProvider(FirebaseService)
       .useValue({
@@ -585,6 +601,154 @@ describe('AppModule (e2e)', () => {
         .expect(({ body }) =>
           expect(body.message).toBe('Ya existe una frecuencia para este servicio'),
         );
+    });
+
+    it('fetches one schedule with computed due values', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findSchedule.mockResolvedValue(schedule);
+
+      await request(app.getHttpServer())
+        .get(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200)
+        .expect(({ body }) =>
+          expect(body).toMatchObject({
+            id: schedule.id,
+            type: 'Filtros',
+            baselineDate: '2026-09-17',
+            nextDueDate: '2027-03-17',
+            nextDueMileage: 58000,
+          }),
+        );
+    });
+
+    it('updates one or both intervals and returns the recalculated schedule', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findScheduleOrThrow.mockResolvedValue(schedule);
+      updateSchedule.mockImplementation(({ data }) => Promise.resolve({ ...schedule, ...data }));
+
+      await request(app.getHttpServer())
+        .patch(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ intervalMonths: null, intervalKm: 12000 })
+        .expect(200)
+        .expect(({ body }) =>
+          expect(body).toMatchObject({
+            id: schedule.id,
+            intervalMonths: null,
+            intervalKm: 12000,
+            baselineDate: '2026-09-17',
+            nextDueDate: null,
+            nextDueMileage: 60000,
+          }),
+        );
+
+      expect(updateSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: schedule.id, vehicleId: vehicle.id },
+          data: expect.objectContaining({ intervalMonths: null, intervalKm: 12000 }),
+        }),
+      );
+    });
+
+    it('rejects invalid, empty, and duplicate edits', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+
+      await request(app.getHttpServer())
+        .patch(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ intervalMonths: 0 })
+        .expect(400);
+
+      findScheduleOrThrow.mockResolvedValue(schedule);
+      await request(app.getHttpServer())
+        .patch(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ intervalMonths: null, intervalKm: null })
+        .expect(400);
+
+      findScheduleVehicle.mockResolvedValue({ mileage: vehicle.mileage });
+      findBaselineMaintenance.mockResolvedValue(null);
+      updateSchedule.mockRejectedValue({ code: 'P2002' });
+      await request(app.getHttpServer())
+        .patch(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ type: 'Cambio de aceite' })
+        .expect(409)
+        .expect(({ body }) =>
+          expect(body.message).toBe('Ya existe una frecuencia para este servicio'),
+        );
+    });
+
+    it('deletes an owned schedule with no response body', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      findSchedule.mockResolvedValue(schedule);
+      deleteSchedule.mockResolvedValue(schedule);
+
+      await request(app.getHttpServer())
+        .delete(`${path}/${schedule.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(204)
+        .expect('');
+
+      expect(deleteSchedule).toHaveBeenCalledWith({
+        where: { id: schedule.id, vehicleId: vehicle.id },
+      });
+    });
+
+    it('hides schedule detail and mutations for an unowned vehicle', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue(null);
+      const detailPath = `${path}/${schedule.id}`;
+
+      await request(app.getHttpServer())
+        .get(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(404);
+      await request(app.getHttpServer())
+        .patch(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ intervalKm: 12000 })
+        .expect(404);
+      await request(app.getHttpServer())
+        .delete(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(404);
+
+      expect(findSchedule).not.toHaveBeenCalled();
+      expect(findScheduleOrThrow).not.toHaveBeenCalled();
+      expect(updateSchedule).not.toHaveBeenCalled();
+      expect(deleteSchedule).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when a schedule is missing or disappears during a mutation', async () => {
+      authenticate();
+      findOwnedVehicle.mockResolvedValue({ id: vehicle.id, mileage: vehicle.mileage });
+      const detailPath = `${path}/${schedule.id}`;
+      findSchedule.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .get(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(404);
+
+      findScheduleOrThrow.mockRejectedValue({ code: 'P2025' });
+      await request(app.getHttpServer())
+        .patch(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ intervalKm: 12000 })
+        .expect(404);
+
+      findSchedule.mockResolvedValue(schedule);
+      deleteSchedule.mockRejectedValue({ code: 'P2025' });
+      await request(app.getHttpServer())
+        .delete(detailPath)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(404);
     });
   });
 
