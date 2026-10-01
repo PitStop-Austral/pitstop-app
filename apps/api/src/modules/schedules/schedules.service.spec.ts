@@ -67,7 +67,6 @@ describe('SchedulesService', () => {
         normalizedType: 'filtros',
         intervalMonths,
         intervalKm,
-        fallbackDate: new Date('2026-09-17T00:00:00.000Z'),
       });
     }
   });

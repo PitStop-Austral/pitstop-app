@@ -23,6 +23,7 @@ model Vehicle {
   fuel                 FuelType
   plate                String
   mileage              Int
+  initialMileage       Int?
   nickname             String?
   engineOilType        String?
   engineOilLiters      Decimal?          @db.Decimal(4, 2)

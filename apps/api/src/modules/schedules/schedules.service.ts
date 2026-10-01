@@ -7,24 +7,17 @@ import {
 import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { argentinaDateToday } from './schedule-date';
 import { computeScheduleDue } from './schedule-due';
 import { toScheduleResponse } from './schedules.mapper';
 import type { ScheduleResponse } from './schedules.mapper';
 import { SchedulesRepository } from './schedules.repository';
 import type { ScheduleView } from './schedules.repository';
+import { normalizeScheduleType } from './schedule-type';
 
 type ScheduleOwner = Pick<User, 'id' | 'upcomingThresholdDays' | 'upcomingThresholdKm'>;
 
-// UTC midnight of today's calendar day in Argentina — the date convention schedule-due.ts relies on.
-export function argentinaDateToday(): Date {
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  return new Date(`${date}T00:00:00.000Z`);
-}
+export { argentinaDateToday } from './schedule-date';
 
 @Injectable()
 export class SchedulesService {
@@ -45,8 +38,6 @@ export class SchedulesService {
     vehicleId: string,
     dto: CreateScheduleDto,
   ): Promise<ScheduleResponse> {
-    // One "today" for both the baseline fallback and the due calculation, so they can't
-    // straddle midnight.
     const today = argentinaDateToday();
     const vehicle = await this.assertOwned(owner.id, vehicleId);
     if (dto.intervalMonths == null && dto.intervalKm == null) {
@@ -58,10 +49,9 @@ export class SchedulesService {
       const schedule = await this.schedulesRepository.createWithBaseline({
         vehicleId,
         type,
-        normalizedType: type.toLocaleLowerCase('es-AR'),
+        normalizedType: normalizeScheduleType(type),
         intervalMonths: dto.intervalMonths ?? null,
         intervalKm: dto.intervalKm ?? null,
-        fallbackDate: today,
       });
       return this.toResponse(schedule, owner, vehicle.mileage, today);
     } catch (error) {
@@ -83,6 +73,21 @@ export class SchedulesService {
       }
       throw error;
     }
+  }
+
+  async findRelated(
+    owner: ScheduleOwner,
+    vehicleId: string,
+    type: string,
+  ): Promise<ScheduleResponse | null> {
+    const vehicle = await this.assertOwned(owner.id, vehicleId);
+    const schedule = await this.schedulesRepository.findByVehicleAndNormalizedType(
+      vehicleId,
+      normalizeScheduleType(type),
+    );
+    return schedule
+      ? this.toResponse(schedule, owner, vehicle.mileage, argentinaDateToday())
+      : null;
   }
 
   private toResponse(

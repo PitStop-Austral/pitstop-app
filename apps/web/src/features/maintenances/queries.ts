@@ -8,7 +8,7 @@ import {
   getMaintenances,
   updateMaintenance,
 } from './api';
-import type { Maintenance, MaintenanceInput } from './types';
+import type { Maintenance, MaintenanceDetail, MaintenanceInput } from './types';
 
 export const maintenancesQueryKey = (vehicleId: string) =>
   ['vehicles', vehicleId, 'maintenances'] as const;
@@ -36,10 +36,12 @@ export function useMaintenance(vehicleId: string, id: string) {
     queryKey: maintenanceQueryKey(vehicleId, id),
     queryFn: ({ signal }) => getMaintenance(vehicleId, id, signal),
     // The list already carries every field, so the detail opens instantly from it.
-    initialData: () =>
-      queryClient
+    initialData: () => {
+      const maintenance = queryClient
         .getQueryData<Maintenance[]>(maintenancesQueryKey(vehicleId))
-        ?.find((maintenance) => maintenance.id === id),
+        ?.find((item) => item.id === id);
+      return maintenance ? { ...maintenance, schedule: null } : undefined;
+    },
     initialDataUpdatedAt: () =>
       queryClient.getQueryState(maintenancesQueryKey(vehicleId))?.dataUpdatedAt,
   });
@@ -73,7 +75,13 @@ export function useUpdateMaintenance() {
     onSuccess: async (updated, { vehicleId, id }) => {
       // An inactive detail query ignores initialData, so without this a reopened detail would
       // flash the pre-edit values until its refetch lands.
-      queryClient.setQueryData(maintenanceQueryKey(vehicleId, id), updated);
+      queryClient.setQueryData<MaintenanceDetail>(
+        maintenanceQueryKey(vehicleId, id),
+        (current) => ({
+          ...updated,
+          schedule: current?.schedule ?? null,
+        }),
+      );
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
     },
   });

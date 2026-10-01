@@ -30,7 +30,9 @@ describe('AppModule (e2e)', () => {
   let createVehicle: jest.Mock;
   let createMaintenance: jest.Mock;
   let createSchedule: jest.Mock;
+  let createSchedules: jest.Mock;
   let findSchedules: jest.Mock;
+  let updateSchedule: jest.Mock;
   let findBaselineMaintenance: jest.Mock;
   let findScheduleVehicle: jest.Mock;
   let deleteVehicle: jest.Mock;
@@ -127,7 +129,10 @@ describe('AppModule (e2e)', () => {
     createVehicle = jest.fn();
     createMaintenance = jest.fn();
     createSchedule = jest.fn();
+    createSchedules = jest.fn();
     findSchedules = jest.fn();
+    updateSchedule = jest.fn();
+    findSchedules.mockResolvedValue([]);
     findBaselineMaintenance = jest.fn();
     findScheduleVehicle = jest.fn();
     deleteVehicle = jest.fn();
@@ -141,7 +146,12 @@ describe('AppModule (e2e)', () => {
       callback({
         $queryRaw: lockOwner,
         maintenance: { create: createMaintenance, findFirst: findBaselineMaintenance },
-        schedule: { create: createSchedule },
+        schedule: {
+          create: createSchedule,
+          createMany: createSchedules,
+          findMany: findSchedules,
+          update: updateSchedule,
+        },
         vehicle: {
           create: createVehicle,
           delete: deleteVehicle,

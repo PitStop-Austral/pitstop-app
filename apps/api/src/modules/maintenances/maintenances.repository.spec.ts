@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaintenanceCategory, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SchedulesRepository } from '../schedules/schedules.repository';
 import {
   CreateMaintenanceData,
   MaintenancesRepository,
@@ -14,6 +15,8 @@ describe('MaintenancesRepository', () => {
   let updateVehicleMileage: jest.Mock;
   let findManyMaintenances: jest.Mock;
   let updateMaintenance: jest.Mock;
+  let findMaintenance: jest.Mock;
+  let recalculateBaselines: jest.Mock;
 
   const vehicleId = '22222222-2222-4222-8222-222222222222';
   const data: CreateMaintenanceData = {
@@ -39,9 +42,15 @@ describe('MaintenancesRepository', () => {
     updateVehicleMileage = jest.fn().mockResolvedValue({ count: 1 });
     findManyMaintenances = jest.fn().mockResolvedValue([maintenance]);
     updateMaintenance = jest.fn().mockResolvedValue(maintenance);
+    findMaintenance = jest.fn().mockResolvedValue({ type: data.type });
+    recalculateBaselines = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
-        maintenance: { create: createMaintenance, update: updateMaintenance },
+        maintenance: {
+          create: createMaintenance,
+          update: updateMaintenance,
+          findUniqueOrThrow: findMaintenance,
+        },
         vehicle: { updateMany: updateVehicleMileage },
       }),
     );
@@ -56,6 +65,7 @@ describe('MaintenancesRepository', () => {
             maintenance: { findMany: findManyMaintenances },
           },
         },
+        { provide: SchedulesRepository, useValue: { recalculateBaselines } },
       ],
     }).compile();
 

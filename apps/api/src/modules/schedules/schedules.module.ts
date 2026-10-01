@@ -8,5 +8,6 @@ import { SchedulesService } from './schedules.service';
   imports: [VehiclesModule],
   controllers: [SchedulesController],
   providers: [SchedulesRepository, SchedulesService],
+  exports: [SchedulesRepository, SchedulesService],
 })
 export class SchedulesModule {}

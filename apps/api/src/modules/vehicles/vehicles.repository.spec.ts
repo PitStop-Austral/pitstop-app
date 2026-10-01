@@ -14,6 +14,7 @@ describe('VehiclesRepository', () => {
   let lockOwner: jest.Mock;
   let updateManyAndReturn: jest.Mock;
   let updateUser: jest.Mock;
+  let createSchedules: jest.Mock;
 
   const vehicle: VehicleView = {
     id: 'vehicle-1',
@@ -50,10 +51,12 @@ describe('VehiclesRepository', () => {
     lockOwner = jest.fn();
     updateManyAndReturn = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
+    createSchedules = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
         vehicle: { create, delete: deleteVehicle, findFirst: findReplacement },
+        schedule: { createMany: createSchedules },
         user: { findUnique: findTransactionUser, update: updateUser },
       }),
     );
@@ -101,9 +104,14 @@ describe('VehiclesRepository', () => {
     await expect(repository.createAndSetActive('user-1', data)).resolves.toBe(vehicle);
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith({
-      data: { ...data, ownerId: 'user-1' },
+      data: { ...data, ownerId: 'user-1', initialMileage: data.mileage },
       select: expect.any(Object),
     });
+    expect(createSchedules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([expect.objectContaining({ vehicleId: vehicle.id })]),
+      }),
+    );
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { activeVehicleId: vehicle.id },

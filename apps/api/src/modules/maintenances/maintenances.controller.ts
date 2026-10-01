@@ -13,7 +13,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
-import type { MaintenanceResponse } from './maintenances.mapper';
+import type { MaintenanceDetailResponse, MaintenanceResponse } from './maintenances.mapper';
 import { MaintenancesService } from './maintenances.service';
 
 @Controller('vehicles/:vehicleId/maintenances')
@@ -42,8 +42,8 @@ export class MaintenancesController {
     @CurrentUser() user: User,
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<MaintenanceResponse> {
-    return this.maintenancesService.findOne(user.id, vehicleId, id);
+  ): Promise<MaintenanceDetailResponse> {
+    return this.maintenancesService.findOne(user, vehicleId, id);
   }
 
   @Patch(':id')

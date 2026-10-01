@@ -22,10 +22,10 @@ vehicles. The request validates the UUID, service and optional field limits, cat
 date, Argentina-local non-future date, integer mileage, and non-negative cost with at most two
 decimal places.
 
-Creation and the conditional odometer update run in one Prisma transaction. The submitted mileage
-raises the vehicle odometer only when it is greater than the saved value; historical records with
-equal or lower mileage do not reduce it. Responses serialize the maintenance date as `YYYY-MM-DD`
-and the Prisma decimal cost as `number | null`.
+Creation, the conditional odometer update, and the linked frequency recalculation run in one Prisma
+transaction. The submitted mileage raises the vehicle odometer only when it is greater than the
+saved value; historical records with equal or lower mileage do not reduce it. Responses serialize
+the maintenance date as `YYYY-MM-DD` and the Prisma decimal cost as `number | null`.
 
 ## Web flow
 
@@ -77,7 +77,10 @@ the optional workshop, cost, and notes, and an empty or blank string also clears
 (an empty cost is a `400`). The date follows the same Argentina-local non-future rule as creation. A
 new mileage raises the vehicle odometer through the same conditional update as creation, but
 lowering a record's mileage or deleting it never lowers the odometer; the odometer is corrected from
-the vehicle itself.
+the vehicle itself. Creating, editing, changing the service type, or deleting a maintenance
+recalculates only the matching frequency. Its base is the most recent matching service by date,
+then creation time and id; if none remain, it returns to the vehicle registration date and initial
+mileage.
 
 In Calendario, tapping a history card opens the detail sheet: service, category badge, date,
 mileage, workshop, cost, and notes, with `No especificado` for a missing workshop or cost and no
@@ -87,7 +90,9 @@ a confirmation sheet. `MaintenanceSheetProvider` keeps a single open-sheet state
 detail to edit or delete replaces the sheet instead of stacking dialogs. On phones the detail has a
 `Cerrar` footer; on desktop it closes with the X, Escape, or a click outside.
 
-The detail reads the cached history list as its initial data, so it opens without waiting. A saved
+The detail reads the cached history list as its initial data, so it opens without waiting. Its
+single-record endpoint additionally returns `schedule: Schedule | null`; when linked, the sheet
+shows the frequency and its calculated next due date and/or mileage. A saved
 edit writes the response into the detail cache before invalidating the `vehicles` prefix, and a
 delete removes the detail query first, so neither a reopened detail nor the refetch shows stale or
 missing data. If the detail cannot be loaded or no longer exists, the sheet closes with an error
@@ -102,9 +107,14 @@ prevents duplicates even when two requests arrive together. `POST /vehicles/:veh
 creates a schedule, and `GET /vehicles/:vehicleId/schedules` lists that vehicle's saved rules;
 both require ownership. Duplicate creation returns `409`.
 
-The baseline is the latest maintenance record of the same service type, ordered by service date and
-creation time. Without one, creation captures the Argentina-local calendar date and current vehicle
-mileage.
+Vehicles receive the five default rules at registration: oil change (10,000 km / 6 months), wheel
+alignment (10,000 km / 12 months), air filter (15,000 km / 12 months), oil filter (10,000 km /
+6 months), and timing belt (100,000 km / 60 months). Deleted defaults are not recreated.
+
+The baseline is the latest maintenance record of the same service type, ordered by service date,
+creation time, and id. Without one, it uses the Argentina-local registration date and initial
+vehicle mileage. A maintenance mutation recalculates only the affected schedule; services without
+a frequency do not create one.
 
 PIT-53 computes due state on the server (`apps/api/src/modules/schedules/schedule-due.ts`) and both
 schedule endpoints return it: `nextDueDate` (baseline + calendar months, clamped to month end),
