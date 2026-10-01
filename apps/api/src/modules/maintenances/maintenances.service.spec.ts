@@ -80,14 +80,15 @@ describe('MaintenancesService', () => {
 
   it('creates a maintenance for an owned vehicle on the current Argentina date', async () => {
     findOwnedById.mockResolvedValue({ id: maintenance.vehicleId, mileage: 60000, photoPath: null });
-    createWithMileageUpdate.mockResolvedValue(maintenance);
+    createWithMileageUpdate.mockResolvedValue({ maintenance, isFirstMaintenance: true });
 
     await expect(service.create('user-1', maintenance.vehicleId, dto)).resolves.toEqual({
       ...maintenance,
       date: '2026-09-17',
       cost: 42000,
+      isFirstMaintenance: true,
     });
-    expect(createWithMileageUpdate).toHaveBeenCalledWith(maintenance.vehicleId, {
+    expect(createWithMileageUpdate).toHaveBeenCalledWith('user-1', maintenance.vehicleId, {
       ...dto,
       date: new Date('2026-09-17T00:00:00.000Z'),
       workshop: 'Lubricentro',

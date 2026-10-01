@@ -22,13 +22,14 @@ import type { MaintenanceFormErrors, MaintenanceFormValues } from './maintenance
 import { useCreateMaintenance, useUpdateMaintenance } from './queries';
 import { ServiceField } from './service-field';
 import { CATEGORY_LABELS, MAINTENANCE_CATEGORIES } from './types';
-import type { Maintenance, MaintenanceCategory } from './types';
+import type { Maintenance, MaintenanceCategory, MaintenanceCreated } from './types';
 
 type MaintenanceFormSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   vehicle: Vehicle;
   maintenance?: Maintenance;
+  onCreated?: (maintenance: MaintenanceCreated) => void;
 };
 
 function isApiError(error: unknown): error is ApiError {
@@ -45,6 +46,7 @@ export function MaintenanceFormSheet({
   onOpenChange,
   vehicle,
   maintenance,
+  onCreated,
 }: MaintenanceFormSheetProps) {
   const formId = useId();
   const categoryLabelId = useId();
@@ -86,10 +88,17 @@ export function MaintenanceFormSheet({
           input: result.data,
         });
       } else {
-        await createMaintenance.mutateAsync({ vehicleId: vehicle.id, input: result.data });
+        const created = await createMaintenance.mutateAsync({
+          vehicleId: vehicle.id,
+          input: result.data,
+        });
+        onOpenChange(false);
+        onCreated?.(created);
+        toast.success('Servicio registrado');
+        return;
       }
       onOpenChange(false);
-      toast.success(isEditing ? 'Cambios guardados' : 'Servicio registrado');
+      toast.success('Cambios guardados');
     } catch (error) {
       toast.error(isApiError(error) ? error.message : 'No pudimos guardar el servicio');
     }

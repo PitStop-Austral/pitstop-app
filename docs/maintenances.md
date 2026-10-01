@@ -150,3 +150,15 @@ PostgreSQL database whose name ends in `_test`, apply migrations with
 `DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" pnpm --filter api exec prisma migrate deploy`,
 then run `pnpm --filter api test:e2e:db`. The test seeds and removes its own user and vehicle; it
 never falls back to the application's `DATABASE_URL`.
+
+## First-maintenance notification invitation
+
+`POST /vehicles/:vehicleId/maintenances` has a creation-only response field named
+`isFirstMaintenance`. The API locks the authenticated user's row and counts maintenance records
+across all vehicles owned by that user before inserting, so concurrent requests cannot both report
+that they created the first record. List, detail, and update responses do not include this field.
+
+After a successful create, `MaintenanceSheetProvider` replaces the closed maintenance form with the
+notification invitation only when this flag is true and `notificationPromptShownAt` is still null.
+Editing, signing in, switching vehicles, a failed create, and later maintenance records never open
+the invitation.

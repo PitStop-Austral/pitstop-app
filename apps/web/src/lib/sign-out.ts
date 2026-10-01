@@ -1,4 +1,7 @@
+export type SignOutReason = 'manual' | 'unauthorized';
+
 export type SignOutDeps = {
+  prepare: (reason: SignOutReason) => Promise<void>;
   firebaseSignOut: () => Promise<void>;
   clearQueryCache: () => void;
   navigateToLogin: () => Promise<unknown>;
@@ -6,10 +9,13 @@ export type SignOutDeps = {
   setIsSigningOut: (value: boolean) => void;
 };
 
-export function createSignOut(deps: SignOutDeps): () => Promise<void> {
+export function createSignOut(deps: SignOutDeps): (reason?: SignOutReason) => Promise<void> {
   let inFlight: Promise<void> | null = null;
+  let mustCompleteLocally = false;
 
-  return function signOut(): Promise<void> {
+  return function signOut(reason: SignOutReason = 'manual'): Promise<void> {
+    if (reason === 'unauthorized') mustCompleteLocally = true;
+
     // Concurrent calls share this run instead of starting a new one —
     // see docs/auth.md for the race this avoids.
     if (inFlight) {
@@ -19,6 +25,11 @@ export function createSignOut(deps: SignOutDeps): () => Promise<void> {
     const run = async () => {
       deps.setIsSigningOut(true);
       try {
+        try {
+          await deps.prepare(reason);
+        } catch (error) {
+          if (!mustCompleteLocally) throw error;
+        }
         await deps.firebaseSignOut();
         deps.clearQueryCache();
         await deps.navigateToLogin();
@@ -27,6 +38,7 @@ export function createSignOut(deps: SignOutDeps): () => Promise<void> {
       } finally {
         deps.setIsSigningOut(false);
         inFlight = null;
+        mustCompleteLocally = false;
       }
     };
 

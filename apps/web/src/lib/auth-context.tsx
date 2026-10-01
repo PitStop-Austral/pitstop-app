@@ -9,6 +9,7 @@ import { AUTH_MESSAGES } from './auth-forms';
 import { auth } from './firebase';
 import { createSignOut } from './sign-out';
 import { toast } from '@/components/ui/sonner';
+import { prepareNotificationLogout } from '@/features/notifications/logout';
 
 type AuthContextValue = {
   user: User | null;
@@ -31,9 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const signOut = useMemo(
+  const runSignOut = useMemo(
     () =>
       createSignOut({
+        prepare: prepareNotificationLogout,
         firebaseSignOut: () => firebaseSignOut(auth),
         clearQueryCache: () => queryClient.clear(),
         navigateToLogin: () => navigate({ to: '/login', replace: true, search: {} }),
@@ -54,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(signOut);
-  }, [signOut]);
+    setUnauthorizedHandler(() => runSignOut('unauthorized'));
+  }, [runSignOut]);
 
   const value: AuthContextValue = {
     user,
@@ -63,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSigningOut,
     isAuthenticating,
     setIsAuthenticating,
-    signOut,
+    signOut: () => runSignOut('manual'),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
