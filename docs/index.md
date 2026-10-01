@@ -5,6 +5,7 @@
 - [Vehicle management](./vehicles.md)
 - [Maintenance registration](./maintenances.md)
 - [PWA (installable app)](./pwa.md)
+- [Notification registration](./notifications.md)
 
 ## Setup
 

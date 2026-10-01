@@ -415,6 +415,15 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      workbox-core:
+        specifier: ^7.4.1
+        version: 7.4.1
+      workbox-precaching:
+        specifier: ^7.4.1
+        version: 7.4.1
+      workbox-routing:
+        specifier: ^7.4.1
+        version: 7.4.1
       zod:
         specifier: ^4.5.4
         version: 4.5.4

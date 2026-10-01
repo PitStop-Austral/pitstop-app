@@ -1,12 +1,14 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
+import { NotificationPermissionSheet } from '@/features/notifications/notification-permission-sheet';
 import { DeleteMaintenanceConfirmSheet } from './delete-maintenance-confirm-sheet';
 import { MaintenanceDetailSheet } from './maintenance-detail-sheet';
 import { MaintenanceFormSheet } from './maintenance-form-sheet';
 import type { Maintenance } from './types';
+import type { MaintenanceCreated } from './types';
 
 type MaintenanceSheetContextValue = {
   openRegisterMaintenance: () => void;
@@ -23,6 +25,7 @@ type OpenSheet =
   | { type: 'detail'; id: string }
   | { type: 'edit'; maintenance: Maintenance }
   | { type: 'delete'; maintenance: Maintenance }
+  | { type: 'notification-permission' }
   | null;
 
 const MaintenanceSheetContext = createContext<MaintenanceSheetContextValue | null>(null);
@@ -33,6 +36,7 @@ type MaintenanceSheetProviderProps = {
 
 export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderProps) {
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
+  const notificationDismissed = useRef(false);
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const isDisabled =
     vehiclesQuery.isPending ||
@@ -54,6 +58,22 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     if (!open) setOpenSheet(null);
   }, []);
 
+  function handleCreated(maintenance: MaintenanceCreated): void {
+    if (
+      maintenance.isFirstMaintenance &&
+      currentUserQuery.data?.notificationPromptShownAt == null &&
+      !notificationDismissed.current
+    ) {
+      setOpenSheet({ type: 'notification-permission' });
+    }
+  }
+
+  function closeNotificationPermission(open: boolean): void {
+    if (open) return;
+    notificationDismissed.current = true;
+    setOpenSheet(null);
+  }
+
   return (
     <MaintenanceSheetContext.Provider
       value={{
@@ -65,7 +85,12 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     >
       {children}
       {openSheet?.type === 'register' && activeVehicle ? (
-        <MaintenanceFormSheet open vehicle={activeVehicle} onOpenChange={closeOnDismiss} />
+        <MaintenanceFormSheet
+          open
+          vehicle={activeVehicle}
+          onCreated={handleCreated}
+          onOpenChange={closeOnDismiss}
+        />
       ) : null}
       {openSheet?.type === 'detail' && activeVehicle ? (
         <MaintenanceDetailSheet
@@ -93,6 +118,9 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
       ) : null}
       {openSheet?.type === 'vehicle' ? (
         <VehicleFormSheet mode="add" open onOpenChange={closeOnDismiss} />
+      ) : null}
+      {openSheet?.type === 'notification-permission' ? (
+        <NotificationPermissionSheet open onOpenChange={closeNotificationPermission} />
       ) : null}
     </MaintenanceSheetContext.Provider>
   );

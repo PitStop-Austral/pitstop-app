@@ -7,13 +7,15 @@
 (`purpose: 'maskable'`, extra margin so Android's icon mask doesn't crop the logo).
 
 `registerType: 'autoUpdate'` means a newly deployed version replaces the cached one on the next
-load automatically — no manual "update available" prompt. This requires the explicit
-`registerSW({ immediate: true })` call in `apps/web/src/main.tsx` (imported from the
-`virtual:pwa-register` module, typed via the `vite-plugin-pwa/client` reference in
-`apps/web/src/vite-env.d.ts`); `registerType: 'autoUpdate'` alone only configures the generated
-service worker's update behavior, it does not register it. Only the static shell (HTML/CSS/JS) is
-precached by the generated service worker; API requests are never cached and still require a
-network connection.
+load automatically — no manual "update available" prompt. `main.tsx` calls the singleton
+`registerAppServiceWorker()`, which wraps `registerSW({ immediate: true })` and exposes that same
+registration to Firebase Messaging. Do not register a separate `firebase-messaging-sw.js`.
+
+The plugin uses `injectManifest` with the custom `src/sw.ts`. That worker precaches the static shell,
+cleans outdated caches, claims clients, activates updates immediately, and uses a navigation route
+to serve the SPA entry point for direct application routes. It defines no runtime route for API
+requests, so authenticated data is never cached. Firebase Messaging is initialized in this worker;
+background message handling and notification clicks belong to PIT-59.
 
 iOS only picks up an icon and standalone mode from `<link>`/`<meta>` tags in `apps/web/index.html`,
 not from the manifest: `<link rel="apple-touch-icon">` (180x180), `apple-mobile-web-app-capable`,
@@ -62,3 +64,8 @@ actually scrollable and hands the drag to the root instead.
 The service worker only registers over HTTPS or `localhost`, so it never runs under `pnpm dev`.
 Test it locally with `pnpm --filter web build && pnpm --filter web preview` in an incognito window
 (a stale service worker from a previous test otherwise stays registered).
+
+Web Push also requires `VITE_FIREBASE_VAPID_KEY`, the public key generated under Firebase Console >
+Cloud Messaging > Web Push certificates for the current environment. It is safe to expose in the
+web bundle. Firebase Admin service-account credentials remain API-only and must never be added to
+the worker or web environment.

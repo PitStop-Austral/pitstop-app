@@ -6,6 +6,10 @@ export type CurrentUser = {
   email: string;
   name: string;
   activeVehicleId: string | null;
+  upcomingThresholdDays: number;
+  upcomingThresholdKm: number;
+  notificationsEnabled: boolean;
+  notificationPromptShownAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
