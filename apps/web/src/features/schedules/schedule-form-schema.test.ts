@@ -4,6 +4,7 @@ import { toServiceFieldValue } from '../maintenances/service-catalog.ts';
 import {
   getDisabledScheduleOptions,
   getInitialScheduleFormValues,
+  getScheduleFormValues,
   parseScheduleForm,
 } from './schedule-form-schema.ts';
 
@@ -69,6 +70,51 @@ test('keeps the custom service option available after a frequency named Otro exi
   assert.equal(parseScheduleForm(custom, ['Otro']).success, true);
   assert.equal(
     parseScheduleForm({ ...custom, service: toServiceFieldValue('Otro') }, ['Otro']).success,
+    false,
+  );
+});
+
+test('prefills every editable field from a schedule', () => {
+  const values = getScheduleFormValues({
+    id: 'schedule-id',
+    vehicleId: 'vehicle-id',
+    type: 'Revisión de dirección',
+    intervalMonths: 6,
+    intervalKm: null,
+    baselineDate: '2026-02-14',
+    baselineMileage: 45000,
+    nextDueDate: '2026-08-14',
+    nextDueMileage: null,
+    remainingDays: 30,
+    remainingKm: null,
+    status: 'upcoming',
+    dueReason: 'date',
+    createdAt: '2026-02-14T00:00:00.000Z',
+    updatedAt: '2026-02-14T00:00:00.000Z',
+  });
+
+  assert.deepEqual(values, {
+    service: toServiceFieldValue('Revisión de dirección'),
+    useMonths: true,
+    months: '6',
+    useKm: false,
+    km: '',
+  });
+});
+
+test('editing can keep its own type while other types remain unavailable', () => {
+  const currentType = 'Cambio de aceite';
+  const otherTypes = ['Filtros'];
+  const values = {
+    ...getInitialScheduleFormValues(),
+    service: toServiceFieldValue(currentType),
+    useKm: true,
+    km: '10000',
+  };
+
+  assert.equal(parseScheduleForm(values, otherTypes).success, true);
+  assert.equal(
+    parseScheduleForm({ ...values, service: toServiceFieldValue('Filtros') }, otherTypes).success,
     false,
   );
 });

@@ -96,6 +96,7 @@ export class VehiclesRepository {
         data: DEFAULT_SCHEDULES.map((schedule) => ({
           ...schedule,
           vehicleId: vehicle.id,
+          isDefault: true,
           normalizedType: normalizeScheduleType(schedule.type),
           baselineDate: argentinaDate(vehicle.createdAt),
           baselineMileage: data.mileage,

@@ -2,37 +2,57 @@ import { SchedulesRepository } from './schedules.repository';
 
 describe('SchedulesRepository', () => {
   const vehicleId = '22222222-2222-4222-8222-222222222222';
-  const createdAt = new Date('2026-09-17T03:00:00.000Z');
-  const registrationDate = new Date('2026-09-17T00:00:00.000Z');
+  const fallbackDate = new Date('2026-09-17T00:00:00.000Z');
   const findUniqueOrThrow = jest.fn();
   const findFirst = jest.fn();
+  const findSchedule = jest.fn();
+  const findScheduleByNormalizedType = jest.fn();
+  const findScheduleOrThrow = jest.fn();
+  const findSchedules = jest.fn();
   const create = jest.fn();
-  const transaction = jest.fn(async (callback) =>
-    callback({
-      vehicle: { findUniqueOrThrow },
-      maintenance: { findFirst },
-      schedule: { create },
-    }),
+  const update = jest.fn();
+  const deleteSchedule = jest.fn();
+  const transactionClient = {
+    vehicle: { findUniqueOrThrow },
+    maintenance: { findFirst },
+    schedule: { create, findFirstOrThrow: findScheduleOrThrow, findMany: findSchedules, update },
+  };
+  const transaction = jest.fn(
+    async (callback: (client: typeof transactionClient) => Promise<unknown>, _options?: unknown) =>
+      callback(transactionClient),
   );
-  const repository = new SchedulesRepository({ $transaction: transaction } as never);
+  const repository = new SchedulesRepository({
+    $transaction: transaction,
+    schedule: {
+      findFirst: findSchedule,
+      findUnique: findScheduleByNormalizedType,
+      delete: deleteSchedule,
+    },
+  } as never);
   const input = {
     vehicleId,
     type: 'Filtros',
     normalizedType: 'filtros',
     intervalMonths: 6,
     intervalKm: 10000,
+    fallbackDate,
   };
 
   beforeEach(() => {
     jest.resetAllMocks();
-    transaction.mockImplementation(async (callback) =>
-      callback({
-        vehicle: { findUniqueOrThrow },
-        maintenance: { findFirst },
-        schedule: { create },
-      }),
-    );
-    findUniqueOrThrow.mockResolvedValue({ createdAt, initialMileage: 48000, mileage: 48000 });
+    transaction.mockImplementation(async (callback) => callback(transactionClient));
+    findUniqueOrThrow.mockResolvedValue({ mileage: 48000 });
+    findScheduleOrThrow.mockResolvedValue({
+      id: 'schedule-id',
+      vehicleId,
+      type: 'Filtros',
+      intervalMonths: 6,
+      intervalKm: 10000,
+      baselineDate: fallbackDate,
+      baselineMileage: 48000,
+      createdAt: fallbackDate,
+      updatedAt: fallbackDate,
+    });
   });
 
   it('uses the latest matching maintenance as the baseline', async () => {
@@ -51,13 +71,252 @@ describe('SchedulesRepository', () => {
     );
   });
 
-  it('uses the vehicle initial mileage and registration date when no matching service exists', async () => {
+  it('uses the vehicle mileage and current date when no matching service exists', async () => {
     findFirst.mockResolvedValue(null);
     await repository.createWithBaseline(input);
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ baselineDate: registrationDate, baselineMileage: 48000 }),
+        data: expect.objectContaining({ baselineDate: fallbackDate, baselineMileage: 48000 }),
       }),
     );
+  });
+
+  it('finds a schedule only inside its vehicle', async () => {
+    await repository.findById(vehicleId, 'schedule-id');
+    expect(findSchedule).toHaveBeenCalledWith({
+      where: { id: 'schedule-id', vehicleId },
+      select: expect.any(Object),
+    });
+  });
+
+  it('finds a schedule by its normalized type', async () => {
+    await repository.findByVehicleAndNormalizedType(vehicleId, 'filtros');
+    expect(findScheduleByNormalizedType).toHaveBeenCalledWith({
+      where: { vehicleId_normalizedType: { vehicleId, normalizedType: 'filtros' } },
+      select: expect.any(Object),
+    });
+  });
+
+  it('restores the initial registration baseline when the last matching maintenance is deleted', async () => {
+    const registration = new Date('2026-09-03T03:00:00.000Z');
+    findSchedules.mockResolvedValue([
+      {
+        id: 'schedule-id',
+        vehicleId,
+        type: 'Cambio de aceite',
+        isDefault: true,
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: fallbackDate,
+        baselineMileage: 48000,
+        createdAt: fallbackDate,
+        updatedAt: fallbackDate,
+      },
+    ]);
+    findUniqueOrThrow.mockResolvedValue({
+      createdAt: registration,
+      initialMileage: 42000,
+      mileage: 48000,
+    });
+    findFirst.mockResolvedValue(null);
+
+    await repository.recalculateBaselines(transactionClient as never, vehicleId, [
+      'Cambio de aceite',
+    ]);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'schedule-id' },
+      data: {
+        baselineDate: new Date('2026-09-03T00:00:00.000Z'),
+        baselineMileage: 42000,
+      },
+    });
+  });
+
+  it('uses the most recent maintenance when recalculating a frequency', async () => {
+    const latest = { date: new Date('2026-09-20T00:00:00.000Z'), mileage: 51000 };
+    findSchedules.mockResolvedValue([
+      {
+        id: 'schedule-id',
+        vehicleId,
+        type: 'Cambio de aceite',
+        isDefault: true,
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: fallbackDate,
+        baselineMileage: 48000,
+        createdAt: fallbackDate,
+        updatedAt: fallbackDate,
+      },
+    ]);
+    findUniqueOrThrow.mockResolvedValue({
+      createdAt: fallbackDate,
+      initialMileage: 42000,
+      mileage: 51000,
+    });
+    findFirst.mockResolvedValue(latest);
+
+    await repository.recalculateBaselines(transactionClient as never, vehicleId, [
+      'Cambio de aceite',
+    ]);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'schedule-id' },
+      data: { baselineDate: latest.date, baselineMileage: latest.mileage },
+    });
+  });
+
+  it('keeps a manual schedule at its own creation date and the current mileage', async () => {
+    const manualCreation = new Date('2026-09-20T03:00:00.000Z');
+    findSchedules.mockResolvedValue([
+      {
+        id: 'schedule-id',
+        vehicleId,
+        type: 'Cambio de aceite',
+        isDefault: false,
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: fallbackDate,
+        baselineMileage: 48000,
+        createdAt: manualCreation,
+        updatedAt: manualCreation,
+      },
+    ]);
+    findUniqueOrThrow.mockResolvedValue({
+      createdAt: new Date('2026-09-03T03:00:00.000Z'),
+      initialMileage: 42000,
+      mileage: 51000,
+    });
+    findFirst.mockResolvedValue(null);
+
+    await repository.recalculateBaselines(transactionClient as never, vehicleId, [
+      'Cambio de aceite',
+    ]);
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'schedule-id' },
+      data: {
+        baselineDate: new Date('2026-09-20T00:00:00.000Z'),
+        baselineMileage: 51000,
+      },
+    });
+  });
+
+  it('updates intervals without querying or changing the baseline', async () => {
+    await repository.updateWithBaseline({
+      id: 'schedule-id',
+      vehicleId,
+      fallbackDate,
+      resolve: () => ({
+        type: 'Filtros',
+        normalizedType: 'filtros',
+        intervalMonths: null,
+        intervalKm: 10000,
+        resetBaseline: false,
+      }),
+    });
+    expect(findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'schedule-id', vehicleId },
+        data: {
+          type: 'Filtros',
+          normalizedType: 'filtros',
+          intervalMonths: null,
+          intervalKm: 10000,
+        },
+      }),
+    );
+  });
+
+  it('recalculates the baseline when the type changes', async () => {
+    const lastService = { date: new Date('2026-09-11T00:00:00.000Z'), mileage: 44000 };
+    findFirst.mockResolvedValue(lastService);
+    await repository.updateWithBaseline({
+      id: 'schedule-id',
+      vehicleId,
+      fallbackDate,
+      resolve: () => ({
+        type: 'Cambio de aceite',
+        normalizedType: 'cambio de aceite',
+        intervalMonths: 6,
+        intervalKm: 10000,
+        resetBaseline: true,
+      }),
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          baselineDate: lastService.date,
+          baselineMileage: lastService.mileage,
+        }),
+      }),
+    );
+  });
+
+  it('retries the full serializable transaction after a write conflict', async () => {
+    const currentRows = [
+      {
+        id: 'schedule-id',
+        vehicleId,
+        type: 'Filtros',
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: fallbackDate,
+        baselineMileage: 48000,
+        createdAt: fallbackDate,
+        updatedAt: fallbackDate,
+      },
+      {
+        id: 'schedule-id',
+        vehicleId,
+        type: 'Cambio de aceite',
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: new Date('2026-09-10T00:00:00.000Z'),
+        baselineMileage: 44000,
+        createdAt: fallbackDate,
+        updatedAt: new Date('2026-09-18T00:00:00.000Z'),
+      },
+    ];
+    const resolve = jest.fn((current) => ({
+      type: current.type,
+      normalizedType: current.type.toLocaleLowerCase('es-AR'),
+      intervalMonths: current.intervalMonths,
+      intervalKm: 12000,
+      resetBaseline: false,
+    }));
+    let attempt = 0;
+    transaction.mockImplementation(async (callback, options) => {
+      expect(options).toEqual({ isolationLevel: 'Serializable' });
+      findScheduleOrThrow.mockResolvedValueOnce(currentRows[attempt]);
+      const result = await callback(transactionClient);
+      attempt++;
+      if (attempt === 1) throw { code: 'P2034' };
+      return result;
+    });
+
+    await repository.updateWithBaseline({
+      id: 'schedule-id',
+      vehicleId,
+      fallbackDate,
+      resolve,
+    });
+
+    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(resolve).toHaveBeenLastCalledWith(currentRows[1]);
+    expect(update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type: 'Cambio de aceite', intervalKm: 12000 }),
+      }),
+    );
+  });
+
+  it('deletes only the schedule inside its vehicle', async () => {
+    await repository.delete(vehicleId, 'schedule-id');
+    expect(deleteSchedule).toHaveBeenCalledWith({
+      where: { id: 'schedule-id', vehicleId },
+    });
   });
 });

@@ -15,6 +15,7 @@ describe('MaintenancesRepository', () => {
   let updateVehicleMileage: jest.Mock;
   let findManyMaintenances: jest.Mock;
   let updateMaintenance: jest.Mock;
+  let deleteMaintenance: jest.Mock;
   let findMaintenance: jest.Mock;
   let recalculateBaselines: jest.Mock;
 
@@ -42,6 +43,7 @@ describe('MaintenancesRepository', () => {
     updateVehicleMileage = jest.fn().mockResolvedValue({ count: 1 });
     findManyMaintenances = jest.fn().mockResolvedValue([maintenance]);
     updateMaintenance = jest.fn().mockResolvedValue(maintenance);
+    deleteMaintenance = jest.fn().mockResolvedValue({ type: data.type });
     findMaintenance = jest.fn().mockResolvedValue({ type: data.type });
     recalculateBaselines = jest.fn();
     transaction = jest.fn(async (callback) =>
@@ -49,6 +51,7 @@ describe('MaintenancesRepository', () => {
         maintenance: {
           create: createMaintenance,
           update: updateMaintenance,
+          delete: deleteMaintenance,
           findUniqueOrThrow: findMaintenance,
         },
         vehicle: { updateMany: updateVehicleMileage },
@@ -92,6 +95,7 @@ describe('MaintenancesRepository', () => {
       where: { id: vehicleId, mileage: { lt: 60500 } },
       data: { mileage: 60500 },
     });
+    expect(recalculateBaselines).toHaveBeenCalledWith(expect.any(Object), vehicleId, [data.type]);
   });
 
   it.each([60500, 50000])(
@@ -123,6 +127,34 @@ describe('MaintenancesRepository', () => {
       where: { id: vehicleId, mileage: { lt: 70000 } },
       data: { mileage: 70000 },
     });
+    expect(recalculateBaselines).toHaveBeenCalledWith(expect.any(Object), vehicleId, [
+      data.type,
+      data.type,
+    ]);
+  });
+
+  it('recalculates both affected frequencies when a maintenance changes type', async () => {
+    findMaintenance.mockResolvedValue({ type: 'Cambio de aceite' });
+    updateMaintenance.mockResolvedValue({ ...maintenance, type: 'Alineación de neumáticos' });
+
+    await repository.updateWithMileageUpdate(vehicleId, maintenance.id, {
+      type: 'Alineación de neumáticos',
+    });
+
+    expect(recalculateBaselines).toHaveBeenCalledWith(expect.any(Object), vehicleId, [
+      'Cambio de aceite',
+      'Alineación de neumáticos',
+    ]);
+  });
+
+  it('recalculates the affected frequency after deleting its latest maintenance', async () => {
+    await repository.delete(vehicleId, maintenance.id);
+
+    expect(deleteMaintenance).toHaveBeenCalledWith({
+      where: { id: maintenance.id, vehicleId },
+      select: { type: true },
+    });
+    expect(recalculateBaselines).toHaveBeenCalledWith(expect.any(Object), vehicleId, [data.type]);
   });
 
   it('leaves the vehicle untouched when the mileage is not updated', async () => {

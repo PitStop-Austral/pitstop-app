@@ -7,6 +7,7 @@ import {
 import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { argentinaDateToday } from './schedule-date';
 import { computeScheduleDue } from './schedule-due';
 import { toScheduleResponse } from './schedules.mapper';
@@ -33,11 +34,23 @@ export class SchedulesService {
     return schedules.map((schedule) => this.toResponse(schedule, owner, vehicle.mileage, today));
   }
 
+  async findOne(
+    owner: ScheduleOwner,
+    vehicleId: string,
+    scheduleId: string,
+  ): Promise<ScheduleResponse> {
+    const vehicle = await this.assertOwned(owner.id, vehicleId);
+    const schedule = await this.findOrThrow(vehicleId, scheduleId);
+    return this.toResponse(schedule, owner, vehicle.mileage, argentinaDateToday());
+  }
+
   async create(
     owner: ScheduleOwner,
     vehicleId: string,
     dto: CreateScheduleDto,
   ): Promise<ScheduleResponse> {
+    // One "today" for both the baseline fallback and the due calculation, so they can't
+    // straddle midnight.
     const today = argentinaDateToday();
     const vehicle = await this.assertOwned(owner.id, vehicleId);
     if (dto.intervalMonths == null && dto.intervalKm == null) {
@@ -52,6 +65,7 @@ export class SchedulesService {
         normalizedType: normalizeScheduleType(type),
         intervalMonths: dto.intervalMonths ?? null,
         intervalKm: dto.intervalKm ?? null,
+        fallbackDate: today,
       });
       return this.toResponse(schedule, owner, vehicle.mileage, today);
     } catch (error) {
@@ -71,6 +85,58 @@ export class SchedulesService {
       ) {
         throw new NotFoundException('Vehículo no encontrado');
       }
+      throw error;
+    }
+  }
+
+  async update(
+    owner: ScheduleOwner,
+    vehicleId: string,
+    scheduleId: string,
+    dto: UpdateScheduleDto,
+  ): Promise<ScheduleResponse> {
+    const today = argentinaDateToday();
+    const vehicle = await this.assertOwned(owner.id, vehicleId);
+
+    try {
+      const schedule = await this.schedulesRepository.updateWithBaseline({
+        id: scheduleId,
+        vehicleId,
+        fallbackDate: today,
+        resolve: (current) => {
+          const type = (dto.type ?? current.type).trim();
+          const normalizedType = normalizeScheduleType(type);
+          const intervalMonths =
+            dto.intervalMonths === undefined ? current.intervalMonths : dto.intervalMonths;
+          const intervalKm = dto.intervalKm === undefined ? current.intervalKm : dto.intervalKm;
+
+          if (intervalMonths == null && intervalKm == null) {
+            throw new BadRequestException('Ingresá meses, kilómetros o ambos');
+          }
+
+          return {
+            type,
+            normalizedType,
+            intervalMonths,
+            intervalKm,
+            resetBaseline: normalizedType !== normalizeScheduleType(current.type),
+          };
+        },
+      });
+      return this.toResponse(schedule, owner, vehicle.mileage, today);
+    } catch (error) {
+      this.throwMutationError(error);
+      throw error;
+    }
+  }
+
+  async remove(owner: ScheduleOwner, vehicleId: string, scheduleId: string): Promise<void> {
+    await this.assertOwned(owner.id, vehicleId);
+    await this.findOrThrow(vehicleId, scheduleId);
+    try {
+      await this.schedulesRepository.delete(vehicleId, scheduleId);
+    } catch (error) {
+      this.throwMutationError(error);
       throw error;
     }
   }
@@ -111,5 +177,21 @@ export class SchedulesService {
     const vehicle = await this.vehiclesRepository.findOwnedById(vehicleId, ownerId);
     if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
     return vehicle;
+  }
+
+  private async findOrThrow(vehicleId: string, scheduleId: string): Promise<ScheduleView> {
+    const schedule = await this.schedulesRepository.findById(vehicleId, scheduleId);
+    if (!schedule) throw new NotFoundException('Frecuencia no encontrada');
+    return schedule;
+  }
+
+  private throwMutationError(error: unknown): void {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return;
+    if (error.code === 'P2002') {
+      throw new ConflictException('Ya existe una frecuencia para este servicio');
+    }
+    if (error.code === 'P2025') {
+      throw new NotFoundException('Frecuencia no encontrada');
+    }
   }
 }

@@ -75,13 +75,10 @@ export function useUpdateMaintenance() {
     onSuccess: async (updated, { vehicleId, id }) => {
       // An inactive detail query ignores initialData, so without this a reopened detail would
       // flash the pre-edit values until its refetch lands.
-      queryClient.setQueryData<MaintenanceDetail>(
-        maintenanceQueryKey(vehicleId, id),
-        (current) => ({
-          ...updated,
-          schedule: current?.schedule ?? null,
-        }),
-      );
+      queryClient.setQueryData<MaintenanceDetail>(maintenanceQueryKey(vehicleId, id), {
+        ...updated,
+        schedule: null,
+      });
       await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
     },
   });

@@ -107,11 +107,60 @@ describe('VehiclesRepository', () => {
       data: { ...data, ownerId: 'user-1', initialMileage: data.mileage },
       select: expect.any(Object),
     });
-    expect(createSchedules).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.arrayContaining([expect.objectContaining({ vehicleId: vehicle.id })]),
-      }),
-    );
+    expect(createSchedules).toHaveBeenCalledWith({
+      data: [
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Cambio de aceite',
+          normalizedType: 'cambio de aceite',
+          intervalKm: 10000,
+          intervalMonths: 6,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Alineación de neumáticos',
+          normalizedType: 'alineación de neumáticos',
+          intervalKm: 10000,
+          intervalMonths: 12,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Filtro de aire',
+          normalizedType: 'filtro de aire',
+          intervalKm: 15000,
+          intervalMonths: 12,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Filtro de aceite',
+          normalizedType: 'filtro de aceite',
+          intervalKm: 10000,
+          intervalMonths: 6,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Correa de distribución',
+          normalizedType: 'correa de distribución',
+          intervalKm: 100000,
+          intervalMonths: 60,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+      ],
+    });
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       data: { activeVehicleId: vehicle.id },

@@ -8,6 +8,7 @@ const scheduleSelect = {
   id: true,
   vehicleId: true,
   type: true,
+  isDefault: true,
   intervalMonths: true,
   intervalKm: true,
   baselineDate: true,
@@ -24,7 +25,25 @@ export type CreateScheduleData = {
   normalizedType: string;
   intervalMonths: number | null;
   intervalKm: number | null;
+  fallbackDate: Date;
 };
+
+export type ScheduleUpdate = Omit<CreateScheduleData, 'vehicleId' | 'fallbackDate'> & {
+  resetBaseline: boolean;
+};
+
+export type UpdateScheduleData = {
+  id: string;
+  vehicleId: string;
+  fallbackDate: Date;
+  resolve: (current: ScheduleView) => ScheduleUpdate;
+};
+
+const SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
+
+function hasPrismaCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}
 
 @Injectable()
 export class SchedulesRepository {
@@ -34,6 +53,13 @@ export class SchedulesRepository {
     return this.prisma.schedule.findMany({
       where: { vehicleId },
       orderBy: { createdAt: 'desc' },
+      select: scheduleSelect,
+    });
+  }
+
+  findById(vehicleId: string, id: string): Promise<ScheduleView | null> {
+    return this.prisma.schedule.findFirst({
+      where: { id, vehicleId },
       select: scheduleSelect,
     });
   }
@@ -52,7 +78,7 @@ export class SchedulesRepository {
     return this.prisma.$transaction(async (transaction) => {
       const vehicle = await transaction.vehicle.findUniqueOrThrow({
         where: { id: data.vehicleId },
-        select: { createdAt: true, initialMileage: true, mileage: true },
+        select: { mileage: true },
       });
       const lastService = await transaction.maintenance.findFirst({
         where: { vehicleId: data.vehicleId, type: { equals: data.type, mode: 'insensitive' } },
@@ -67,12 +93,71 @@ export class SchedulesRepository {
           normalizedType: data.normalizedType,
           intervalMonths: data.intervalMonths,
           intervalKm: data.intervalKm,
-          baselineDate: lastService?.date ?? argentinaDate(vehicle.createdAt),
-          baselineMileage: lastService?.mileage ?? vehicle.initialMileage ?? vehicle.mileage,
+          baselineDate: lastService?.date ?? data.fallbackDate,
+          baselineMileage: lastService?.mileage ?? vehicle.mileage,
         },
         select: scheduleSelect,
       });
     });
+  }
+
+  async updateWithBaseline(data: UpdateScheduleData): Promise<ScheduleView> {
+    for (let attempt = 1; attempt <= SERIALIZABLE_TRANSACTION_ATTEMPTS; attempt++) {
+      try {
+        return await this.prisma.$transaction(
+          async (transaction) => {
+            const current = await transaction.schedule.findFirstOrThrow({
+              where: { id: data.id, vehicleId: data.vehicleId },
+              select: scheduleSelect,
+            });
+            const update = data.resolve(current);
+            let baseline: Pick<ScheduleView, 'baselineDate' | 'baselineMileage'> | undefined;
+
+            if (update.resetBaseline) {
+              const vehicle = await transaction.vehicle.findUniqueOrThrow({
+                where: { id: data.vehicleId },
+                select: { mileage: true },
+              });
+              const lastService = await transaction.maintenance.findFirst({
+                where: {
+                  vehicleId: data.vehicleId,
+                  type: { equals: update.type, mode: 'insensitive' },
+                },
+                orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+                select: { date: true, mileage: true },
+              });
+              baseline = {
+                baselineDate: lastService?.date ?? data.fallbackDate,
+                baselineMileage: lastService?.mileage ?? vehicle.mileage,
+              };
+            }
+
+            return transaction.schedule.update({
+              where: { id: data.id, vehicleId: data.vehicleId },
+              data: {
+                type: update.type,
+                normalizedType: update.normalizedType,
+                intervalMonths: update.intervalMonths,
+                intervalKm: update.intervalKm,
+                ...baseline,
+              },
+              select: scheduleSelect,
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (!hasPrismaCode(error, 'P2034') || attempt === SERIALIZABLE_TRANSACTION_ATTEMPTS) {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Unreachable transaction retry state');
+  }
+
+  async delete(vehicleId: string, id: string): Promise<void> {
+    await this.prisma.schedule.delete({ where: { id, vehicleId } });
   }
 
   async recalculateBaselines(
@@ -101,8 +186,14 @@ export class SchedulesRepository {
         await transaction.schedule.update({
           where: { id: schedule.id },
           data: {
-            baselineDate: lastService?.date ?? argentinaDate(vehicle.createdAt),
-            baselineMileage: lastService?.mileage ?? vehicle.initialMileage ?? vehicle.mileage,
+            baselineDate:
+              lastService?.date ??
+              (schedule.isDefault
+                ? argentinaDate(vehicle.createdAt)
+                : argentinaDate(schedule.createdAt)),
+            baselineMileage:
+              lastService?.mileage ??
+              (schedule.isDefault ? (vehicle.initialMileage ?? vehicle.mileage) : vehicle.mileage),
           },
         });
       }),
