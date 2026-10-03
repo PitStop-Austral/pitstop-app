@@ -3,6 +3,7 @@ model Schedule {
   vehicleId      String   @db.Uuid
   type           String
   normalizedType String
+  isDefault      Boolean  @default(false)
   intervalMonths Int?
   intervalKm     Int?
   baselineDate   DateTime @db.Date

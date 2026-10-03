@@ -14,6 +14,7 @@ describe('VehiclesRepository', () => {
   let lockOwner: jest.Mock;
   let updateManyAndReturn: jest.Mock;
   let updateUser: jest.Mock;
+  let createSchedules: jest.Mock;
 
   const vehicle: VehicleView = {
     id: 'vehicle-1',
@@ -50,10 +51,12 @@ describe('VehiclesRepository', () => {
     lockOwner = jest.fn();
     updateManyAndReturn = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
+    createSchedules = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
         vehicle: { create, delete: deleteVehicle, findFirst: findReplacement },
+        schedule: { createMany: createSchedules },
         user: { findUnique: findTransactionUser, update: updateUser },
       }),
     );
@@ -101,8 +104,62 @@ describe('VehiclesRepository', () => {
     await expect(repository.createAndSetActive('user-1', data)).resolves.toBe(vehicle);
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith({
-      data: { ...data, ownerId: 'user-1' },
+      data: { ...data, ownerId: 'user-1', initialMileage: data.mileage },
       select: expect.any(Object),
+    });
+    expect(createSchedules).toHaveBeenCalledWith({
+      data: [
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Cambio de aceite',
+          normalizedType: 'cambio de aceite',
+          intervalKm: 10000,
+          intervalMonths: 6,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Alineación de neumáticos',
+          normalizedType: 'alineación de neumáticos',
+          intervalKm: 10000,
+          intervalMonths: 12,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Filtro de aire',
+          normalizedType: 'filtro de aire',
+          intervalKm: 15000,
+          intervalMonths: 12,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Filtro de aceite',
+          normalizedType: 'filtro de aceite',
+          intervalKm: 10000,
+          intervalMonths: 6,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+        {
+          vehicleId: vehicle.id,
+          isDefault: true,
+          type: 'Correa de distribución',
+          normalizedType: 'correa de distribución',
+          intervalKm: 100000,
+          intervalMonths: 60,
+          baselineDate: new Date('2026-09-02T00:00:00.000Z'),
+          baselineMileage: 48000,
+        },
+      ],
     });
     expect(updateUser).toHaveBeenCalledWith({
       where: { id: 'user-1' },

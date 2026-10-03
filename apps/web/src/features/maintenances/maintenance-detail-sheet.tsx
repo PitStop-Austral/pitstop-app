@@ -19,6 +19,7 @@ import { useMaintenance } from './queries';
 import { ServiceIcon } from './service-icon';
 import { CATEGORY_LABELS } from './types';
 import type { Maintenance } from './types';
+import type { Schedule } from '../schedules/types';
 
 type MaintenanceDetailSheetProps = {
   vehicleId: string;
@@ -120,6 +121,8 @@ export function MaintenanceDetailSheet({
             />
           </div>
 
+          {maintenance.schedule ? <ScheduleDetail schedule={maintenance.schedule} /> : null}
+
           {maintenance.notes ? (
             <div className="rounded-lg bg-neutral-100 p-4">
               <Text color="muted" variant="caption-strong">
@@ -139,6 +142,31 @@ export function MaintenanceDetailSheet({
         </div>
       )}
     </BottomSheet>
+  );
+}
+
+function ScheduleDetail({ schedule }: { schedule: Schedule }) {
+  const nextDue = [
+    schedule.nextDueDate ? formatDate(schedule.nextDueDate) : null,
+    schedule.nextDueMileage !== null ? `${formatNumber(schedule.nextDueMileage)} km` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <Text color="muted" variant="caption-strong">
+        Frecuencia
+      </Text>
+      <Text className="mt-1" color="default" variant="body-strong">
+        {schedule.type}
+      </Text>
+      {nextDue ? (
+        <Text className="mt-2" color="muted" variant="caption">
+          Próximo vencimiento: {nextDue}
+        </Text>
+      ) : null}
+    </div>
   );
 }
 

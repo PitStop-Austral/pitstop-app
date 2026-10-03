@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MaintenanceCategory, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SchedulesRepository } from '../schedules/schedules.repository';
 
 const maintenanceSelect = {
   id: true,
@@ -32,7 +33,10 @@ export type CreateMaintenanceData = {
 
 @Injectable()
 export class MaintenancesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly schedulesRepository: SchedulesRepository,
+  ) {}
 
   async findManyByVehicle(vehicleId: string): Promise<MaintenanceView[]> {
     return this.prisma.maintenance.findMany({
@@ -55,6 +59,10 @@ export class MaintenancesRepository {
     data: Partial<CreateMaintenanceData>,
   ): Promise<MaintenanceView> {
     return this.prisma.$transaction(async (transaction) => {
+      const previous = await transaction.maintenance.findUniqueOrThrow({
+        where: { id, vehicleId },
+        select: { type: true },
+      });
       const maintenance = await transaction.maintenance.update({
         where: { id, vehicleId },
         data,
@@ -68,12 +76,25 @@ export class MaintenancesRepository {
         });
       }
 
+      await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
+        previous.type,
+        maintenance.type,
+      ]);
+
       return maintenance;
     });
   }
 
   async delete(vehicleId: string, id: string): Promise<void> {
-    await this.prisma.maintenance.delete({ where: { id, vehicleId } });
+    await this.prisma.$transaction(async (transaction) => {
+      const maintenance = await transaction.maintenance.delete({
+        where: { id, vehicleId },
+        select: { type: true },
+      });
+      await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
+        maintenance.type,
+      ]);
+    });
   }
 
   async createWithMileageUpdate(
@@ -90,6 +111,10 @@ export class MaintenancesRepository {
         where: { id: vehicleId, mileage: { lt: data.mileage } },
         data: { mileage: data.mileage },
       });
+
+      await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
+        maintenance.type,
+      ]);
 
       return maintenance;
     });

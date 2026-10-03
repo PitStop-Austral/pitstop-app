@@ -13,6 +13,7 @@ describe('SchedulesService', () => {
     id: '44444444-4444-4444-8444-444444444444',
     vehicleId,
     type: 'Filtros',
+    isDefault: false,
     intervalMonths: 6,
     intervalKm: 10000,
     baselineDate: new Date('2026-09-17T00:00:00.000Z'),
@@ -20,6 +21,7 @@ describe('SchedulesService', () => {
     createdAt: new Date('2026-09-18T00:00:00.000Z'),
     updatedAt: new Date('2026-09-18T00:00:00.000Z'),
   };
+  const { isDefault: _isDefault, ...scheduleResponse } = schedule;
   const findOwnedById = jest.fn();
   const findManyByVehicle = jest.fn();
   const findById = jest.fn();
@@ -64,7 +66,7 @@ describe('SchedulesService', () => {
       await expect(
         service.create(owner, vehicleId, { type: ' Filtros ', intervalMonths, intervalKm }),
       ).resolves.toEqual({
-        ...schedule,
+        ...scheduleResponse,
         baselineDate: '2026-09-17',
         nextDueDate: '2027-03-17',
         nextDueMileage: 58000,
@@ -119,7 +121,7 @@ describe('SchedulesService', () => {
     findManyByVehicle.mockResolvedValue([schedule]);
     await expect(service.findByVehicle(owner, vehicleId)).resolves.toEqual([
       {
-        ...schedule,
+        ...scheduleResponse,
         baselineDate: '2026-09-17',
         nextDueDate: '2027-03-17',
         nextDueMileage: 58000,
