@@ -21,8 +21,9 @@ export class NotificationsRepository {
       // Registration is rare, and a transaction-scoped lock makes token transfers deterministic
       // even when two installations claim the same new token concurrently.
       await transaction.$queryRaw`
-        SELECT 1 AS "lockAcquired"
-        FROM pg_advisory_xact_lock(hashtextextended(${NOTIFICATION_DEVICE_REGISTRATION_LOCK}, 0))
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${NOTIFICATION_DEVICE_REGISTRATION_LOCK}, 0)
+        )::text AS "lockAcquired"
       `;
 
       await transaction.notificationDevice.deleteMany({

@@ -159,6 +159,29 @@ export function NotificationPermissionSheet({
             {activationError}
           </Text>
         ) : null}
+        {markPrompt.isError ? (
+          <div className="mt-4 grid justify-items-center gap-2">
+            <Text color="danger" variant="caption">
+              No pudimos guardar que ya viste esta invitación.
+            </Text>
+            <Button
+              className="gap-2"
+              disabled={markPrompt.isPending}
+              variant="ghost"
+              onClick={() => markPrompt.mutate()}
+            >
+              <Icon
+                className={markPrompt.isPending ? 'animate-spin' : undefined}
+                color="primary"
+                name={markPrompt.isPending ? 'Loader2' : 'RefreshCw'}
+                size="sm"
+              />
+              <Text color="primary" variant="label">
+                {markPrompt.isPending ? 'Guardando...' : 'Reintentar guardado'}
+              </Text>
+            </Button>
+          </div>
+        ) : null}
       </div>
     </BottomSheet>
   );

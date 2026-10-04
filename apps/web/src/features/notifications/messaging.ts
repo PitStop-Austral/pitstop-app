@@ -2,6 +2,7 @@ import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messa
 
 import { firebaseApp } from '@/lib/firebase';
 import { getAppServiceWorkerRegistration } from '@/lib/service-worker-registration';
+import { revokeMessagingToken } from './messaging-token-revocation';
 import {
   isIosDevice,
   resolveNotificationCapability,
@@ -49,6 +50,16 @@ export async function getNotificationToken(): Promise<string> {
 }
 
 export async function deleteNotificationToken(): Promise<void> {
-  if (!(await isSupported().catch(() => false))) return;
-  await deleteToken(getMessaging(firebaseApp));
+  const messaging = getMessaging(firebaseApp);
+
+  await revokeMessagingToken({
+    isSupported: () => isSupported().catch(() => false),
+    getRegistration: getAppServiceWorkerRegistration,
+    bindTokenToRegistration: (registration) =>
+      getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: registration,
+      }),
+    deleteToken: () => deleteToken(messaging),
+  });
 }
