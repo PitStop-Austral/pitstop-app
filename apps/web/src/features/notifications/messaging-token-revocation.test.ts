@@ -14,7 +14,11 @@ test('rebinds messaging to the existing PWA worker before deleting a token after
       calls.push('getRegistration');
       return registration;
     },
-    bindTokenToRegistration: async (nextRegistration) => {
+    getMessaging: () => {
+      calls.push('getMessaging');
+      return 'messaging';
+    },
+    bindTokenToRegistration: async (_messaging, nextRegistration) => {
       calls.push('bindTokenToRegistration');
       boundRegistration = nextRegistration;
     },
@@ -24,11 +28,17 @@ test('rebinds messaging to the existing PWA worker before deleting a token after
   });
 
   assert.equal(boundRegistration, registration);
-  assert.deepStrictEqual(calls, ['getRegistration', 'bindTokenToRegistration', 'deleteToken']);
+  assert.deepStrictEqual(calls, [
+    'getRegistration',
+    'getMessaging',
+    'bindTokenToRegistration',
+    'deleteToken',
+  ]);
 });
 
 test('does not touch the worker when Firebase Messaging is unsupported', async () => {
   let registrationRequested = false;
+  let messagingRequested = false;
 
   await revokeMessagingToken({
     isSupported: async () => false,
@@ -36,9 +46,14 @@ test('does not touch the worker when Firebase Messaging is unsupported', async (
       registrationRequested = true;
       return { scope: '/' } as ServiceWorkerRegistration;
     },
+    getMessaging: () => {
+      messagingRequested = true;
+      return 'messaging';
+    },
     bindTokenToRegistration: async () => {},
     deleteToken: async () => {},
   });
 
   assert.equal(registrationRequested, false);
+  assert.equal(messagingRequested, false);
 });

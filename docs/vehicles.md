@@ -9,7 +9,10 @@ user cannot register the same plate twice.
 The authenticated vehicle API exposes:
 
 - `GET /vehicles` to list the current user's vehicles in creation order.
-- `POST /vehicles` to create a vehicle and make it the user's active vehicle in one transaction.
+- `POST /vehicles` to create a vehicle, its five default maintenance frequencies, and make it the
+  user's active vehicle in one transaction. The rules cover oil change (10,000 km / 6 months),
+  wheel alignment (10,000 km / 12 months), air filter (15,000 km / 12 months), oil filter
+  (10,000 km / 6 months), and timing belt (100,000 km / 60 months).
 - `PATCH /vehicles/:id` to update an owned vehicle. Requests for another user's vehicle return 404.
 - `PATCH /vehicles/:id/mileage` with `{ "mileage": number }` to update only an owned vehicle's
   mileage. The value cannot be lower than the saved mileage; lower values return 400 and equal

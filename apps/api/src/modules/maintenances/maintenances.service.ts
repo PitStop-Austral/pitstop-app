@@ -1,10 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { User } from '../../generated/prisma/client';
+import { SchedulesService } from '../schedules/schedules.service';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { toMaintenanceResponse } from './maintenances.mapper';
-import type { MaintenanceResponse } from './maintenances.mapper';
-import type { MaintenanceCreatedResponse } from './maintenances.mapper';
+import type {
+  MaintenanceCreatedResponse,
+  MaintenanceDetailResponse,
+  MaintenanceResponse,
+} from './maintenances.mapper';
 import { MaintenancesRepository } from './maintenances.repository';
 import type { CreateMaintenanceData, MaintenanceView } from './maintenances.repository';
 
@@ -24,6 +29,7 @@ export class MaintenancesService {
   constructor(
     private readonly maintenancesRepository: MaintenancesRepository,
     private readonly vehiclesRepository: VehiclesRepository,
+    private readonly schedulesService: SchedulesService,
   ) {}
 
   async findByVehicle(ownerId: string, vehicleId: string): Promise<MaintenanceResponse[]> {
@@ -36,8 +42,14 @@ export class MaintenancesService {
     return maintenances.map(toMaintenanceResponse);
   }
 
-  async findOne(ownerId: string, vehicleId: string, id: string): Promise<MaintenanceResponse> {
-    return toMaintenanceResponse(await this.findOwnedOrThrow(ownerId, vehicleId, id));
+  async findOne(
+    owner: Pick<User, 'id' | 'upcomingThresholdDays' | 'upcomingThresholdKm'>,
+    vehicleId: string,
+    id: string,
+  ): Promise<MaintenanceDetailResponse> {
+    const maintenance = await this.findOwnedOrThrow(owner.id, vehicleId, id);
+    const schedule = await this.schedulesService.findRelated(owner, vehicleId, maintenance.type);
+    return { ...toMaintenanceResponse(maintenance), schedule };
   }
 
   async update(

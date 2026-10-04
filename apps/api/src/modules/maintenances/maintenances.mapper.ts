@@ -1,4 +1,5 @@
 import type { MaintenanceView } from './maintenances.repository';
+import type { ScheduleResponse } from '../schedules/schedules.mapper';
 
 export type MaintenanceResponse = Omit<MaintenanceView, 'date' | 'cost'> & {
   date: string;
@@ -8,6 +9,8 @@ export type MaintenanceResponse = Omit<MaintenanceView, 'date' | 'cost'> & {
 export type MaintenanceCreatedResponse = MaintenanceResponse & {
   isFirstMaintenance: boolean;
 };
+
+export type MaintenanceDetailResponse = MaintenanceResponse & { schedule: ScheduleResponse | null };
 
 export function toMaintenanceResponse(maintenance: MaintenanceView): MaintenanceResponse {
   return {

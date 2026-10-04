@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaintenanceCategory, Prisma } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
+import { SchedulesService } from '../schedules/schedules.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { MaintenancesRepository, MaintenanceView } from './maintenances.repository';
 import { MaintenancesService } from './maintenances.service';
@@ -18,6 +19,7 @@ describe('MaintenancesService', () => {
     MaintenancesRepository['updateWithMileageUpdate']
   >;
   let deleteMaintenance: jest.MockedFunction<MaintenancesRepository['delete']>;
+  let findRelated: jest.MockedFunction<SchedulesService['findRelated']>;
 
   const dto: CreateMaintenanceDto = {
     type: 'Cambio de aceite',
@@ -50,6 +52,7 @@ describe('MaintenancesService', () => {
     findOwned = jest.fn();
     updateWithMileageUpdate = jest.fn();
     deleteMaintenance = jest.fn();
+    findRelated = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +70,10 @@ describe('MaintenancesService', () => {
         {
           provide: VehiclesRepository,
           useValue: { findOwnedById },
+        },
+        {
+          provide: SchedulesService,
+          useValue: { findRelated },
         },
       ],
     }).compile();
@@ -143,19 +150,23 @@ describe('MaintenancesService', () => {
 
   describe('single maintenance', () => {
     const { vehicleId, id } = maintenance;
-    const response = { ...maintenance, date: '2026-09-17', cost: 42000 };
+    const owner = { id: 'user-1', upcomingThresholdDays: 30, upcomingThresholdKm: 1000 };
+    const response = { ...maintenance, date: '2026-09-17', cost: 42000, schedule: null };
 
     it('returns an owned maintenance scoped to its vehicle', async () => {
       findOwned.mockResolvedValue(maintenance);
+      findRelated.mockResolvedValue(null);
 
-      await expect(service.findOne('user-1', vehicleId, id)).resolves.toEqual(response);
+      await expect(service.findOne(owner, vehicleId, id)).resolves.toEqual(response);
       expect(findOwned).toHaveBeenCalledWith('user-1', vehicleId, id);
     });
 
     it('hides a maintenance of another user or vehicle behind not found', async () => {
       findOwned.mockResolvedValue(null);
 
-      await expect(service.findOne('user-2', vehicleId, id)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne({ ...owner, id: 'user-2' }, vehicleId, id)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('updates only the fields that were sent', async () => {

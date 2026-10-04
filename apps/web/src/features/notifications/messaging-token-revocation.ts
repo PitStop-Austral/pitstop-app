@@ -1,19 +1,25 @@
-type MessagingTokenRevocationDependencies = {
+type MessagingTokenRevocationDependencies<TMessaging> = {
   isSupported: () => Promise<boolean>;
   getRegistration: () => Promise<ServiceWorkerRegistration>;
-  bindTokenToRegistration: (registration: ServiceWorkerRegistration) => Promise<unknown>;
-  deleteToken: () => Promise<unknown>;
+  getMessaging: () => TMessaging;
+  bindTokenToRegistration: (
+    messaging: TMessaging,
+    registration: ServiceWorkerRegistration,
+  ) => Promise<unknown>;
+  deleteToken: (messaging: TMessaging) => Promise<unknown>;
 };
 
-export async function revokeMessagingToken({
+export async function revokeMessagingToken<TMessaging>({
   isSupported,
   getRegistration,
+  getMessaging,
   bindTokenToRegistration,
   deleteToken,
-}: MessagingTokenRevocationDependencies): Promise<void> {
+}: MessagingTokenRevocationDependencies<TMessaging>): Promise<void> {
   if (!(await isSupported())) return;
 
   const registration = await getRegistration();
-  await bindTokenToRegistration(registration);
-  await deleteToken();
+  const messaging = getMessaging();
+  await bindTokenToRegistration(messaging, registration);
+  await deleteToken(messaging);
 }

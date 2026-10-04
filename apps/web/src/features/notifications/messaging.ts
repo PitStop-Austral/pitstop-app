@@ -50,16 +50,15 @@ export async function getNotificationToken(): Promise<string> {
 }
 
 export async function deleteNotificationToken(): Promise<void> {
-  const messaging = getMessaging(firebaseApp);
-
   await revokeMessagingToken({
     isSupported: () => isSupported().catch(() => false),
     getRegistration: getAppServiceWorkerRegistration,
-    bindTokenToRegistration: (registration) =>
+    getMessaging: () => getMessaging(firebaseApp),
+    bindTokenToRegistration: (messaging, registration) =>
       getToken(messaging, {
         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
         serviceWorkerRegistration: registration,
       }),
-    deleteToken: () => deleteToken(messaging),
+    deleteToken,
   });
 }

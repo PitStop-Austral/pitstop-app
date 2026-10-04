@@ -31,6 +31,7 @@ describe('AppModule (e2e)', () => {
   let createMaintenance: jest.Mock;
   let countMaintenances: jest.Mock;
   let createSchedule: jest.Mock;
+  let createSchedules: jest.Mock;
   let findSchedules: jest.Mock;
   let findSchedule: jest.Mock;
   let findScheduleOrThrow: jest.Mock;
@@ -139,7 +140,9 @@ describe('AppModule (e2e)', () => {
     createMaintenance = jest.fn();
     countMaintenances = jest.fn().mockResolvedValue(0);
     createSchedule = jest.fn();
+    createSchedules = jest.fn();
     findSchedules = jest.fn();
+    findSchedules.mockResolvedValue([]);
     findSchedule = jest.fn();
     findScheduleOrThrow = jest.fn();
     updateSchedule = jest.fn();
@@ -171,6 +174,8 @@ describe('AppModule (e2e)', () => {
         },
         schedule: {
           create: createSchedule,
+          createMany: createSchedules,
+          findMany: findSchedules,
           findFirstOrThrow: findScheduleOrThrow,
           update: updateSchedule,
         },

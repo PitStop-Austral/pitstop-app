@@ -26,3 +26,6 @@ export type MaintenanceCreated = Maintenance & {
 };
 
 export type MaintenanceInput = Omit<Maintenance, 'id' | 'vehicleId' | 'createdAt' | 'updatedAt'>;
+import type { Schedule } from '../schedules/types';
+
+export type MaintenanceDetail = Maintenance & { schedule: Schedule | null };

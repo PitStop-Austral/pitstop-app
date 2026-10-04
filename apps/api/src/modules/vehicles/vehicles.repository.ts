@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { FuelType, Prisma, TransmissionType, User } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { argentinaDate } from '../schedules/schedule-date';
+import { DEFAULT_SCHEDULES, normalizeScheduleType } from '../schedules/schedule-type';
 
 const vehicleSelect = {
   id: true,
@@ -86,8 +88,19 @@ export class VehiclesRepository {
   async createAndSetActive(ownerId: string, data: CreateVehicleData): Promise<VehicleView> {
     return this.prisma.$transaction(async (transaction) => {
       const vehicle = await transaction.vehicle.create({
-        data: { ...data, ownerId },
+        data: { ...data, ownerId, initialMileage: data.mileage },
         select: vehicleSelect,
+      });
+
+      await transaction.schedule.createMany({
+        data: DEFAULT_SCHEDULES.map((schedule) => ({
+          ...schedule,
+          vehicleId: vehicle.id,
+          isDefault: true,
+          normalizedType: normalizeScheduleType(schedule.type),
+          baselineDate: argentinaDate(vehicle.createdAt),
+          baselineMileage: data.mileage,
+        })),
       });
 
       await transaction.user.update({
