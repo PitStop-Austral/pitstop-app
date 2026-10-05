@@ -5,7 +5,11 @@ import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 import { toMaintenanceResponse } from './maintenances.mapper';
-import type { MaintenanceDetailResponse, MaintenanceResponse } from './maintenances.mapper';
+import type {
+  MaintenanceCreatedResponse,
+  MaintenanceDetailResponse,
+  MaintenanceResponse,
+} from './maintenances.mapper';
 import { MaintenancesRepository } from './maintenances.repository';
 import type { CreateMaintenanceData, MaintenanceView } from './maintenances.repository';
 
@@ -98,7 +102,7 @@ export class MaintenancesService {
     ownerId: string,
     vehicleId: string,
     dto: CreateMaintenanceDto,
-  ): Promise<MaintenanceResponse> {
+  ): Promise<MaintenanceCreatedResponse> {
     const vehicle = await this.vehiclesRepository.findOwnedById(vehicleId, ownerId);
     if (!vehicle) {
       throw new NotFoundException('Vehículo no encontrado');
@@ -108,17 +112,18 @@ export class MaintenancesService {
       throw new BadRequestException('La fecha no puede ser futura');
     }
 
-    const maintenance = await this.maintenancesRepository.createWithMileageUpdate(vehicleId, {
-      type: dto.type.trim(),
-      category: dto.category,
-      date: new Date(`${dto.date}T00:00:00.000Z`),
-      mileage: dto.mileage,
-      workshop: dto.workshop?.trim() || null,
-      cost: dto.cost ?? null,
-      notes: dto.notes?.trim() || null,
-    });
+    const { maintenance, isFirstMaintenance } =
+      await this.maintenancesRepository.createWithMileageUpdate(ownerId, vehicleId, {
+        type: dto.type.trim(),
+        category: dto.category,
+        date: new Date(`${dto.date}T00:00:00.000Z`),
+        mileage: dto.mileage,
+        workshop: dto.workshop?.trim() || null,
+        cost: dto.cost ?? null,
+        notes: dto.notes?.trim() || null,
+      });
 
-    return toMaintenanceResponse(maintenance);
+    return { ...toMaintenanceResponse(maintenance), isFirstMaintenance };
   }
 
   // Scoped by owner and vehicle, so another user's or another vehicle's maintenance is a 404.

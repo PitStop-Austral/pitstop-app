@@ -31,6 +31,11 @@ export type CreateMaintenanceData = {
   notes: string | null;
 };
 
+export type MaintenanceCreation = {
+  maintenance: MaintenanceView;
+  isFirstMaintenance: boolean;
+};
+
 @Injectable()
 export class MaintenancesRepository {
   constructor(
@@ -98,10 +103,17 @@ export class MaintenancesRepository {
   }
 
   async createWithMileageUpdate(
+    ownerId: string,
     vehicleId: string,
     data: CreateMaintenanceData,
-  ): Promise<MaintenanceView> {
+  ): Promise<MaintenanceCreation> {
     return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${ownerId} FOR UPDATE`;
+
+      const maintenanceCount = await transaction.maintenance.count({
+        where: { vehicle: { ownerId } },
+      });
+
       const maintenance = await transaction.maintenance.create({
         data: { ...data, vehicleId },
         select: maintenanceSelect,
@@ -116,7 +128,7 @@ export class MaintenancesRepository {
         maintenance.type,
       ]);
 
-      return maintenance;
+      return { maintenance, isFirstMaintenance: maintenanceCount === 0 };
     });
   }
 }

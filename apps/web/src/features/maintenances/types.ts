@@ -21,6 +21,10 @@ export type Maintenance = {
   updatedAt: string;
 };
 
+export type MaintenanceCreated = Maintenance & {
+  isFirstMaintenance: boolean;
+};
+
 export type MaintenanceInput = Omit<Maintenance, 'id' | 'vehicleId' | 'createdAt' | 'updatedAt'>;
 import type { Schedule } from '../schedules/types';
 

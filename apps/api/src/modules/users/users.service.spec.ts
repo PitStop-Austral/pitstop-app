@@ -17,6 +17,8 @@ describe('UsersService', () => {
     activeVehicleId: 'vehicle-1',
     upcomingThresholdDays: 30,
     upcomingThresholdKm: 1500,
+    notificationsEnabled: false,
+    notificationPromptShownAt: null,
     createdAt: new Date('2026-09-01T00:00:00.000Z'),
     updatedAt: new Date('2026-09-01T00:00:00.000Z'),
   } satisfies User;

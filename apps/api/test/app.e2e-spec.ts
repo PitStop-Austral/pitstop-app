@@ -29,6 +29,7 @@ describe('AppModule (e2e)', () => {
   let findOwnedVehicle: jest.Mock;
   let createVehicle: jest.Mock;
   let createMaintenance: jest.Mock;
+  let countMaintenances: jest.Mock;
   let createSchedule: jest.Mock;
   let createSchedules: jest.Mock;
   let findSchedules: jest.Mock;
@@ -45,6 +46,10 @@ describe('AppModule (e2e)', () => {
   let updateVehicle: jest.Mock;
   let updateMaintenanceMileage: jest.Mock;
   let updateActiveUser: jest.Mock;
+  let markNotificationPrompt: jest.Mock;
+  let deleteNotificationDevice: jest.Mock;
+  let deleteConflictingNotificationToken: jest.Mock;
+  let upsertNotificationDevice: jest.Mock;
   let transaction: jest.Mock;
 
   const authenticatedUser = {
@@ -55,6 +60,8 @@ describe('AppModule (e2e)', () => {
     activeVehicleId: null,
     upcomingThresholdDays: 30,
     upcomingThresholdKm: 1500,
+    notificationsEnabled: false,
+    notificationPromptShownAt: null,
   };
 
   const vehicle = {
@@ -131,6 +138,7 @@ describe('AppModule (e2e)', () => {
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
     createMaintenance = jest.fn();
+    countMaintenances = jest.fn().mockResolvedValue(0);
     createSchedule = jest.fn();
     createSchedules = jest.fn();
     findSchedules = jest.fn();
@@ -148,10 +156,22 @@ describe('AppModule (e2e)', () => {
     updateVehicle = jest.fn();
     updateMaintenanceMileage = jest.fn();
     updateActiveUser = jest.fn();
+    markNotificationPrompt = jest.fn();
+    deleteNotificationDevice = jest.fn();
+    deleteConflictingNotificationToken = jest.fn();
+    upsertNotificationDevice = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
-        maintenance: { create: createMaintenance, findFirst: findBaselineMaintenance },
+        maintenance: {
+          count: countMaintenances,
+          create: createMaintenance,
+          findFirst: findBaselineMaintenance,
+        },
+        notificationDevice: {
+          deleteMany: deleteConflictingNotificationToken,
+          upsert: upsertNotificationDevice,
+        },
         schedule: {
           create: createSchedule,
           createMany: createSchedules,
@@ -177,7 +197,8 @@ describe('AppModule (e2e)', () => {
       .useValue({
         $queryRaw: queryRaw,
         $transaction: transaction,
-        user: { findUnique, create },
+        user: { findUnique, create, updateMany: markNotificationPrompt },
+        notificationDevice: { deleteMany: deleteNotificationDevice },
         vehicle: {
           findMany: findManyVehicles,
           findFirst: findOwnedVehicle,
@@ -264,6 +285,77 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .expect(200)
         .expect(user);
+    });
+  });
+
+  describe('/me notification settings', () => {
+    const installationId = '55555555-5555-4555-8555-555555555555';
+    const registeredDevice = {
+      id: '66666666-6666-4666-8666-666666666666',
+      installationId,
+    };
+
+    it('requires authentication to register a notification device', () => {
+      return request(app.getHttpServer())
+        .post('/me/notification-devices')
+        .send({ installationId, token: 'fcm-token' })
+        .expect(401);
+    });
+
+    it('validates notification device input', () => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .post('/me/notification-devices')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ installationId: 'invalid', token: '' })
+        .expect(400);
+    });
+
+    it('registers the authenticated user installation without exposing its token', async () => {
+      authenticate();
+      upsertNotificationDevice.mockResolvedValue(registeredDevice);
+
+      await request(app.getHttpServer())
+        .post('/me/notification-devices')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ installationId, token: 'fcm-token' })
+        .expect(200)
+        .expect(registeredDevice);
+
+      expect(upsertNotificationDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ userId: authenticatedUser.id, installationId }),
+          update: expect.objectContaining({ userId: authenticatedUser.id }),
+        }),
+      );
+    });
+
+    it('deletes only the authenticated user installation and is idempotent', async () => {
+      authenticate();
+
+      await request(app.getHttpServer())
+        .delete(`/me/notification-devices/${installationId}`)
+        .set('Authorization', 'Bearer valid-token')
+        .expect(204);
+
+      expect(deleteNotificationDevice).toHaveBeenCalledWith({
+        where: { userId: authenticatedUser.id, installationId },
+      });
+    });
+
+    it('marks the prompt without replacing an existing timestamp', async () => {
+      authenticate();
+
+      await request(app.getHttpServer())
+        .patch('/me/notification-prompt')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(204);
+
+      expect(markNotificationPrompt).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id, notificationPromptShownAt: null },
+        data: { notificationPromptShownAt: expect.any(Date) },
+      });
     });
   });
 
@@ -449,7 +541,7 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .send(payload)
         .expect(201)
-        .expect(serializedMaintenance);
+        .expect({ ...serializedMaintenance, isFirstMaintenance: true });
 
       expect(updateMaintenanceMileage).toHaveBeenCalledWith({
         where: { id: vehicle.id, mileage: { lt: payload.mileage } },

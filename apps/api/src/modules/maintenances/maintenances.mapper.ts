@@ -6,6 +6,10 @@ export type MaintenanceResponse = Omit<MaintenanceView, 'date' | 'cost'> & {
   cost: number | null;
 };
 
+export type MaintenanceCreatedResponse = MaintenanceResponse & {
+  isFirstMaintenance: boolean;
+};
+
 export type MaintenanceDetailResponse = MaintenanceResponse & { schedule: ScheduleResponse | null };
 
 export function toMaintenanceResponse(maintenance: MaintenanceView): MaintenanceResponse {

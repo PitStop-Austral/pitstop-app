@@ -38,7 +38,14 @@ describe('UsersRepository', () => {
   });
 
   it('updates the user when email or name changed', async () => {
-    const existing = { id: 'uuid-1', firebaseUid: 'uid-1', email: 'old@b.com', name: 'Old Name' };
+    const existing = {
+      id: 'uuid-1',
+      firebaseUid: 'uid-1',
+      email: 'old@b.com',
+      name: 'Old Name',
+      notificationsEnabled: true,
+      notificationPromptShownAt: new Date('2026-10-01T12:00:00.000Z'),
+    };
     findUnique.mockResolvedValue(existing);
     const updated = { ...existing, email: 'new@b.com', name: 'New Name' };
     update.mockResolvedValue(updated);
@@ -49,6 +56,8 @@ describe('UsersRepository', () => {
       where: { firebaseUid: 'uid-1' },
       data: { email: 'new@b.com', name: 'New Name' },
     });
+    expect(updated.notificationsEnabled).toBe(true);
+    expect(updated.notificationPromptShownAt).toBe(existing.notificationPromptShownAt);
     expect(create).not.toHaveBeenCalled();
     expect(result).toBe(updated);
   });

@@ -1,12 +1,15 @@
 model User {
-  id          String    @id @default(uuid()) @db.Uuid
-  firebaseUid String    @unique
-  email       String    @unique
-  name        String
-  activeVehicleId String? @db.Uuid
-  upcomingThresholdDays Int @default(30)
-  upcomingThresholdKm   Int @default(1500)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  vehicles    Vehicle[]
+  id                        String               @id @default(uuid()) @db.Uuid
+  firebaseUid               String               @unique
+  email                     String               @unique
+  name                      String
+  activeVehicleId           String?              @db.Uuid
+  upcomingThresholdDays     Int                  @default(30)
+  upcomingThresholdKm       Int                  @default(1500)
+  notificationsEnabled      Boolean              @default(false)
+  notificationPromptShownAt DateTime?
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  vehicles                  Vehicle[]
+  notificationDevices       NotificationDevice[]
 }

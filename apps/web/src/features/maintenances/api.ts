@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { Maintenance, MaintenanceDetail, MaintenanceInput } from './types';
+import type { Maintenance, MaintenanceCreated, MaintenanceDetail, MaintenanceInput } from './types';
 
 export async function getMaintenances(
   vehicleId: string,
@@ -14,8 +14,11 @@ export async function getMaintenances(
 export async function createMaintenance(
   vehicleId: string,
   input: MaintenanceInput,
-): Promise<Maintenance> {
-  const response = await apiClient.post<Maintenance>(`/vehicles/${vehicleId}/maintenances`, input);
+): Promise<MaintenanceCreated> {
+  const response = await apiClient.post<MaintenanceCreated>(
+    `/vehicles/${vehicleId}/maintenances`,
+    input,
+  );
   return response.data;
 }
 
