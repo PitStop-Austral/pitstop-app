@@ -68,6 +68,15 @@ type, workshop, and notes without case or accent differences; category filters c
 descending date, mileage, or cost order. Missing costs sort last, and a no-match state can reset
 all controls without affecting the distinct empty-history state.
 
+## Home summary
+
+Inicio reuses the active vehicle's schedules and maintenance history. It lists only overdue and
+upcoming schedules, ordered with `sortSchedules`, and shows the API-computed date and mileage
+criteria separately. It also shows the five most recent services, ordered by date, creation time,
+and id descending. The full history, including its search and filters, remains only in Calendario;
+the summary's `Ver todos` action navigates there. A shared schedule sheet provider lets both
+Garage and Inicio open the same schedule detail, edit, and delete flow.
+
 ## Calendario monthly view
 
 PIT-60 adds a monthly grid above the history, built only on the frontend from the existing
