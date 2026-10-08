@@ -15,6 +15,7 @@ export function HomeScheduleCard({ schedule, onClick }: HomeScheduleCardProps) {
   const dueByMileage = schedule.dueReason === 'mileage' || schedule.dueReason === 'both';
   const isOverdue = schedule.status === 'overdue';
   const urgencyColor = schedule.status === 'overdue' ? 'danger' : 'warning';
+  const hasBothMetrics = schedule.remainingDays !== null && schedule.remainingKm !== null;
 
   return (
     <button
@@ -46,7 +47,12 @@ export function HomeScheduleCard({ schedule, onClick }: HomeScheduleCardProps) {
           size="sm"
         />
       </div>
-      <div className="mt-3 border-t border-border/80 pt-3">
+      <div
+        className={cn(
+          'mt-3 border-t border-border/80 pt-3',
+          hasBothMetrics ? 'grid grid-cols-2 gap-3' : undefined,
+        )}
+      >
         {schedule.remainingDays !== null ? (
           <DueMetric
             color={urgencyColor}
@@ -63,9 +69,7 @@ export function HomeScheduleCard({ schedule, onClick }: HomeScheduleCardProps) {
         ) : null}
         {schedule.remainingKm !== null ? (
           <DueMetric
-            className={
-              schedule.remainingDays !== null ? 'mt-3 border-t border-border/80 pt-3' : undefined
-            }
+            className={hasBothMetrics ? 'border-l border-border/80 pl-3' : undefined}
             color={urgencyColor}
             description={
               schedule.nextDueMileage !== null
@@ -74,7 +78,7 @@ export function HomeScheduleCard({ schedule, onClick }: HomeScheduleCardProps) {
             }
             highlighted={dueByMileage}
             icon="Gauge"
-            label="Kms restantes"
+            label={schedule.remainingKm <= 0 ? 'Kms excedidos' : 'Kms restantes'}
             value={`${formatNumber(Math.abs(schedule.remainingKm))} km`}
           />
         ) : null}
