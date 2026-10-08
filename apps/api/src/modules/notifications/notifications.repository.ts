@@ -8,6 +8,12 @@ export type RegisteredNotificationDevice = {
   installationId: string;
 };
 
+export type NotificationDeliveryDevice = {
+  id: string;
+  token: string;
+  user: { notificationsEnabled: boolean };
+};
+
 @Injectable()
 export class NotificationsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,6 +54,24 @@ export class NotificationsRepository {
 
   async remove(userId: string, installationId: string): Promise<void> {
     await this.prisma.notificationDevice.deleteMany({ where: { userId, installationId } });
+  }
+
+  findOwnedForDelivery(
+    userId: string,
+    installationId: string,
+  ): Promise<NotificationDeliveryDevice | null> {
+    return this.prisma.notificationDevice.findFirst({
+      where: { userId, installationId },
+      select: {
+        id: true,
+        token: true,
+        user: { select: { notificationsEnabled: true } },
+      },
+    });
+  }
+
+  async removeIfTokenMatches(id: string, token: string): Promise<void> {
+    await this.prisma.notificationDevice.deleteMany({ where: { id, token } });
   }
 
   async markPromptShown(userId: string): Promise<void> {

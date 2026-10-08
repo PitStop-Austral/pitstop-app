@@ -12,7 +12,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { RegisterNotificationDeviceDto } from './dto/register-notification-device.dto';
 import type { RegisteredNotificationDevice } from './notifications.repository';
-import { NotificationsService } from './notifications.service';
+import { NotificationsService, type TestNotificationResult } from './notifications.service';
 
 @Controller('me')
 export class NotificationsController {
@@ -25,6 +25,15 @@ export class NotificationsController {
     @Body() dto: RegisterNotificationDeviceDto,
   ): Promise<RegisteredNotificationDevice> {
     return this.notificationsService.registerDevice(user.id, dto);
+  }
+
+  @Post('notification-devices/:installationId/test')
+  @HttpCode(200)
+  sendTestNotification(
+    @CurrentUser() user: User,
+    @Param('installationId', ParseUUIDPipe) installationId: string,
+  ): Promise<TestNotificationResult> {
+    return this.notificationsService.sendTestNotification(user.id, installationId);
   }
 
   @Delete('notification-devices/:installationId')

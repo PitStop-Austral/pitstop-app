@@ -6,6 +6,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { DesktopSidebar } from '@/components/layout/desktop-sidebar';
 import { FullScreenLoader } from '@/components/layout/full-screen-loader';
 import { MaintenanceSheetProvider } from '@/features/maintenances/maintenance-sheet-context';
+import { NotificationMessageListener } from '@/features/notifications/notification-message-listener';
 import { useAuth } from '@/lib/auth-context';
 
 export const Route = createFileRoute('/_app')({
@@ -32,6 +33,7 @@ function AppLayout() {
 
   return (
     <MaintenanceSheetProvider>
+      <NotificationMessageListener userId={user.uid} />
       <div className="flex h-app overflow-hidden bg-background">
         <DesktopSidebar />
         <div className="flex min-w-0 flex-1 flex-col">

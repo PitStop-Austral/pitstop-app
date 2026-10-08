@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { initializeApp } from 'firebase/app';
-import { getMessaging } from 'firebase/messaging/sw';
+import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import { clientsClaim } from 'workbox-core';
 import {
   cleanupOutdatedCaches,
@@ -9,6 +9,7 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { parseNotificationMessageData } from './features/notifications/notification-message';
 import { firebaseConfig } from './lib/firebase-config';
 
 declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<unknown> };
@@ -24,4 +25,15 @@ registerRoute(
   }),
 );
 
-getMessaging(initializeApp(firebaseConfig));
+const messaging = getMessaging(initializeApp(firebaseConfig));
+
+onBackgroundMessage(messaging, async (payload) => {
+  const message = parseNotificationMessageData(payload.data);
+  if (!message) return;
+
+  await self.registration.showNotification(message.title, {
+    body: message.body,
+    icon: '/icon-192.png',
+    tag: message.testId,
+  });
+});
