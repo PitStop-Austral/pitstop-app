@@ -150,9 +150,9 @@ function HomePage() {
         <section className="lg:col-span-5">
           <div className="flex items-center justify-between gap-3">
             <Text as="h2" color="muted" variant="overline">
-              Historial de mantenimientos
+              Mantenimientos recientes
             </Text>
-            <Button variant="ghost" onClick={() => navigate({ to: '/calendario' })}>
+            <Button variant="link" onClick={() => navigate({ to: '/calendario' })}>
               <Text color="primary" variant="caption-strong">
                 Ver todos
               </Text>

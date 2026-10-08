@@ -50,6 +50,26 @@ test('maintenance form uses the Argentina calendar date and vehicle mileage', ()
   });
 });
 
+test('maintenance form accepts a service prefilled from a schedule', () => {
+  assert.deepStrictEqual(
+    getInitialMaintenanceFormValues(
+      vehicle,
+      undefined,
+      new Date('2026-09-18T12:00:00.000Z'),
+      'Frenos',
+    ),
+    {
+      service: { option: 'Frenos', customName: '' },
+      category: 'MANTENIMIENTO',
+      date: '2026-09-18',
+      mileage: '48250',
+      workshop: '',
+      cost: '',
+      notes: '',
+    },
+  );
+});
+
 test('maintenance form resolves custom services and normalizes optional values', () => {
   const result = getMaintenanceFormSchema('2026-09-17').parse({
     service: { option: 'Otro', customName: '  Revisión de dirección  ' },

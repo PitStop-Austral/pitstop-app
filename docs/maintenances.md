@@ -194,6 +194,9 @@ schedule and returns `204`; missing, unowned, or mismatched vehicle schedules re
 In Garage, tapping a schedule card opens its detail sheet immediately from the cached list and then
 revalidates it through the detail endpoint. The detail shows the service, status, intervals,
 baseline date and mileage, and next due values. Its `⋮` menu offers `Editar` and `Eliminar`.
+Its `Registrar completado` action opens the shared maintenance form with the frequency service,
+Argentina-local current date, and current vehicle mileage prefilled, so recording a completed
+recommended service does not require re-entering its reference data.
 Editing reuses the frequency form with prefilled values, excludes the current type from duplicate
 validation, shows the saved reference while the type is unchanged, and explains that the reference
 will be recalculated after saving when the type changes. Deletion uses a destructive confirmation
