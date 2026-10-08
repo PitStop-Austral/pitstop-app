@@ -11,7 +11,8 @@ import type { Maintenance } from './types';
 import type { MaintenanceCreated } from './types';
 
 type MaintenanceSheetContextValue = {
-  openRegisterMaintenance: (defaults?: { serviceType: string }) => void;
+  openRegisterMaintenance: () => void;
+  openRegisterMaintenanceForSchedule: (serviceType: string) => void;
   openMaintenanceDetail: (maintenanceId: string) => void;
   canRegister: boolean;
   isDisabled: boolean;
@@ -44,13 +45,17 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     vehiclesQuery.isError ||
     currentUserQuery.isError;
 
-  function openRegisterMaintenance(defaults?: { serviceType: string }) {
+  function openRegistration(defaultServiceType?: string) {
     if (isDisabled) return;
-    setOpenSheet(
-      activeVehicle
-        ? { type: 'register', defaultServiceType: defaults?.serviceType }
-        : { type: 'vehicle' },
-    );
+    setOpenSheet(activeVehicle ? { type: 'register', defaultServiceType } : { type: 'vehicle' });
+  }
+
+  function openRegisterMaintenance() {
+    openRegistration();
+  }
+
+  function openRegisterMaintenanceForSchedule(serviceType: string) {
+    openRegistration(serviceType);
   }
 
   function openMaintenanceDetail(id: string) {
@@ -82,6 +87,7 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     <MaintenanceSheetContext.Provider
       value={{
         openRegisterMaintenance,
+        openRegisterMaintenanceForSchedule,
         openMaintenanceDetail,
         canRegister: Boolean(activeVehicle),
         isDisabled,

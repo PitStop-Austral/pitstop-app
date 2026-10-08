@@ -26,7 +26,7 @@ const ScheduleSheetContext = createContext<ScheduleSheetContextValue | null>(nul
 export function ScheduleSheetProvider({ children }: { children: ReactNode }) {
   const [openSheet, setOpenSheet] = useState<OpenScheduleSheet>(null);
   const { activeVehicle } = useActiveVehicle();
-  const { openRegisterMaintenance } = useMaintenanceSheet();
+  const { openRegisterMaintenanceForSchedule } = useMaintenanceSheet();
   const schedulesQuery = useSchedules(activeVehicle?.id);
   const closeOnDismiss = useCallback((open: boolean) => {
     if (!open) setOpenSheet(null);
@@ -62,7 +62,7 @@ export function ScheduleSheetProvider({ children }: { children: ReactNode }) {
           onOpenChange={closeOnDismiss}
           onRegisterCompleted={(schedule) => {
             setOpenSheet(null);
-            openRegisterMaintenance({ serviceType: schedule.type });
+            openRegisterMaintenanceForSchedule(schedule.type);
           }}
         />
       ) : null}
