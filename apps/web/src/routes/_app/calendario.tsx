@@ -1,12 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/sonner';
 import {
   Select,
   SelectContent,
@@ -15,9 +16,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
-import { CalendarMileageCard } from '@/features/calendar/calendar-mileage-card';
+import { DayMaintenanceSheet } from '@/features/calendar/day-maintenance-sheet';
 import { toCalendarEvents } from '@/features/calendar/calendar-events';
 import { MonthlyCalendar } from '@/features/calendar/monthly-calendar';
+import type { CalendarEvent } from '@/features/calendar/types';
 import {
   filterAndSortMaintenances,
   HISTORY_CATEGORIES,
@@ -29,7 +31,7 @@ import { getArgentinaDateValue } from '@/features/maintenances/maintenance-form-
 import { useMaintenanceSheet } from '@/features/maintenances/maintenance-sheet-context';
 import { useMaintenances } from '@/features/maintenances/queries';
 import { useSchedules } from '@/features/schedules/queries';
-import { sortSchedules } from '@/features/schedules/sort-schedules';
+import { useScheduleSheet } from '@/features/schedules/schedule-sheet-context';
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import type { Vehicle } from '@/features/vehicles/types';
 
@@ -47,6 +49,18 @@ const SORT_LABELS: Record<HistorySort, string> = {
   date: 'Fecha',
   mileage: 'Kilometraje',
   cost: 'Costo',
+};
+
+type CalendarSelection = {
+  userId: string;
+  vehicleId: string;
+  date: string;
+};
+
+type PendingDetail = {
+  userId: string;
+  vehicleId: string;
+  event: CalendarEvent;
 };
 
 function CalendarHeader({ vehicle }: { vehicle?: Vehicle }) {
@@ -99,12 +113,68 @@ function CalendarPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<HistoryCategory>('TODOS');
   const [sort, setSort] = useState<HistorySort>('date');
-  // Tied to the vehicle so switching vehicles drops the selection without an effect.
-  const [selection, setSelection] = useState<{ vehicleId: string; date: string } | null>(null);
+  const [selection, setSelection] = useState<CalendarSelection | null>(null);
+  const [pendingDetail, setPendingDetail] = useState<PendingDetail | null>(null);
+  const [headerFocusRequest, setHeaderFocusRequest] = useState(0);
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const maintenancesQuery = useMaintenances(activeVehicle?.id);
   const schedulesQuery = useSchedules(activeVehicle?.id);
   const { openMaintenanceDetail, openRegisterMaintenance } = useMaintenanceSheet();
+  const { openScheduleDetail } = useScheduleSheet();
+
+  useEffect(() => {
+    setSelection(null);
+    setPendingDetail(null);
+  }, [activeVehicle?.id, currentUserQuery.data?.id]);
+
+  useEffect(() => {
+    if (!pendingDetail) return;
+    if (
+      pendingDetail.vehicleId !== activeVehicle?.id ||
+      pendingDetail.userId !== currentUserQuery.data?.id
+    ) {
+      setPendingDetail(null);
+      return;
+    }
+
+    setPendingDetail(null);
+    if (pendingDetail.event.source === 'maintenance') {
+      openMaintenanceDetail(pendingDetail.event.maintenance.id);
+    } else {
+      openScheduleDetail(pendingDetail.event.schedule.id);
+    }
+  }, [
+    activeVehicle?.id,
+    currentUserQuery.data?.id,
+    openMaintenanceDetail,
+    openScheduleDetail,
+    pendingDetail,
+  ]);
+
+  const userId = currentUserQuery.data?.id;
+  const selectedDate =
+    selection && selection.vehicleId === activeVehicle?.id && selection.userId === userId
+      ? selection.date
+      : undefined;
+  const eventsByDate =
+    maintenancesQuery.data && schedulesQuery.data
+      ? toCalendarEvents(maintenancesQuery.data, schedulesQuery.data)
+      : null;
+  const selectedEvents = selectedDate && eventsByDate ? (eventsByDate.get(selectedDate) ?? []) : [];
+  const daySheetOpen = selectedDate != null && eventsByDate != null;
+
+  useEffect(() => {
+    if (!daySheetOpen || selectedEvents.length > 0) return;
+    setSelection(null);
+    setHeaderFocusRequest((request) => request + 1);
+    toast.info('Ya no hay mantenimientos para este día');
+  }, [daySheetOpen, selectedEvents.length]);
+
+  function handleSelectEvent(event: CalendarEvent) {
+    if (!activeVehicle || !userId) return;
+    setPendingDetail({ event, userId, vehicleId: activeVehicle.id });
+    setSelection(null);
+  }
 
   function page(children: ReactNode) {
     return (
@@ -160,11 +230,6 @@ function CalendarPage() {
     ]);
   };
   const today = getArgentinaDateValue();
-  const selectedDate = selection?.vehicleId === activeVehicle.id ? selection.date : undefined;
-  // Without a due date there is no real day to place it on: km-only rules get their own list.
-  const mileageSchedules = sortSchedules(
-    (schedulesQuery.data ?? []).filter((schedule) => schedule.nextDueDate == null),
-  );
 
   let calendar: ReactNode;
   if (maintenancesQuery.isLoadingError || schedulesQuery.isLoadingError) {
@@ -178,6 +243,8 @@ function CalendarPage() {
     );
   } else if (!maintenancesQuery.data || !schedulesQuery.data) {
     calendar = <SectionLoader label="Cargando calendario..." />;
+  } else if (!eventsByDate) {
+    calendar = <SectionLoader label="Cargando calendario..." />;
   } else {
     calendar = (
       <>
@@ -185,12 +252,13 @@ function CalendarPage() {
           <RefetchError message="No pudimos actualizar el calendario." onRetry={retryCalendar} />
         ) : null}
         <MonthlyCalendar
-          eventsByDate={toCalendarEvents(maintenancesQuery.data, schedulesQuery.data)}
+          eventsByDate={eventsByDate}
+          focusHeaderRequest={headerFocusRequest}
           selectedDate={selectedDate}
           today={today}
           onSelectDate={(date) => {
-            // PIT-61 opens the day detail with this date and its events.
-            setSelection({ vehicleId: activeVehicle.id, date });
+            if (!userId) return;
+            setSelection({ userId, vehicleId: activeVehicle.id, date });
           }}
         />
       </>
@@ -331,27 +399,9 @@ function CalendarPage() {
 
   return page(
     <>
-      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <section
-          aria-label="Calendario mensual"
-          className={mileageSchedules.length > 0 ? 'xl:col-span-8' : 'xl:col-span-12'}
-        >
-          {calendar}
-        </section>
-
-        {mileageSchedules.length > 0 ? (
-          <section className="xl:col-span-4">
-            <Text as="h2" className="px-1" color="muted" variant="overline">
-              Por kilometraje
-            </Text>
-            <div className="mt-3 flex flex-col gap-2.5">
-              {mileageSchedules.map((schedule) => (
-                <CalendarMileageCard key={schedule.id} schedule={schedule} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
+      <section aria-label="Calendario mensual" className="mt-8">
+        {calendar}
+      </section>
 
       <section className="mt-8">
         <Text as="h2" className="px-1" color="muted" variant="overline">
@@ -359,6 +409,18 @@ function CalendarPage() {
         </Text>
         <div className="mt-3">{history}</div>
       </section>
+
+      {selectedDate && daySheetOpen ? (
+        <DayMaintenanceSheet
+          date={selectedDate}
+          events={selectedEvents}
+          open
+          onOpenChange={(open) => {
+            if (!open) setSelection(null);
+          }}
+          onSelectEvent={handleSelectEvent}
+        />
+      ) : null}
     </>,
   );
 }
