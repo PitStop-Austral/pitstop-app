@@ -121,9 +121,10 @@ export function getInitialMaintenanceFormValues(
   vehicle: Vehicle,
   maintenance?: Maintenance,
   today = new Date(),
+  defaultServiceType?: string,
 ): MaintenanceFormValues {
   return {
-    service: toServiceFieldValue(maintenance?.type),
+    service: toServiceFieldValue(maintenance?.type ?? defaultServiceType),
     category: maintenance?.category ?? 'MANTENIMIENTO',
     date: maintenance?.date ?? getArgentinaDateValue(today),
     mileage: String(maintenance?.mileage ?? vehicle.mileage),

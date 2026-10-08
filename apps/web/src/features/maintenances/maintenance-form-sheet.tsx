@@ -30,6 +30,7 @@ type MaintenanceFormSheetProps = {
   vehicle: Vehicle;
   maintenance?: Maintenance;
   onCreated?: (maintenance: MaintenanceCreated) => void;
+  defaultServiceType?: string;
 };
 
 function isApiError(error: unknown): error is ApiError {
@@ -47,11 +48,12 @@ export function MaintenanceFormSheet({
   vehicle,
   maintenance,
   onCreated,
+  defaultServiceType,
 }: MaintenanceFormSheetProps) {
   const formId = useId();
   const categoryLabelId = useId();
   const [values, setValues] = useState<MaintenanceFormValues>(() =>
-    getInitialMaintenanceFormValues(vehicle, maintenance),
+    getInitialMaintenanceFormValues(vehicle, maintenance, new Date(), defaultServiceType),
   );
   const [errors, setErrors] = useState<MaintenanceFormErrors>({});
   const createMaintenance = useCreateMaintenance();

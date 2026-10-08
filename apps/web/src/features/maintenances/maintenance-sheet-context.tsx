@@ -12,6 +12,7 @@ import type { MaintenanceCreated } from './types';
 
 type MaintenanceSheetContextValue = {
   openRegisterMaintenance: () => void;
+  openRegisterMaintenanceForSchedule: (serviceType: string) => void;
   openMaintenanceDetail: (maintenanceId: string) => void;
   canRegister: boolean;
   isDisabled: boolean;
@@ -20,7 +21,7 @@ type MaintenanceSheetContextValue = {
 // A single state so only one sheet is ever open: moving from the detail to edit or delete
 // replaces it instead of stacking dialogs.
 type OpenSheet =
-  | { type: 'register' }
+  | { type: 'register'; defaultServiceType?: string }
   | { type: 'vehicle' }
   | { type: 'detail'; id: string }
   | { type: 'edit'; maintenance: Maintenance }
@@ -44,9 +45,17 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     vehiclesQuery.isError ||
     currentUserQuery.isError;
 
-  function openRegisterMaintenance() {
+  function openRegistration(defaultServiceType?: string) {
     if (isDisabled) return;
-    setOpenSheet({ type: activeVehicle ? 'register' : 'vehicle' });
+    setOpenSheet(activeVehicle ? { type: 'register', defaultServiceType } : { type: 'vehicle' });
+  }
+
+  function openRegisterMaintenance() {
+    openRegistration();
+  }
+
+  function openRegisterMaintenanceForSchedule(serviceType: string) {
+    openRegistration(serviceType);
   }
 
   function openMaintenanceDetail(id: string) {
@@ -78,6 +87,7 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     <MaintenanceSheetContext.Provider
       value={{
         openRegisterMaintenance,
+        openRegisterMaintenanceForSchedule,
         openMaintenanceDetail,
         canRegister: Boolean(activeVehicle),
         isDisabled,
@@ -86,6 +96,7 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
       {children}
       {openSheet?.type === 'register' && activeVehicle ? (
         <MaintenanceFormSheet
+          defaultServiceType={openSheet.defaultServiceType}
           open
           vehicle={activeVehicle}
           onCreated={handleCreated}
