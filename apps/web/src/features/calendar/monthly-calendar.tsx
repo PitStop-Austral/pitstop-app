@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -54,6 +54,7 @@ type MonthlyCalendarProps = {
   today: string;
   selectedDate?: string;
   onSelectDate: OnSelectDate;
+  focusHeaderRequest?: number;
 };
 
 export function MonthlyCalendar({
@@ -61,13 +62,24 @@ export function MonthlyCalendar({
   today,
   selectedDate,
   onSelectDate,
+  focusHeaderRequest = 0,
 }: MonthlyCalendarProps) {
   const [month, setMonth] = useState(() => monthOf(today));
+  const headerRef = useRef<HTMLDivElement>(null);
   const monthPrefix = `${month.year}-${String(month.month).padStart(2, '0')}-`;
+
+  useEffect(() => {
+    if (focusHeaderRequest > 0) headerRef.current?.focus();
+  }, [focusHeaderRequest]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-      <div className="flex items-center justify-between gap-3 px-4 py-4 lg:px-6">
+      <div
+        aria-label={`Calendario, ${formatMonthLabel(month)}`}
+        className="flex items-center justify-between gap-3 px-4 py-4 lg:px-6"
+        ref={headerRef}
+        tabIndex={-1}
+      >
         <Button
           aria-label="Mes anterior"
           size="icon"
