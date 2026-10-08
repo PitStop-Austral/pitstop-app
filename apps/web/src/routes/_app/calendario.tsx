@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { DayMaintenanceSheet } from '@/features/calendar/day-maintenance-sheet';
-import { CalendarMileageCard } from '@/features/calendar/calendar-mileage-card';
 import { toCalendarEvents } from '@/features/calendar/calendar-events';
 import { MonthlyCalendar } from '@/features/calendar/monthly-calendar';
 import type { CalendarEvent } from '@/features/calendar/types';
@@ -33,7 +32,6 @@ import { useMaintenanceSheet } from '@/features/maintenances/maintenance-sheet-c
 import { useMaintenances } from '@/features/maintenances/queries';
 import { useSchedules } from '@/features/schedules/queries';
 import { useScheduleSheet } from '@/features/schedules/schedule-sheet-context';
-import { sortSchedules } from '@/features/schedules/sort-schedules';
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import type { Vehicle } from '@/features/vehicles/types';
 
@@ -232,10 +230,6 @@ function CalendarPage() {
     ]);
   };
   const today = getArgentinaDateValue();
-  // Without a due date there is no real day to place it on: km-only rules get their own list.
-  const mileageSchedules = sortSchedules(
-    (schedulesQuery.data ?? []).filter((schedule) => schedule.nextDueDate == null),
-  );
 
   let calendar: ReactNode;
   if (maintenancesQuery.isLoadingError || schedulesQuery.isLoadingError) {
@@ -405,31 +399,9 @@ function CalendarPage() {
 
   return page(
     <>
-      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <section
-          aria-label="Calendario mensual"
-          className={mileageSchedules.length > 0 ? 'xl:col-span-8' : 'xl:col-span-12'}
-        >
-          {calendar}
-        </section>
-
-        {mileageSchedules.length > 0 ? (
-          <section className="xl:col-span-4">
-            <Text as="h2" className="px-1" color="muted" variant="overline">
-              Por kilometraje
-            </Text>
-            <div className="mt-3 flex flex-col gap-2.5">
-              {mileageSchedules.map((schedule) => (
-                <CalendarMileageCard
-                  key={schedule.id}
-                  schedule={schedule}
-                  onClick={() => openScheduleDetail(schedule.id)}
-                />
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </div>
+      <section aria-label="Calendario mensual" className="mt-8">
+        {calendar}
+      </section>
 
       <section className="mt-8">
         <Text as="h2" className="px-1" color="muted" variant="overline">
