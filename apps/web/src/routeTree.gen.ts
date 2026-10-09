@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as BienvenidaRouteImport } from './routes/bienvenida'
 import { Route as UiRouteImport } from './routes/ui'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppCalendarioRouteImport } from './routes/_app/calendario'
@@ -26,6 +27,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BienvenidaRoute = BienvenidaRouteImport.update({
+  id: '/bienvenida',
+  path: '/bienvenida',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UiRoute = UiRouteImport.update({
@@ -71,6 +77,7 @@ const AuthRegisterRoute = AuthRegisterRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/bienvenida': typeof BienvenidaRoute
   '/ui': typeof UiRoute
   '/calendario': typeof AppCalendarioRoute
   '/garage': typeof AppGarageRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/bienvenida': typeof BienvenidaRoute
   '/ui': typeof UiRoute
   '/calendario': typeof AppCalendarioRoute
   '/garage': typeof AppGarageRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/bienvenida': typeof BienvenidaRoute
   '/ui': typeof UiRoute
   '/_app/calendario': typeof AppCalendarioRoute
   '/_app/garage': typeof AppGarageRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/bienvenida'
     | '/ui'
     | '/calendario'
     | '/garage'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/bienvenida'
     | '/ui'
     | '/calendario'
     | '/garage'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/bienvenida'
     | '/ui'
     | '/_app/calendario'
     | '/_app/garage'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  BienvenidaRoute: typeof BienvenidaRoute
   UiRoute: typeof UiRoute
 }
 
@@ -157,6 +170,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bienvenida': {
+      id: '/bienvenida'
+      path: '/bienvenida'
+      fullPath: '/bienvenida'
+      preLoaderRoute: typeof BienvenidaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ui': {
@@ -251,6 +271,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  BienvenidaRoute: BienvenidaRoute,
   UiRoute: UiRoute,
 }
 export const routeTree = rootRouteImport

@@ -13,13 +13,20 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { AUTH_MESSAGES, validateEmail } from '@/lib/auth-forms';
 import { auth } from '@/lib/firebase';
+import { getPostAuthRedirect } from '@/lib/redirect';
+
+type ForgotPasswordSearch = { redirect?: string };
 
 export const Route = createFileRoute('/_auth/forgot-password')({
+  validateSearch: (search: Record<string, unknown>): ForgotPasswordSearch => ({
+    redirect: getPostAuthRedirect(search.redirect),
+  }),
   component: ForgotPasswordRoute,
 });
 
 function ForgotPasswordRoute() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string>();
   const [formError, setFormError] = useState<string>();
@@ -87,7 +94,7 @@ function ForgotPasswordRoute() {
         </Text>
         <Button
           className="mt-9 h-[52px] w-full focus-visible:outline-3 focus-visible:outline-primary/50"
-          onClick={() => navigate({ to: '/login' })}
+          onClick={() => navigate({ to: '/login', search: { redirect } })}
         >
           <Text color="on-primary" variant="label">
             Volver a iniciar sesión
@@ -109,7 +116,7 @@ function ForgotPasswordRoute() {
   return (
     <>
       <AuthHeader
-        backToLogin
+        back={{ to: '/login', redirect }}
         subtitle="Ingresá tu email y te mandamos un enlace para crear una nueva"
         title="¿Olvidaste tu contraseña?"
       />

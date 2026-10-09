@@ -20,8 +20,14 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { auth } from '@/lib/firebase';
+import { getPostAuthRedirect } from '@/lib/redirect';
+
+type RegistrationSearch = { redirect?: string };
 
 export const Route = createFileRoute('/_auth/register')({
+  validateSearch: (search: Record<string, unknown>): RegistrationSearch => ({
+    redirect: getPostAuthRedirect(search.redirect),
+  }),
   component: RegistrationRoute,
 });
 
@@ -37,6 +43,7 @@ const allFields: RegistrationField[] = ['name', 'email', 'password', 'passwordCo
 function RegistrationRoute() {
   const navigate = useNavigate();
   const { setIsAuthenticating } = useAuth();
+  const { redirect } = Route.useSearch();
   const [values, setValues] = useState(initialValues);
   const [touched, setTouched] = useState<Partial<Record<RegistrationField, boolean>>>({});
   const [serverErrors, setServerErrors] = useState<RegistrationErrors>({});
@@ -93,7 +100,7 @@ function RegistrationRoute() {
     },
     onSuccess: () => {
       setIsAuthenticating(false);
-      navigate({ replace: true, to: '/' });
+      navigate({ replace: true, href: redirect ?? '/' });
     },
   });
 
@@ -134,7 +141,7 @@ function RegistrationRoute() {
   return (
     <>
       <AuthHeader
-        backToLogin
+        back={{ to: '/bienvenida', redirect }}
         subtitle="Empezá a llevar el mantenimiento de tus vehículos al día"
         title="Creá tu cuenta"
       />
@@ -210,6 +217,7 @@ function RegistrationRoute() {
           ¿Ya tenés cuenta?{' '}
           <Link
             className="rounded-sm hover:underline focus-visible:outline-3 focus-visible:outline-primary/50"
+            search={{ redirect }}
             to="/login"
           >
             <Text as="span" color="primary" variant="body-strong">

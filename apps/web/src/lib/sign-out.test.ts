@@ -9,7 +9,7 @@ function createDeps(overrides: Partial<SignOutDeps> = {}) {
     prepare: async () => {},
     firebaseSignOut: async () => {},
     clearQueryCache: () => {},
-    navigateToLogin: async () => {},
+    navigateToLanding: async () => {},
     onError: () => {},
     setIsSigningOut: (value) => isSigningOutCalls.push(value),
     ...overrides,
@@ -30,8 +30,8 @@ test('prepares the installation, signs out, clears the query cache, then navigat
     clearQueryCache: () => {
       order.push('clearQueryCache');
     },
-    navigateToLogin: async () => {
-      order.push('navigateToLogin');
+    navigateToLanding: async () => {
+      order.push('navigateToLanding');
     },
   });
 
@@ -41,7 +41,7 @@ test('prepares the installation, signs out, clears the query cache, then navigat
     'prepare',
     'firebaseSignOut',
     'clearQueryCache',
-    'navigateToLogin',
+    'navigateToLanding',
   ]);
 });
 
@@ -119,7 +119,7 @@ test('does not clear the query cache or navigate when firebaseSignOut fails', as
     clearQueryCache: () => {
       clearCalled = true;
     },
-    navigateToLogin: async () => {
+    navigateToLanding: async () => {
       navigateCalled = true;
     },
   });
