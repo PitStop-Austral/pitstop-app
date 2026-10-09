@@ -4,7 +4,7 @@ export type SignOutDeps = {
   prepare: (reason: SignOutReason) => Promise<void>;
   firebaseSignOut: () => Promise<void>;
   clearQueryCache: () => void;
-  navigateToLogin: () => Promise<unknown>;
+  navigateToLanding: () => Promise<unknown>;
   onError: (error: unknown) => void;
   setIsSigningOut: (value: boolean) => void;
 };
@@ -32,7 +32,7 @@ export function createSignOut(deps: SignOutDeps): (reason?: SignOutReason) => Pr
         }
         await deps.firebaseSignOut();
         deps.clearQueryCache();
-        await deps.navigateToLogin();
+        await deps.navigateToLanding();
       } catch (error) {
         deps.onError(error);
       } finally {

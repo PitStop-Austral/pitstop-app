@@ -6,23 +6,25 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 
 type AuthHeaderProps = {
-  backToLogin?: boolean;
+  back?: { to: '/login' | '/bienvenida'; redirect?: string };
   subtitle: string;
   title: string;
 };
 
-export function AuthHeader({ backToLogin = false, subtitle, title }: AuthHeaderProps) {
+export function AuthHeader({ back, subtitle, title }: AuthHeaderProps) {
   const navigate = useNavigate();
 
   return (
     <header className="relative text-center">
-      {backToLogin ? (
+      {back ? (
         <Button
-          aria-label="Volver al inicio de sesión"
+          aria-label={
+            back.to === '/login' ? 'Volver al inicio de sesión' : 'Volver a la bienvenida'
+          }
           className="absolute top-1 left-0 focus-visible:outline-3 focus-visible:outline-primary/50"
           size="icon"
           variant="ghost"
-          onClick={() => navigate({ to: '/login' })}
+          onClick={() => navigate({ to: back.to, search: { redirect: back.redirect } })}
         >
           <Icon color="muted" name="ArrowLeft" size="md" />
         </Button>

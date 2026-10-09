@@ -28,7 +28,9 @@ function AppLayout() {
   }
 
   if (!user) {
-    return <Navigate replace search={{ redirect: lastAuthedHrefRef.current }} to="/login" />;
+    // Inicio is the default destination already, so it isn't carried as `redirect`.
+    const redirect = lastAuthedHrefRef.current === '/' ? undefined : lastAuthedHrefRef.current;
+    return <Navigate replace search={{ redirect }} to="/bienvenida" />;
   }
 
   return (

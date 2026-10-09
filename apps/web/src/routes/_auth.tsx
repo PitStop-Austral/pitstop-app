@@ -1,30 +1,20 @@
-import { Navigate, Outlet, createFileRoute, useSearch } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useSearch } from '@tanstack/react-router';
 
 import { AuthLayout } from '@/components/auth/auth-layout';
-import { FullScreenLoader } from '@/components/layout/full-screen-loader';
-import { useAuth } from '@/lib/auth-context';
-import { getSafeRedirect } from '@/lib/redirect';
+import { GuestOnly } from '@/components/auth/guest-only';
 
 export const Route = createFileRoute('/_auth')({
   component: AuthRoute,
 });
 
 function AuthRoute() {
-  const { user, isLoading, isAuthenticating } = useAuth();
   const search = useSearch({ strict: false }) as { redirect?: string };
 
-  if (isLoading) {
-    return <FullScreenLoader />;
-  }
-
-  // Don't swap this branch to <FullScreenLoader/> — see docs/auth.md.
-  if (user && !isAuthenticating) {
-    return <Navigate replace to={getSafeRedirect(search.redirect) ?? '/'} />;
-  }
-
   return (
-    <AuthLayout>
-      <Outlet />
-    </AuthLayout>
+    <GuestOnly redirect={search.redirect}>
+      <AuthLayout>
+        <Outlet />
+      </AuthLayout>
+    </GuestOnly>
   );
 }
