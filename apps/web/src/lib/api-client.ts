@@ -7,7 +7,7 @@ async function defaultUnauthorizedHandler(): Promise<void> {
   try {
     await signOut(auth);
   } finally {
-    window.location.assign('/login');
+    window.location.assign('/bienvenida');
   }
 }
 

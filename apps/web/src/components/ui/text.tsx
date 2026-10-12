@@ -3,6 +3,15 @@ import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 const variants = {
+  'landing-headline': [
+    'h1',
+    // Scales below 375px so "siempre al día." stays on one line at 320px.
+    'font-display text-[length:clamp(2.5rem,11.75vw,2.75rem)] leading-[0.95] font-bold tracking-[-0.04em] sm:text-6xl lg:text-[100px]',
+  ],
+  'landing-section-title': [
+    'h2',
+    'font-display text-[28px] leading-tight font-bold lg:text-[34px]',
+  ],
   display: ['h1', 'font-display text-[32px] font-bold tracking-[-0.03em]'],
   title: ['h1', 'font-display text-2xl font-bold tracking-[-0.03em]'],
   heading: ['h2', 'font-display text-xl font-bold'],
