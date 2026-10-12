@@ -182,6 +182,7 @@ function HomePage() {
                       <MaintenanceCard
                         key={maintenance.id}
                         maintenance={maintenance}
+                        schedules={schedulesQuery.data}
                         onClick={() => openMaintenanceDetail(maintenance.id)}
                       />
                     ))}
