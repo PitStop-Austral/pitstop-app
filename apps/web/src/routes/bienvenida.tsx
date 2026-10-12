@@ -67,14 +67,14 @@ function WelcomeRoute() {
             <div className="max-w-2xl">
               <Text
                 as="p"
-                className={cn(rise, '[animation-delay:80ms]')}
+                className={cn(rise, 'motion-safe:[animation-delay:80ms]')}
                 color="inverse"
                 variant="overline"
               >
                 Tu copiloto para el cuidado del auto
               </Text>
               <Text
-                className={cn(rise, 'mt-4 [animation-delay:180ms]')}
+                className={cn(rise, 'mt-4 motion-safe:[animation-delay:180ms]')}
                 color="inverse"
                 variant="landing-headline"
               >
@@ -83,14 +83,16 @@ function WelcomeRoute() {
                   siempre al día.
                 </Text>
               </Text>
-              <div className={cn(rise, 'mt-5 max-w-md [animation-delay:310ms]')}>
+              <div className={cn(rise, 'mt-5 max-w-md motion-safe:[animation-delay:310ms]')}>
                 <div className="opacity-80">
                   <Text color="inverse" variant="body">
                     Guardá el historial de tus vehículos y enterate qué mantenimiento viene después.
                   </Text>
                 </div>
               </div>
-              <div className={cn(rise, 'mt-8 flex gap-2 [animation-delay:440ms] lg:gap-3')}>
+              <div
+                className={cn(rise, 'mt-8 flex gap-2 motion-safe:[animation-delay:440ms] lg:gap-3')}
+              >
                 <Link
                   className={cn(
                     buttonVariants({}),
