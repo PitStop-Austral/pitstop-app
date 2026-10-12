@@ -1,6 +1,6 @@
-import { formatDate, formatNumber } from '@/lib/format';
-import { normalizeServiceType } from './service-catalog';
-import type { Schedule } from '../schedules/types';
+import { formatDate, formatNumber } from '../../lib/format.ts';
+import { normalizeServiceType } from './service-catalog.ts';
+import type { Schedule } from '../schedules/types.ts';
 
 type ScheduleDue = Pick<Schedule, 'type' | 'nextDueDate' | 'nextDueMileage'>;
 
