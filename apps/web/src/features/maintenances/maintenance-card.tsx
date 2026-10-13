@@ -6,17 +6,21 @@ import { cn } from '@/lib/utils';
 import { ServiceIcon } from './service-icon';
 import { CATEGORY_LABELS } from './types';
 import type { Maintenance } from './types';
+import { getNextMaintenanceDue } from './next-maintenance-due';
+import type { Schedule } from '../schedules/types';
 
 type MaintenanceCardProps = {
   maintenance: Maintenance;
+  schedules?: Schedule[];
   onClick?: () => void;
 };
 
 const cardClassName =
   'group flex w-full items-start gap-3.5 rounded-lg border border-border bg-card p-3.5 text-left transition-all hover:shadow-card focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.99]';
 
-export function MaintenanceCard({ maintenance, onClick }: MaintenanceCardProps) {
+export function MaintenanceCard({ maintenance, schedules, onClick }: MaintenanceCardProps) {
   const isRepair = maintenance.category === 'ARREGLO';
+  const nextDue = getNextMaintenanceDue(maintenance.type, schedules);
 
   const content = (
     <>
@@ -49,9 +53,15 @@ export function MaintenanceCard({ maintenance, onClick }: MaintenanceCardProps) 
             <Text color="muted" variant="caption">
               Próximo:
             </Text>
-            <Text color="subtle" variant="caption">
-              Sin frecuencia definida
-            </Text>
+            {nextDue ? (
+              <Text color="subtle" variant="caption">
+                {nextDue}
+              </Text>
+            ) : (
+              <Text color="subtle" variant="caption">
+                Sin frecuencia definida
+              </Text>
+            )}
           </div>
         </div>
       </div>
