@@ -22,13 +22,18 @@ const statuses = {
   },
 } as const;
 
-export function StatusChip({ status }: { status: keyof typeof statuses }) {
+type StatusChipProps = {
+  status: keyof typeof statuses;
+  label?: string;
+};
+
+export function StatusChip({ status, label }: StatusChipProps) {
   const item = statuses[status];
   return (
     <div className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${item.styles}`}>
       <Icon color={item.color} name={item.icon} size="xs" strokeWidth={2.25} />
       <Text color={item.color} variant="caption-strong">
-        {item.label}
+        {label ?? item.label}
       </Text>
     </div>
   );

@@ -19,13 +19,13 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { auth } from '@/lib/firebase';
-import { getSafeRedirect } from '@/lib/redirect';
+import { getPostAuthRedirect } from '@/lib/redirect';
 
 type LoginSearch = { redirect?: string };
 
 export const Route = createFileRoute('/_auth/login')({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
-    redirect: getSafeRedirect(search.redirect),
+    redirect: getPostAuthRedirect(search.redirect),
   }),
   component: LoginRoute,
 });
@@ -70,7 +70,7 @@ function LoginRoute() {
 
       setFormError(mappedError.message);
     },
-    onSuccess: () => navigate({ replace: true, to: redirect ?? '/' }),
+    onSuccess: () => navigate({ replace: true, href: redirect ?? '/' }),
   });
 
   function updateValue(field: keyof LoginValues, value: string) {
@@ -99,6 +99,7 @@ function LoginRoute() {
   return (
     <>
       <AuthHeader
+        back={{ to: '/bienvenida', redirect }}
         subtitle="Ingresá tus datos para volver a tu garage"
         title="Bienvenido de nuevo"
       />
@@ -145,14 +146,15 @@ function LoginRoute() {
               </Text>
             </label>
           </div>
-          <a
+          <Link
             className="rounded-sm focus-visible:outline-3 focus-visible:outline-primary/50"
-            href="/forgot-password"
+            search={{ redirect }}
+            to="/forgot-password"
           >
             <Text as="span" color="primary" variant="body-strong">
               ¿Olvidaste tu contraseña?
             </Text>
-          </a>
+          </Link>
         </div>
 
         <div className="mt-8">
@@ -169,6 +171,7 @@ function LoginRoute() {
           ¿No tenés cuenta?{' '}
           <Link
             className="rounded-sm hover:underline focus-visible:outline-3 focus-visible:outline-primary/50"
+            search={{ redirect }}
             to="/register"
           >
             <Text as="span" color="primary" variant="body-strong">

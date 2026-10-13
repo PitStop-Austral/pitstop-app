@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
@@ -15,13 +15,10 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import { DeleteScheduleConfirmSheet } from '@/features/schedules/delete-schedule-confirm-sheet';
 import { useSchedules } from '@/features/schedules/queries';
 import { ScheduleCard } from '@/features/schedules/schedule-card';
-import { ScheduleDetailSheet } from '@/features/schedules/schedule-detail-sheet';
-import { ScheduleFormSheet } from '@/features/schedules/schedule-form-sheet';
+import { useScheduleSheet } from '@/features/schedules/schedule-sheet-context';
 import { sortSchedules } from '@/features/schedules/sort-schedules';
-import type { Schedule } from '@/features/schedules/types';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
@@ -30,13 +27,6 @@ import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 const GARAGE_TABS = ['info', 'recomendados', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
 type GarageSearch = { tab: GarageTab };
-
-type OpenScheduleSheet =
-  | { type: 'create' }
-  | { type: 'detail'; id: string }
-  | { type: 'edit'; schedule: Schedule }
-  | { type: 'delete'; schedule: Schedule }
-  | null;
 
 export const Route = createFileRoute('/_app/garage')({
   validateSearch: (search: Record<string, unknown>): GarageSearch => ({
@@ -49,14 +39,11 @@ function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mileageOpen, setMileageOpen] = useState(false);
-  const [openScheduleSheet, setOpenScheduleSheet] = useState<OpenScheduleSheet>(null);
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const schedulesQuery = useSchedules(activeVehicle?.id);
-  const closeScheduleSheet = useCallback((open: boolean) => {
-    if (!open) setOpenScheduleSheet(null);
-  }, []);
+  const { openCreateSchedule, openScheduleDetail } = useScheduleSheet();
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
     return (
@@ -201,7 +188,7 @@ function GaragePage() {
               <Button
                 className="gap-2"
                 disabled={schedulesQuery.isPending || schedulesQuery.isLoadingError}
-                onClick={() => setOpenScheduleSheet({ type: 'create' })}
+                onClick={openCreateSchedule}
               >
                 <Icon color="on-primary" name="Plus" size="sm" />
                 <Text color="on-primary" variant="label">
@@ -244,10 +231,7 @@ function GaragePage() {
             {schedulesQuery.data?.length === 0 ? (
               <EmptyState
                 action={
-                  <Button
-                    className="gap-2"
-                    onClick={() => setOpenScheduleSheet({ type: 'create' })}
-                  >
+                  <Button className="gap-2" onClick={openCreateSchedule}>
                     <Icon color="on-primary" name="Plus" size="sm" />
                     <Text color="on-primary" variant="label">
                       Crear frecuencia
@@ -265,7 +249,7 @@ function GaragePage() {
                   <ScheduleCard
                     key={schedule.id}
                     schedule={schedule}
-                    onClick={() => setOpenScheduleSheet({ type: 'detail', id: schedule.id })}
+                    onClick={() => openScheduleDetail(schedule.id)}
                   />
                 ))}
               </div>
@@ -298,39 +282,6 @@ function GaragePage() {
       />
       {mileageOpen ? (
         <UpdateMileageSheet open vehicle={activeVehicle} onOpenChange={setMileageOpen} />
-      ) : null}
-      {openScheduleSheet?.type === 'create' && schedulesQuery.data ? (
-        <ScheduleFormSheet
-          existingTypes={schedulesQuery.data.map((schedule) => schedule.type)}
-          open
-          vehicle={activeVehicle}
-          onOpenChange={closeScheduleSheet}
-        />
-      ) : null}
-      {openScheduleSheet?.type === 'detail' ? (
-        <ScheduleDetailSheet
-          scheduleId={openScheduleSheet.id}
-          vehicleId={activeVehicle.id}
-          onDelete={(schedule) => setOpenScheduleSheet({ type: 'delete', schedule })}
-          onEdit={(schedule) => setOpenScheduleSheet({ type: 'edit', schedule })}
-          onOpenChange={closeScheduleSheet}
-        />
-      ) : null}
-      {openScheduleSheet?.type === 'edit' && schedulesQuery.data ? (
-        <ScheduleFormSheet
-          existingTypes={schedulesQuery.data.map((schedule) => schedule.type)}
-          open
-          schedule={openScheduleSheet.schedule}
-          vehicle={activeVehicle}
-          onOpenChange={closeScheduleSheet}
-        />
-      ) : null}
-      {openScheduleSheet?.type === 'delete' ? (
-        <DeleteScheduleConfirmSheet
-          open
-          schedule={openScheduleSheet.schedule}
-          onOpenChange={closeScheduleSheet}
-        />
       ) : null}
     </PageContainer>
   );

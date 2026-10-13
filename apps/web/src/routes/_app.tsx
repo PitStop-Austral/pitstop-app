@@ -7,6 +7,7 @@ import { DesktopSidebar } from '@/components/layout/desktop-sidebar';
 import { FullScreenLoader } from '@/components/layout/full-screen-loader';
 import { MaintenanceSheetProvider } from '@/features/maintenances/maintenance-sheet-context';
 import { NotificationMessageListener } from '@/features/notifications/notification-message-listener';
+import { ScheduleSheetProvider } from '@/features/schedules/schedule-sheet-context';
 import { useAuth } from '@/lib/auth-context';
 
 export const Route = createFileRoute('/_app')({
@@ -28,25 +29,29 @@ function AppLayout() {
   }
 
   if (!user) {
-    return <Navigate replace search={{ redirect: lastAuthedHrefRef.current }} to="/login" />;
+    // Inicio is the default destination already, so it isn't carried as `redirect`.
+    const redirect = lastAuthedHrefRef.current === '/' ? undefined : lastAuthedHrefRef.current;
+    return <Navigate replace search={{ redirect }} to="/bienvenida" />;
   }
 
   return (
     <MaintenanceSheetProvider>
-      <NotificationMessageListener userId={user.uid} />
-      <div className="flex h-app overflow-hidden bg-background">
-        <DesktopSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <AppHeader />
-          <main
-            className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] lg:pb-10"
-            id="app-scroll"
-          >
-            <Outlet />
-          </main>
-          <BottomNav />
+      <ScheduleSheetProvider>
+        <NotificationMessageListener userId={user.uid} />
+        <div className="flex h-app overflow-hidden bg-background">
+          <DesktopSidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <AppHeader />
+            <main
+              className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] lg:pb-10"
+              id="app-scroll"
+            >
+              <Outlet />
+            </main>
+            <BottomNav />
+          </div>
         </div>
-      </div>
+      </ScheduleSheetProvider>
     </MaintenanceSheetProvider>
   );
 }

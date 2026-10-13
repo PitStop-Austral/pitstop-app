@@ -52,10 +52,13 @@ id, so each vehicle caches its own list and switching the active vehicle swaps t
 reload. Registering a maintenance already invalidates the `vehicles` prefix, which covers this query
 too, so a new record appears at the top of the list immediately.
 
-The route shows, in order, a loading indicator, a retryable error state, an invitation to pick a
-vehicle when the account has none, and an empty state that opens the registration form when the
-vehicle has no records. The error state only replaces the list while there is nothing cached, so a
-failed background refetch leaves the records already on screen untouched. The list itself is a
+The route only blocks the whole page while the vehicles and current user load or fail, and it invites
+the user to pick a vehicle when the account has none. Below the monthly view (see
+[Calendario monthly view](#calendario-monthly-view)), the "Historial completo" section has its own
+loading indicator, retryable error, and empty state that opens the registration form when the vehicle
+has no records; an empty history never hides the calendar. The error state only replaces the list
+while there is nothing cached, so a failed background refetch keeps the records on screen with an
+inline retry. The list itself is a
 single column on phones and two columns from 1024 px. Each card shows the service icon and name, a
 badge for maintenance or repair, and the last service date and mileage; the next-service line is a
 placeholder until frequencies exist.
@@ -64,6 +67,47 @@ The history controls run locally on the loaded active-vehicle list: text search 
 type, workshop, and notes without case or accent differences; category filters combine with a
 descending date, mileage, or cost order. Missing costs sort last, and a no-match state can reset
 all controls without affecting the distinct empty-history state.
+
+## Home summary
+
+Inicio reuses the active vehicle's schedules and maintenance history. It lists only overdue and
+upcoming schedules, ordered with `sortSchedules`, and shows the API-computed date and mileage
+criteria separately. It also shows the five most recent services, ordered by date, creation time,
+and id descending. The full history, including its search and filters, remains only in Calendario;
+the summary's `Ver todos` action navigates there. A shared schedule sheet provider lets both
+Garage and Inicio open the same schedule detail, edit, and delete flow.
+
+## Calendario monthly view
+
+PIT-60 adds a monthly grid above the history, built only on the frontend from the existing
+maintenances and schedules queries of the active vehicle. `features/calendar/calendar-events.ts`
+maps them to the shared `CalendarEvent` contract (`features/calendar/types.ts`), which keeps the
+source entity so the day detail can open it without another request:
+
+- each maintenance is a `completed` event on its `date`;
+- each schedule with a `nextDueDate` is an event on that date: `overdue` when the server status is
+  `overdue` (including mixed rules overdue by km with a future date), otherwise `scheduled`
+  ("A realizar");
+- schedules without a `nextDueDate` (km-only) never appear on the grid.
+
+Event ids are `maintenance:<id>` / `schedule:<id>`, so equal raw ids never collide. A day's events
+sort overdue, scheduled, completed, then by name and id. All dates stay `YYYY-MM-DD` strings: the
+grid is generated with `Date.UTC`/UTC getters and labels are formatted with `timeZone: 'UTC'`, so
+the browser timezone never shifts a day. Today and the initial month come from
+`getArgentinaDateValue()`.
+
+`MonthlyCalendar` always renders 42 cells, Monday first, with adjacent-month days muted, and moves
+one month at a time across year boundaries. Below 1024 px a day shows up to three status dots;
+from 1024 px it shows up to two service names and "+N más". Only days with events are buttons, with
+an accessible name made of the full date and a per-status count, plus a legend. `onSelectDate`
+receives the date and all of that day's events; the route stores the selection together with the
+vehicle id, so switching vehicles clears it. The day detail panel is wired by PIT-61.
+
+Km-only schedules are listed beside the grid under "Por kilometraje" (sorted with `sortSchedules`),
+using `CalendarMileageCard`: next due mileage, "Faltan N km" / "Vence ahora" / "Vencido hace N km",
+and the status chip (`on_track` shown as "Al día"). From 1280 px the grid takes 8/12 columns and
+that list 4/12; without km-only schedules the grid spans the full width. A loading error in either
+query shows a retryable error instead of an empty calendar.
 
 ## Detail, edit, and delete
 
@@ -150,6 +194,9 @@ schedule and returns `204`; missing, unowned, or mismatched vehicle schedules re
 In Garage, tapping a schedule card opens its detail sheet immediately from the cached list and then
 revalidates it through the detail endpoint. The detail shows the service, status, intervals,
 baseline date and mileage, and next due values. Its `⋮` menu offers `Editar` and `Eliminar`.
+Its `Registrar completado` action opens the shared maintenance form with the frequency service,
+Argentina-local current date, and current vehicle mileage prefilled, so recording a completed
+recommended service does not require re-entering its reference data.
 Editing reuses the frequency form with prefilled values, excludes the current type from duplicate
 validation, shows the saved reference while the type is unchanged, and explains that the reference
 will be recalculated after saving when the type changes. Deletion uses a destructive confirmation

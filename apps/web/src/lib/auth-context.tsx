@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prepare: prepareNotificationLogout,
         firebaseSignOut: () => firebaseSignOut(auth),
         clearQueryCache: () => queryClient.clear(),
-        navigateToLogin: () => navigate({ to: '/login', replace: true, search: {} }),
+        navigateToLanding: () => navigate({ to: '/bienvenida', replace: true, search: {} }),
         onError: (error) => {
           console.error('Sign out failed', error);
           toast.error(AUTH_MESSAGES.generic);

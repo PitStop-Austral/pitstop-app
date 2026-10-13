@@ -24,6 +24,7 @@ type ScheduleDetailSheetProps = {
   onOpenChange: (open: boolean) => void;
   onEdit: (schedule: Schedule) => void;
   onDelete: (schedule: Schedule) => void;
+  onRegisterCompleted: (schedule: Schedule) => void;
 };
 
 function isNotFound(error: unknown): boolean {
@@ -40,6 +41,7 @@ export function ScheduleDetailSheet({
   onOpenChange,
   onEdit,
   onDelete,
+  onRegisterCompleted,
 }: ScheduleDetailSheetProps) {
   const { data: schedule, error, isLoadingError } = useSchedule(vehicleId, scheduleId);
   const shouldClose = isLoadingError || isNotFound(error);
@@ -54,11 +56,14 @@ export function ScheduleDetailSheet({
     <BottomSheet
       description="Frecuencia recomendada"
       footer={
-        <Button className="w-full" variant="secondary" onClick={() => onOpenChange(false)}>
-          <Text variant="label">Cerrar</Text>
-        </Button>
+        schedule ? (
+          <Button className="w-full" onClick={() => onRegisterCompleted(schedule)}>
+            <Text color="on-primary" variant="label">
+              Registrar completado
+            </Text>
+          </Button>
+        ) : null
       }
-      footerClassName="lg:hidden"
       headerAction={
         schedule ? (
           <DropdownMenu>

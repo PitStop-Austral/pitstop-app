@@ -2,8 +2,11 @@
 
 ## Route guards
 
-- `_app.tsx` (protected layout): once the initial Firebase auth check resolves (`isLoading`), redirects to `/login` if there's no user, passing the current page as `?redirect=` so the user returns to it after logging in.
-- `_auth.tsx` (auth layout): redirects an already-authenticated user away from `/login`/`/register` to `getSafeRedirect(search.redirect) ?? '/'`.
+- `_app.tsx` (protected layout): once the initial Firebase auth check resolves (`isLoading`), redirects to the public landing `/bienvenida` if there's no user, passing the current page as `?redirect=` so the user returns to it after authenticating.
+- `GuestOnly` (`components/auth/guest-only.tsx`): the shared guard for public screens. Shows a loader while `isLoading` and sends an authenticated user (unless `isAuthenticating`) to `getPostAuthRedirect(redirect) ?? '/'`.
+- `bienvenida.tsx` (public landing, outside `AuthLayout`) and `_auth.tsx` (auth layout for `/login`/`/register`/`/forgot-password`) both render through `GuestOnly`. The landing's CTAs link to `/login` and `/register` carrying `redirect`.
+- Flow: `/bienvenida → /login | /register (↔ /forgot-password) → redirect target`. Every hop between landing, login, register and recovery propagates `redirect`, and login/register navigate to it on success. `_app.tsx` omits `redirect` when the destination is `/`.
+- `redirect` is a full href (path + query + hash, e.g. `/vehicles/abc?tab=history`), so every post-auth navigation uses `navigate({ href })` / `<Navigate href>` — `to` takes a path only and would drop the query.
 
 ## Session source of truth
 
@@ -13,7 +16,7 @@
 
 `signOut()` (`lib/sign-out.ts`, wired up in `auth-context.tsx`) runs installation cleanup before its
 existing sequence: `DELETE notification device → deleteToken() → firebaseSignOut(auth) →
-queryClient.clear() → navigate('/login', replace: true, search: {})`. If no notification
+queryClient.clear() → navigate('/bienvenida', replace: true, search: {})`. If no notification
 installation exists, the sequence starts at Firebase as before. The stable local installation ID is
 not removed, and the service worker and its static caches remain installed.
 
@@ -30,9 +33,9 @@ them as dead code or "simplify" them, they fix real, previously-shipped bugs:
 
 ## Login / register bootstrap (`isAuthenticating`)
 
-Firebase auth success (`signInWithEmailAndPassword`, `createUserWithEmailAndPassword`) is not the same as "fully logged in" here: both `login.tsx` and `register.tsx` also require a backend `/me` bootstrap (register additionally needs `updateProfile` + `getIdToken(true)` first) to succeed. Firebase sets `user` truthy _before_ that bootstrap even starts — `onAuthStateChanged` fires before the triggering SDK call's own promise resolves — so without `isAuthenticating`, `_auth.tsx`'s guard would redirect away mid-bootstrap, unmounting the route (and its mutation's error state) before a failing `/me` could ever render an error.
+Firebase auth success (`signInWithEmailAndPassword`, `createUserWithEmailAndPassword`) is not the same as "fully logged in" here: both `login.tsx` and `register.tsx` also require a backend `/me` bootstrap (register additionally needs `updateProfile` + `getIdToken(true)` first) to succeed. Firebase sets `user` truthy _before_ that bootstrap even starts — `onAuthStateChanged` fires before the triggering SDK call's own promise resolves — so without `isAuthenticating`, the `GuestOnly` guard in `_auth.tsx` would redirect away mid-bootstrap, unmounting the route (and its mutation's error state) before a failing `/me` could ever render an error.
 
-`isAuthenticating` (`auth-context.tsx`) suppresses only the guard's redirect branch — it must never swap `_auth.tsx`'s render to `<FullScreenLoader/>` instead, since that would unmount `<Outlet/>` and, with it, `login.tsx`/`register.tsx`'s own `useMutation` state (this was tried and reverted during development).
+`isAuthenticating` (`auth-context.tsx`) suppresses only the guard's redirect branch — it must never swap `GuestOnly`'s render to `<FullScreenLoader/>` instead, since that would unmount `<Outlet/>` and, with it, `login.tsx`/`register.tsx`'s own `useMutation` state (this was tried and reverted during development).
 
 Login and register reset the flag differently, because their retry semantics differ:
 
@@ -41,4 +44,4 @@ Login and register reset the flag differently, because their retry semantics dif
 
 ## Redirect sanitization
 
-`getSafeRedirect()` (`lib/redirect.ts`) only accepts values starting with a single `/` — it rejects `//host` and `/\host` alike, since both are browser-equivalent to a protocol-relative URL (the WHATWG URL spec treats a leading backslash like a slash for special schemes).
+`getSafeRedirect()` (`lib/redirect.ts`) only accepts values starting with a single `/` — it rejects `//host` and `/\host` alike, since both are browser-equivalent to a protocol-relative URL (the WHATWG URL spec treats a leading backslash like a slash for special schemes). `getPostAuthRedirect()` builds on it and also drops `/bienvenida`, `/login`, `/register` and `/forgot-password` (case-insensitively, like the router's matching, and with query, hash or trailing slash), so an authenticated user is never sent back into a public auth screen. Every public auth route's `validateSearch` uses it.
