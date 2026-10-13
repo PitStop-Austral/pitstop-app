@@ -1,5 +1,6 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getMessaging } from 'firebase-admin/messaging';
 import { getStorage } from 'firebase-admin/storage';
 
 import { FirebaseService } from './firebase.service';
@@ -18,9 +19,14 @@ jest.mock('firebase-admin/storage', () => ({
   getStorage: jest.fn(),
 }));
 
+jest.mock('firebase-admin/messaging', () => ({
+  getMessaging: jest.fn(),
+}));
+
 describe('FirebaseService', () => {
   let verifyIdToken: jest.Mock;
   let deleteFile: jest.Mock;
+  let sendMessage: jest.Mock;
 
   beforeEach(() => {
     process.env.FIREBASE_PROJECT_ID = 'test-project';
@@ -30,7 +36,10 @@ describe('FirebaseService', () => {
 
     verifyIdToken = jest.fn();
     deleteFile = jest.fn();
+    sendMessage = jest.fn();
+    (getApps as jest.Mock).mockReturnValue([]);
     (getAuth as jest.Mock).mockReturnValue({ verifyIdToken });
+    (getMessaging as jest.Mock).mockReturnValue({ send: sendMessage });
     (getStorage as jest.Mock).mockReturnValue({
       bucket: jest.fn(() => ({ file: jest.fn(() => ({ delete: deleteFile })) })),
     });
@@ -92,5 +101,23 @@ describe('FirebaseService', () => {
       service.deleteFile('user-1/vehicles/vehicle-1/photo.webp'),
     ).resolves.toBeUndefined();
     expect(deleteFile).toHaveBeenCalledWith({ ignoreNotFound: true });
+  });
+
+  it('sends a message with the initialized Admin app and returns its message id', async () => {
+    sendMessage.mockResolvedValue('projects/test-project/messages/message-1');
+    const message = {
+      token: 'fcm-token',
+      data: { title: 'Test title', body: 'Test body', testId: 'test-id' },
+    };
+
+    const service = new FirebaseService();
+
+    await expect(service.sendMessage(message)).resolves.toBe(
+      'projects/test-project/messages/message-1',
+    );
+    expect(getMessaging).toHaveBeenCalledWith(
+      (initializeApp as jest.Mock).mock.results.at(-1)?.value,
+    );
+    expect(sendMessage).toHaveBeenCalledWith(message);
   });
 });
