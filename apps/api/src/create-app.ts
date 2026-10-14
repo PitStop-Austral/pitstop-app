@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { RequestLoggingMiddleware } from './modules/request-logging/request-logging.middleware';
 
 export async function createApp(): Promise<INestApplication> {
   if (!process.env.WEB_ORIGIN) {
@@ -8,6 +9,8 @@ export async function createApp(): Promise<INestApplication> {
   }
 
   const app = await NestFactory.create(AppModule);
+  const requestLoggingMiddleware = app.get(RequestLoggingMiddleware);
+  app.use(requestLoggingMiddleware.use.bind(requestLoggingMiddleware));
   app.enableCors({ origin: process.env.WEB_ORIGIN });
   app.useGlobalPipes(
     new ValidationPipe({

@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { FirebaseService } from './../src/firebase/firebase.service';
+import { RequestLoggingMiddleware } from './../src/modules/request-logging/request-logging.middleware';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 // firebase-admin/auth pulls in the ESM-only `jose` package, which the Node runtime loads fine
@@ -50,6 +51,7 @@ describe('AppModule (e2e)', () => {
   let deleteNotificationDevice: jest.Mock;
   let deleteConflictingNotificationToken: jest.Mock;
   let upsertNotificationDevice: jest.Mock;
+  let createHttpRequestLog: jest.Mock;
   let transaction: jest.Mock;
 
   const authenticatedUser = {
@@ -160,6 +162,7 @@ describe('AppModule (e2e)', () => {
     deleteNotificationDevice = jest.fn();
     deleteConflictingNotificationToken = jest.fn();
     upsertNotificationDevice = jest.fn();
+    createHttpRequestLog = jest.fn().mockResolvedValue(undefined);
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
@@ -197,6 +200,7 @@ describe('AppModule (e2e)', () => {
       .useValue({
         $queryRaw: queryRaw,
         $transaction: transaction,
+        httpRequestLog: { create: createHttpRequestLog },
         user: { findUnique, create, updateMany: markNotificationPrompt },
         notificationDevice: { deleteMany: deleteNotificationDevice },
         vehicle: {
@@ -218,6 +222,8 @@ describe('AppModule (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(app.get(RequestLoggingMiddleware).use.bind(app.get(RequestLoggingMiddleware)));
+    app.enableCors({ origin: 'http://localhost:3000' });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -239,6 +245,25 @@ describe('AppModule (e2e)', () => {
 
   it('/ (GET)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
+  });
+
+  it('records the normalized route and final status without request data', async () => {
+    await request(app.getHttpServer()).get('/vehicles?vehicleId=secret-id').expect(401);
+    await Promise.resolve();
+
+    expect(createHttpRequestLog).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        method: 'GET',
+        route: '/vehicles',
+        statusCode: 401,
+        outcome: 'COMPLETED',
+        trafficKind: 'APPLICATION',
+      }),
+    });
+    const data = createHttpRequestLog.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('originalUrl');
+    expect(data).not.toHaveProperty('query');
+    expect(data).not.toHaveProperty('headers');
   });
 
   it('/health/db (GET)', () => {

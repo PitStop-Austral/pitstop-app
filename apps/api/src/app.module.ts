@@ -6,6 +6,7 @@ import { FirebaseModule } from './firebase/firebase.module';
 import { HealthModule } from './modules/health/health.module';
 import { MaintenancesModule } from './modules/maintenances/maintenances.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RequestLoggingModule } from './modules/request-logging/request-logging.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -19,6 +20,7 @@ import { PrismaModule } from './prisma/prisma.module';
     VehiclesModule,
     MaintenancesModule,
     NotificationsModule,
+    RequestLoggingModule,
     SchedulesModule,
   ],
   controllers: [AppController],

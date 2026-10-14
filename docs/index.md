@@ -1,6 +1,7 @@
 # Documentation
 
 - [Deployment](./deployment.md)
+- [HTTP request logs](./kpis.md)
 - [Authentication & session (web)](./auth.md)
 - [Vehicle management](./vehicles.md)
 - [Maintenance registration](./maintenances.md)

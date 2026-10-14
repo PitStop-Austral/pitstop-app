@@ -1,0 +1,26 @@
+enum HttpRequestOutcome {
+  COMPLETED
+  ABORTED
+}
+
+enum HttpRequestTrafficKind {
+  APPLICATION
+  HEALTH
+  REPORTING
+  UNMATCHED
+}
+
+model HttpRequestLog {
+  id          String                 @id @db.Uuid
+  method      String
+  route       String?
+  startedAt   DateTime
+  endedAt     DateTime
+  durationMs  Float
+  statusCode  Int?
+  outcome     HttpRequestOutcome
+  trafficKind HttpRequestTrafficKind
+
+  @@index([startedAt])
+  @@index([trafficKind, startedAt])
+}
