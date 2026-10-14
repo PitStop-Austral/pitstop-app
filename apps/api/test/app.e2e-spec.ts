@@ -259,6 +259,21 @@ describe('AppModule (e2e)', () => {
   it('records one safe row for completed, unmatched, preflight, and malformed requests', async () => {
     await request(app.getHttpServer()).get('/').expect(200);
     await request(app.getHttpServer()).get('/vehicles?vehicleId=secret-id').expect(401);
+    authenticate();
+    createVehicle.mockResolvedValue(vehicle);
+    updateActiveUser.mockResolvedValue({ ...authenticatedUser, activeVehicleId: vehicle.id });
+    await request(app.getHttpServer())
+      .post('/vehicles')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        brand: 'Honda',
+        model: 'Civic',
+        year: 2021,
+        fuel: 'NAFTA',
+        plate: 'AF812KM',
+        mileage: 48000,
+      })
+      .expect(201);
     await request(app.getHttpServer()).get('/missing?token=secret').expect(404);
     await request(app.getHttpServer())
       .options('/vehicles')
@@ -270,10 +285,17 @@ describe('AppModule (e2e)', () => {
       .set('Content-Type', 'application/json')
       .send('{')
       .expect(400);
+    findManyVehicles.mockRejectedValue(new Error('test failure'));
+    await request(app.getHttpServer())
+      .get('/vehicles')
+      .set('Authorization', 'Bearer valid-token')
+      .expect(500);
+    queryRaw.mockRejectedValue(new Error('database unavailable'));
+    await request(app.getHttpServer()).get('/health/db').expect(503);
     await Promise.resolve();
 
     const rows = createHttpRequestLog.mock.calls.map(([{ data }]) => data);
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(8);
     expect(rows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ statusCode: 200, route: '/', trafficKind: 'APPLICATION' }),
@@ -282,9 +304,20 @@ describe('AppModule (e2e)', () => {
           route: '/vehicles',
           trafficKind: 'APPLICATION',
         }),
+        expect.objectContaining({
+          statusCode: 201,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
         expect.objectContaining({ statusCode: 404, route: null, trafficKind: 'UNMATCHED' }),
         expect.objectContaining({ statusCode: 204, route: null, trafficKind: 'UNMATCHED' }),
         expect.objectContaining({ statusCode: 400, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({
+          statusCode: 500,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
+        expect.objectContaining({ statusCode: 503, route: '/health/db', trafficKind: 'HEALTH' }),
       ]),
     );
     for (const row of rows) {
