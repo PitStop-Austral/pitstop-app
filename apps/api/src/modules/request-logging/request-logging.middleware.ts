@@ -57,8 +57,12 @@ export class RequestLoggingMiddleware implements NestMiddleware {
 
       void this.requestLoggingService
         .record(log)
-        .catch((error: unknown) => {
-          this.logger.error('Failed to persist HTTP request log', error);
+        .catch(() => {
+          this.logger.error({
+            message: 'HTTP request log persistence failed',
+            requestId: id,
+            errorCode: 'PERSISTENCE_FAILED',
+          });
         })
         .finally(resolveTelemetry);
     };

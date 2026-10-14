@@ -1,8 +1,11 @@
 import { EventEmitter } from 'node:events';
 import { Logger } from '@nestjs/common';
+import { waitUntil } from '@vercel/functions';
 import type { NextFunction, Request, Response } from 'express';
 import { RequestLoggingMiddleware } from './request-logging.middleware';
 import { RequestLoggingService } from './request-logging.service';
+
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }));
 
 describe('RequestLoggingMiddleware', () => {
   let record: jest.MockedFunction<RequestLoggingService['record']>;
@@ -10,6 +13,7 @@ describe('RequestLoggingMiddleware', () => {
   let middleware: RequestLoggingMiddleware;
 
   beforeEach(() => {
+    jest.mocked(waitUntil).mockClear();
     record = jest.fn().mockResolvedValue(undefined);
     now = jest.fn().mockReturnValueOnce(100).mockReturnValueOnce(225);
     middleware = new RequestLoggingMiddleware({ record } as unknown as RequestLoggingService, {
@@ -64,9 +68,8 @@ describe('RequestLoggingMiddleware', () => {
   });
 
   it('keeps the original response intact when persistence fails', async () => {
-    const error = new Error('database unavailable');
     const logger = jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    record.mockRejectedValue(error);
+    record.mockRejectedValue(new Error('database unavailable: password=secret'));
     const { response } = observe({ method: 'GET', route: { path: '/health' } }, 200);
 
     response.emit('finish');
@@ -74,7 +77,36 @@ describe('RequestLoggingMiddleware', () => {
     await Promise.resolve();
 
     expect(response.statusCode).toBe(200);
-    expect(logger).toHaveBeenCalledWith('Failed to persist HTTP request log', error);
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'HTTP request log persistence failed',
+        errorCode: 'PERSISTENCE_FAILED',
+      }),
+    );
+    expect(JSON.stringify(logger.mock.calls[0][0])).not.toContain('password=secret');
     logger.mockRestore();
+  });
+
+  it('keeps the Vercel lifetime promise pending until persistence completes', async () => {
+    let resolveRecord: () => void;
+    record.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveRecord = resolve;
+      }),
+    );
+    const { response } = observe({ method: 'GET', route: { path: '/' } });
+    const telemetry = jest.mocked(waitUntil).mock.calls[0][0];
+    let telemetryResolved = false;
+    void telemetry.then(() => {
+      telemetryResolved = true;
+    });
+
+    response.emit('finish');
+    await Promise.resolve();
+
+    expect(telemetryResolved).toBe(false);
+    resolveRecord!();
+    await telemetry;
+    expect(telemetryResolved).toBe(true);
   });
 });

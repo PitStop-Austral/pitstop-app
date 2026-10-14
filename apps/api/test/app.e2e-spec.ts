@@ -256,23 +256,44 @@ describe('AppModule (e2e)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
   });
 
-  it('records the normalized route and final status without request data', async () => {
+  it('records one safe row for completed, unmatched, preflight, and malformed requests', async () => {
+    await request(app.getHttpServer()).get('/').expect(200);
     await request(app.getHttpServer()).get('/vehicles?vehicleId=secret-id').expect(401);
+    await request(app.getHttpServer()).get('/missing?token=secret').expect(404);
+    await request(app.getHttpServer())
+      .options('/vehicles')
+      .set('Origin', 'http://localhost:3000')
+      .set('Access-Control-Request-Method', 'GET')
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/vehicles')
+      .set('Content-Type', 'application/json')
+      .send('{')
+      .expect(400);
     await Promise.resolve();
 
-    expect(createHttpRequestLog).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        method: 'GET',
-        route: '/vehicles',
-        statusCode: 401,
-        outcome: 'COMPLETED',
-        trafficKind: 'APPLICATION',
-      }),
-    });
-    const data = createHttpRequestLog.mock.calls[0][0].data;
-    expect(data).not.toHaveProperty('originalUrl');
-    expect(data).not.toHaveProperty('query');
-    expect(data).not.toHaveProperty('headers');
+    const rows = createHttpRequestLog.mock.calls.map(([{ data }]) => data);
+    expect(rows).toHaveLength(5);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ statusCode: 200, route: '/', trafficKind: 'APPLICATION' }),
+        expect.objectContaining({
+          statusCode: 401,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
+        expect.objectContaining({ statusCode: 404, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({ statusCode: 204, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({ statusCode: 400, route: null, trafficKind: 'UNMATCHED' }),
+      ]),
+    );
+    for (const row of rows) {
+      expect(row).toMatchObject({ outcome: 'COMPLETED' });
+      expect(row).not.toHaveProperty('originalUrl');
+      expect(row).not.toHaveProperty('query');
+      expect(row).not.toHaveProperty('headers');
+      expect(JSON.stringify(row)).not.toContain('secret');
+    }
   });
 
   it('/health/db (GET)', () => {

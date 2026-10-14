@@ -14,8 +14,8 @@ model HttpRequestLog {
   id          String                 @id @db.Uuid
   method      String
   route       String?
-  startedAt   DateTime
-  endedAt     DateTime
+  startedAt   DateTime               @db.Timestamptz(3)
+  endedAt     DateTime               @db.Timestamptz(3)
   durationMs  Float
   statusCode  Int?
   outcome     HttpRequestOutcome
