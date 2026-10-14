@@ -1,5 +1,7 @@
 /// <reference lib="webworker" />
 
+import { initializeApp } from 'firebase/app';
+import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import { clientsClaim } from 'workbox-core';
 import {
   cleanupOutdatedCaches,
@@ -39,7 +41,12 @@ self.addEventListener('notificationclick', (event) => {
 async function focusOrOpenDestination(destination: string): Promise<void> {
   const destinationUrl = new URL(destination, self.location.origin).href;
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
+  const sameOriginWindows = windows.filter(
+    (client) => new URL(client.url).origin === self.location.origin,
+  );
+  const existing =
+    sameOriginWindows.find((client) => client.visibilityState === 'visible') ??
+    sameOriginWindows[0];
 
   if (existing) {
     const navigated = await existing.navigate(destinationUrl);
@@ -50,24 +57,16 @@ async function focusOrOpenDestination(destination: string): Promise<void> {
   await self.clients.openWindow(destinationUrl);
 }
 
-async function initializeMessaging(): Promise<void> {
-  const [{ initializeApp }, { getMessaging, onBackgroundMessage }] = await Promise.all([
-    import('firebase/app'),
-    import('firebase/messaging/sw'),
-  ]);
-  const messaging = getMessaging(initializeApp(firebaseConfig));
+const messaging = getMessaging(initializeApp(firebaseConfig));
 
-  onBackgroundMessage(messaging, async (payload) => {
-    const message = parseNotificationMessageData(payload.data);
-    if (!message) return;
+onBackgroundMessage(messaging, async (payload) => {
+  const message = parseNotificationMessageData(payload.data);
+  if (!message) return;
 
-    await self.registration.showNotification(message.title, {
-      body: message.body,
-      icon: '/icon-192.png',
-      tag: message.notificationId,
-      data: message,
-    });
+  await self.registration.showNotification(message.title, {
+    body: message.body,
+    icon: '/icon-192.png',
+    tag: message.notificationId,
+    data: message,
   });
-}
-
-void initializeMessaging();
+});
