@@ -49,9 +49,11 @@ describe('AppModule (e2e)', () => {
   let updateActiveUser: jest.Mock;
   let markNotificationPrompt: jest.Mock;
   let deleteNotificationDevice: jest.Mock;
+  let findNotificationDevice: jest.Mock;
   let deleteConflictingNotificationToken: jest.Mock;
   let upsertNotificationDevice: jest.Mock;
   let createHttpRequestLog: jest.Mock;
+  let sendMessage: jest.Mock;
   let transaction: jest.Mock;
 
   const authenticatedUser = {
@@ -160,9 +162,12 @@ describe('AppModule (e2e)', () => {
     updateActiveUser = jest.fn();
     markNotificationPrompt = jest.fn();
     deleteNotificationDevice = jest.fn();
+    findNotificationDevice = jest.fn();
     deleteConflictingNotificationToken = jest.fn();
     upsertNotificationDevice = jest.fn();
     createHttpRequestLog = jest.fn().mockResolvedValue(undefined);
+    sendMessage = jest.fn();
+    delete process.env.NOTIFICATION_TEST_ENABLED;
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
@@ -202,7 +207,10 @@ describe('AppModule (e2e)', () => {
         $transaction: transaction,
         httpRequestLog: { create: createHttpRequestLog },
         user: { findUnique, create, updateMany: markNotificationPrompt },
-        notificationDevice: { deleteMany: deleteNotificationDevice },
+        notificationDevice: {
+          deleteMany: deleteNotificationDevice,
+          findFirst: findNotificationDevice,
+        },
         vehicle: {
           findMany: findManyVehicles,
           findFirst: findOwnedVehicle,
@@ -217,6 +225,7 @@ describe('AppModule (e2e)', () => {
       })
       .overrideProvider(FirebaseService)
       .useValue({
+        sendMessage,
         verifyIdToken,
       })
       .compile();
@@ -380,6 +389,130 @@ describe('AppModule (e2e)', () => {
       expect(markNotificationPrompt).toHaveBeenCalledWith({
         where: { id: authenticatedUser.id, notificationPromptShownAt: null },
         data: { notificationPromptShownAt: expect.any(Date) },
+      });
+    });
+
+    describe('test notification delivery', () => {
+      const testPath = `/me/notification-devices/${installationId}/test`;
+      const deliveryDevice = {
+        id: registeredDevice.id,
+        token: 'fcm-token',
+        user: { notificationsEnabled: true },
+      };
+
+      it('requires authentication', () => {
+        return request(app.getHttpServer()).post(testPath).expect(401);
+      });
+
+      it('validates the installation id as a UUID', () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+
+        return request(app.getHttpServer())
+          .post('/me/notification-devices/not-a-uuid/test')
+          .set('Authorization', 'Bearer valid-token')
+          .expect(400);
+      });
+
+      it('returns not found while test delivery is disabled', async () => {
+        authenticate();
+
+        await request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .expect(404);
+
+        expect(findNotificationDevice).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+      });
+
+      it('does not expose missing or foreign installations', async () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+        findNotificationDevice.mockResolvedValue(null);
+
+        await request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .expect(404);
+
+        expect(findNotificationDevice).toHaveBeenCalledWith({
+          where: { userId: authenticatedUser.id, installationId },
+          select: {
+            id: true,
+            token: true,
+            user: { select: { notificationsEnabled: true } },
+          },
+        });
+        expect(sendMessage).not.toHaveBeenCalled();
+      });
+
+      it('returns conflict when notifications are disabled', () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+        findNotificationDevice.mockResolvedValue({
+          ...deliveryDevice,
+          user: { notificationsEnabled: false },
+        });
+
+        return request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .expect(409);
+      });
+
+      it('returns the provider message id and server-generated test id', async () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+        findNotificationDevice.mockResolvedValue(deliveryDevice);
+        sendMessage.mockResolvedValue('projects/test/messages/message-1');
+
+        const response = await request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .send({ token: 'attacker-token', title: 'Attacker title', body: 'Attacker body' })
+          .expect(200);
+
+        expect(response.body).toEqual({
+          messageId: 'projects/test/messages/message-1',
+          testId: expect.any(String),
+        });
+        expect(sendMessage).toHaveBeenCalledWith({
+          token: deliveryDevice.token,
+          data: {
+            title: 'Notificación de prueba',
+            body: 'Las notificaciones de PitStop están activadas.',
+            testId: response.body.testId,
+          },
+        });
+      });
+
+      it('returns gone and conditionally removes an invalid token', async () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+        findNotificationDevice.mockResolvedValue(deliveryDevice);
+        sendMessage.mockRejectedValue({ code: 'messaging/invalid-registration-token' });
+
+        await request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .expect(410);
+
+        expect(deleteNotificationDevice).toHaveBeenCalledWith({
+          where: { id: deliveryDevice.id, token: deliveryDevice.token },
+        });
+      });
+
+      it('returns bad gateway for transient Firebase failures', () => {
+        authenticate();
+        process.env.NOTIFICATION_TEST_ENABLED = 'true';
+        findNotificationDevice.mockResolvedValue(deliveryDevice);
+        sendMessage.mockRejectedValue({ code: 'messaging/server-unavailable' });
+
+        return request(app.getHttpServer())
+          .post(testPath)
+          .set('Authorization', 'Bearer valid-token')
+          .expect(502);
       });
     });
   });
@@ -875,6 +1008,7 @@ describe('AppModule (e2e)', () => {
   });
 
   afterEach(async () => {
+    delete process.env.NOTIFICATION_TEST_ENABLED;
     await app.close();
   });
 });

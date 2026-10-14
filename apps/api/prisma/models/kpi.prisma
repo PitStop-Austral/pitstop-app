@@ -1,0 +1,53 @@
+enum KpiEnvironment {
+  DEV
+  PROD
+}
+
+enum KpiRunStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum KpiResultStatus {
+  READY
+  NO_DATA
+  ERROR
+}
+
+model KpiRun {
+  id                 String         @id @default(uuid()) @db.Uuid
+  env                KpiEnvironment
+  date               DateTime       @db.Date
+  windowStart        DateTime       @db.Timestamptz(3)
+  windowEnd          DateTime       @db.Timestamptz(3)
+  calculationVersion String
+  status             KpiRunStatus
+  startedAt          DateTime       @db.Timestamptz(3)
+  finishedAt         DateTime?      @db.Timestamptz(3)
+  errorCode          String?
+  results            KpiResult[]
+
+  @@index([env, date])
+  @@map("kpi_runs")
+}
+
+model KpiResult {
+  id             String          @id @default(uuid()) @db.Uuid
+  runId          String          @db.Uuid
+  kpiId          String
+  status         KpiResultStatus
+  value          Float?          @db.DoublePrecision
+  numerator      BigInt?
+  denominator    BigInt?
+  sampleCount    BigInt?
+  windowStart    DateTime        @db.Timestamptz(3)
+  windowEnd      DateTime        @db.Timestamptz(3)
+  diagnosticCode String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  run            KpiRun          @relation(fields: [runId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, kpiId])
+  @@index([kpiId])
+  @@map("kpi_results")
+}

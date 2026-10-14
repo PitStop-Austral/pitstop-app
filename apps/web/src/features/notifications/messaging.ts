@@ -1,4 +1,11 @@
-import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
+import {
+  deleteToken,
+  getMessaging,
+  getToken,
+  isSupported,
+  onMessage,
+  type MessagePayload,
+} from 'firebase/messaging';
 
 import { firebaseApp } from '@/lib/firebase';
 import { getAppServiceWorkerRegistration } from '@/lib/service-worker-registration';
@@ -25,7 +32,7 @@ export async function getNotificationCapability(): Promise<NotificationCapabilit
   const hasPushManagerApi = 'PushManager' in window;
   const messagingSupported =
     hasNotificationApi && hasServiceWorkerApi && hasPushManagerApi
-      ? await isSupported().catch(() => false)
+      ? await isNotificationMessagingSupported()
       : false;
 
   return resolveNotificationCapability({
@@ -47,6 +54,16 @@ export async function getNotificationToken(): Promise<string> {
     vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
     serviceWorkerRegistration: registration,
   });
+}
+
+export function isNotificationMessagingSupported(): Promise<boolean> {
+  return isSupported().catch(() => false);
+}
+
+export function subscribeToForegroundMessages(
+  listener: (payload: MessagePayload) => void,
+): () => void {
+  return onMessage(getMessaging(firebaseApp), listener);
 }
 
 export async function deleteNotificationToken(): Promise<void> {

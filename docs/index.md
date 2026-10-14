@@ -7,6 +7,7 @@
 - [Maintenance registration](./maintenances.md)
 - [PWA (installable app)](./pwa.md)
 - [Notification registration](./notifications.md)
+- [KPI persistence](./kpis.md)
 
 ## Setup
 

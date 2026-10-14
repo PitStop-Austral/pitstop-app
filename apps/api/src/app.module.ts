@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FirebaseModule } from './firebase/firebase.module';
 import { HealthModule } from './modules/health/health.module';
+import { KpisModule } from './modules/kpis/kpis.module';
 import { MaintenancesModule } from './modules/maintenances/maintenances.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RequestLoggingModule } from './modules/request-logging/request-logging.module';
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     NotificationsModule,
     RequestLoggingModule,
     SchedulesModule,
+    KpisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -15,7 +15,8 @@ The plugin uses `injectManifest` with the custom `src/sw.ts`. That worker precac
 cleans outdated caches, claims clients, activates updates immediately, and uses a navigation route
 to serve the SPA entry point for direct application routes. It defines no runtime route for API
 requests, so authenticated data is never cached. Firebase Messaging is initialized in this worker;
-background message handling and notification clicks belong to PIT-59.
+PIT-59 adds data-only background message handling to the same worker. Notification-click navigation
+remains out of scope until maintenance alerts are implemented.
 
 iOS only picks up an icon and standalone mode from `<link>`/`<meta>` tags in `apps/web/index.html`,
 not from the manifest: `<link rel="apple-touch-icon">` (180x180), `apple-mobile-web-app-capable`,
