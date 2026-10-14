@@ -35,9 +35,38 @@ are sent to the API.
 
 iOS and iPadOS require an installed Home Screen web app before notification permission is requested.
 Unsupported browsers, denied permission, cancellation, and token-registration failures leave the
-account and maintenance usable. A valid test message produces one Sonner toast while the app has
-focus, or one native notification from the existing PWA worker while it is in the background. Both
-paths use `testId` for deduplication. Notification navigation remains later work.
+account and maintenance usable. A valid message produces one Sonner toast while the app has focus,
+or one native notification from the existing PWA worker while it is in the background. Both paths
+use `notificationId` for deduplication; the PIT-59 test payload's legacy `testId` remains accepted.
+Maintenance alerts include a **Ver** action and native-notification clicks open the matching vehicle
+and frequency in the garage. The complete destination is preserved through login and registration.
+
+## Daily maintenance alerts
+
+GitHub Actions invokes `GET /cron/maintenance-alerts` every day at 12:00 UTC (09:00 Argentina).
+Scheduled GitHub workflows can start later during periods of high load, so this is a daily target,
+not an exact delivery guarantee. The endpoint is public with respect to Firebase Authentication but
+requires `Authorization: Bearer <CRON_SECRET>` and returns `401` before reviewing schedules when the
+credential is absent or invalid.
+
+Generate the shared secret locally without committing it:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the generated value as `CRON_SECRET` in the deployed API and as a GitHub Actions repository
+secret with the same name. Add the deployed API base URL, without the cron path, as the repository
+variable `API_BASE_URL`. The workflow is in `.github/workflows/maintenance-alerts.yml`; it can also
+be started from **Actions > Maintenance alerts > Run workflow** after the workflow exists on the
+default branch.
+
+Each eligible frequency is claimed once per installation and calculated due date/kilometre pair.
+Claims are idempotent across repeated or concurrent workflow runs. Each delivery is claimed
+immediately before its send; if a run is interrupted, later unclaimed deliveries remain eligible for
+the next run. A claimed delivery in `PENDING` or `FAILED` is not retried for the same due occurrence.
+Changing the frequency or recording maintenance can create a new due occurrence and therefore a new
+alert.
 
 ## Send a test notification
 
@@ -85,17 +114,33 @@ it. Delivery is confirmed visually on the target installation.
 
 ## Manual evidence
 
-Record the platform, browser, environment, visual result and `testId` for each case. Never record the
-FCM token, Firebase ID token or Admin credentials.
+Record the platform, browser, environment, visual result and `testId` or `notificationId` for each
+case. Never record the FCM token, Firebase ID token or Admin credentials.
 
-| Case                               | Expected result                                                                           |
-| ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| App focused                        | One in-app toast with the fixed title and body                                            |
-| App open in another/background tab | One native system notification                                                            |
-| App tab closed                     | One native system notification while the browser/system still permits background delivery |
-| Logout                             | No foreground listener remains and the device association is removed                      |
-| Account switch                     | The previous listener is removed; one listener is installed for the new session           |
+| Case                               | Expected result                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| App focused                        | One in-app toast; **Ver** opens the correct vehicle and frequency                        |
+| App open in another/background tab | One native notification; clicking it opens the correct vehicle and frequency             |
+| App tab closed                     | One native notification; clicking it opens or focuses PitStop at the correct destination |
+| Logout                             | No foreground listener remains and the device association is removed                     |
+| Account switch                     | The previous listener is removed; one listener is installed for the new session          |
 
 Repeat the delivery cases on desktop, Android, and an iOS/iPadOS 16.4+ Home Screen installation with
 permission granted. Closing a tab is not equivalent to force-stopping the browser or operating
-system, and delivery is not promised after a force stop.
+system, and delivery is not promised after a force stop. For PIT-63, run the workflow manually after
+deployment and record real delivery/navigation evidence for focused, background, and closed states;
+do not treat Firebase acceptance or local tests as delivery evidence.
+
+### PIT-63 local verification - 2026-10-14
+
+The maintenance alert flow was verified with a production web build served by `pnpm preview`, the
+local API and PostgreSQL, and PitStop installed as a Chrome PWA on macOS. Notification
+`59c54255-c73b-4177-b55e-98566f061d5a` produced one foreground toast; **Ver** opened vehicle
+`PIT063` at its `Filtro de aire` frequency and the consumed destination parameters were removed from
+the URL. With the PWA closed, the same setup displayed a native notification and clicking it opened
+the correct vehicle and frequency. A direct `ServiceWorkerRegistration.showNotification` probe also
+confirmed that Chrome and macOS could display native notifications independently of FCM.
+
+GitHub Actions evidence remains pending until this workflow is present on the default branch. After
+merge, run **Actions > Maintenance alerts > Run workflow** against the deployed environment and add
+the workflow URL plus the focused, background, and closed-state results here.

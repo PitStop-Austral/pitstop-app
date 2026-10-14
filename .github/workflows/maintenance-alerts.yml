@@ -1,0 +1,30 @@
+name: Maintenance alerts
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-alerts-daily
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Run daily review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request maintenance alerts
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 300 \
+            --request GET \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${API_BASE_URL%/}/cron/maintenance-alerts"

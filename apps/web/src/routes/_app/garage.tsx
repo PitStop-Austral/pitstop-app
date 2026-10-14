@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
@@ -13,24 +13,32 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Icon } from '@/components/ui/icon';
+import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
+import { resolveMaintenanceAlertTarget } from '@/features/notifications/notification-message';
 import { useSchedules } from '@/features/schedules/queries';
 import { ScheduleCard } from '@/features/schedules/schedule-card';
 import { useScheduleSheet } from '@/features/schedules/schedule-sheet-context';
 import { sortSchedules } from '@/features/schedules/sort-schedules';
 import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-confirm-sheet';
-import { useActiveVehicle } from '@/features/vehicles/queries';
+import { useActiveVehicle, useSetActiveVehicle } from '@/features/vehicles/queries';
 import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
 const GARAGE_TABS = ['info', 'recomendados', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
-type GarageSearch = { tab: GarageTab };
+type GarageSearch = { tab: GarageTab; vehicleId?: string; scheduleId?: string };
+
+function optionalSearchString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
 
 export const Route = createFileRoute('/_app/garage')({
   validateSearch: (search: Record<string, unknown>): GarageSearch => ({
     tab: GARAGE_TABS.includes(search.tab as GarageTab) ? (search.tab as GarageTab) : 'info',
+    vehicleId: optionalSearchString(search.vehicleId),
+    scheduleId: optionalSearchString(search.scheduleId),
   }),
   component: GaragePage,
 });
@@ -39,11 +47,101 @@ function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mileageOpen, setMileageOpen] = useState(false);
-  const { tab } = Route.useSearch();
+  const { tab, vehicleId: targetVehicleId, scheduleId: targetScheduleId } = Route.useSearch();
   const navigate = useNavigate();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
+  const { mutateAsync: setActiveVehicle } = useSetActiveVehicle();
   const schedulesQuery = useSchedules(activeVehicle?.id);
+  const { refetch: refetchSchedules } = schedulesQuery;
+  const { refetch: refetchVehicles } = vehiclesQuery;
   const { openCreateSchedule, openScheduleDetail } = useScheduleSheet();
+  const switchingDestination = useRef<string | undefined>(undefined);
+  const handledDestination = useRef<string | undefined>(undefined);
+  const refreshedVehiclesDestination = useRef<string | undefined>(undefined);
+  const refreshedSchedulesDestination = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!targetVehicleId || !targetScheduleId) {
+      switchingDestination.current = undefined;
+      handledDestination.current = undefined;
+      refreshedVehiclesDestination.current = undefined;
+      refreshedSchedulesDestination.current = undefined;
+      return;
+    }
+    if (vehiclesQuery.isPending || currentUserQuery.isPending) return;
+
+    const destinationKey = `${targetVehicleId}:${targetScheduleId}`;
+    if (handledDestination.current === destinationKey) return;
+    if (refreshedVehiclesDestination.current !== destinationKey) {
+      refreshedVehiclesDestination.current = destinationKey;
+      void refetchVehicles();
+      return;
+    }
+    if (vehiclesQuery.isFetching) return;
+    if (
+      activeVehicle?.id === targetVehicleId &&
+      refreshedSchedulesDestination.current !== destinationKey
+    ) {
+      refreshedSchedulesDestination.current = destinationKey;
+      void refetchSchedules();
+      return;
+    }
+    const clearDestination = () =>
+      navigate({
+        to: '/garage',
+        search: { tab: 'recomendados' },
+        replace: true,
+        resetScroll: false,
+      });
+
+    const resolution = resolveMaintenanceAlertTarget(
+      activeVehicle?.id,
+      vehiclesQuery.data,
+      schedulesQuery.isError ? [] : schedulesQuery.data,
+      targetVehicleId,
+      targetScheduleId,
+      vehiclesQuery.isFetching || schedulesQuery.isFetching,
+    );
+    if (resolution.kind === 'waiting') return;
+    if (resolution.kind === 'invalid') {
+      switchingDestination.current = undefined;
+      handledDestination.current = destinationKey;
+      void clearDestination();
+      toast.error('No encontramos esa frecuencia');
+      return;
+    }
+    if (resolution.kind === 'switch-vehicle') {
+      if (switchingDestination.current === destinationKey) return;
+      switchingDestination.current = destinationKey;
+      void setActiveVehicle(resolution.vehicleId).catch(async () => {
+        switchingDestination.current = undefined;
+        await clearDestination();
+        toast.error('No encontramos esa frecuencia');
+      });
+      return;
+    }
+
+    switchingDestination.current = undefined;
+    handledDestination.current = destinationKey;
+    void clearDestination();
+    openScheduleDetail(targetScheduleId);
+  }, [
+    activeVehicle?.id,
+    currentUserQuery.isPending,
+    navigate,
+    openScheduleDetail,
+    refetchSchedules,
+    refetchVehicles,
+    schedulesQuery.data,
+    schedulesQuery.isError,
+    schedulesQuery.isFetching,
+    setActiveVehicle,
+    targetScheduleId,
+    targetVehicleId,
+    vehiclesQuery.data,
+    vehiclesQuery.isFetching,
+    vehiclesQuery.isPending,
+  ]);
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
     return (

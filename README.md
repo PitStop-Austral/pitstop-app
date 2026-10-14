@@ -235,6 +235,12 @@ Paste the private key exactly as it appears in the downloaded service-account JS
 quoted string with literal `\n` sequences); the code unescapes them at startup. See
 [Firebase setup](#firebase-setup) for where to get these values.
 
+`CRON_SECRET` protects the daily maintenance-alert endpoint. Generate it with
+`openssl rand -hex 32`, set the same value in the deployed API and the GitHub repository secret
+named `CRON_SECRET`, and configure the repository variable `API_BASE_URL` with the deployed API's
+base URL. See [Notifications](./docs/notifications.md#daily-maintenance-alerts) for operations and
+manual verification.
+
 **`apps/web/.env`** — read by Vite (default `envDir`, so nothing beyond this file needs
 configuring). `VITE_API_URL` points the shared Axios client to the API and defaults to
 `http://localhost:3001` in `.env.example`. The file also holds the web Firebase config:
