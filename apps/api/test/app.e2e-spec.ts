@@ -52,6 +52,9 @@ describe('AppModule (e2e)', () => {
   let deleteConflictingNotificationToken: jest.Mock;
   let upsertNotificationDevice: jest.Mock;
   let sendMessage: jest.Mock;
+  let sendDataMessage: jest.Mock;
+  let createAlertDeliveries: jest.Mock;
+  let updateAlertDelivery: jest.Mock;
   let transaction: jest.Mock;
 
   const authenticatedUser = {
@@ -164,7 +167,11 @@ describe('AppModule (e2e)', () => {
     deleteConflictingNotificationToken = jest.fn();
     upsertNotificationDevice = jest.fn();
     sendMessage = jest.fn();
+    sendDataMessage = jest.fn();
+    createAlertDeliveries = jest.fn().mockResolvedValue([]);
+    updateAlertDelivery = jest.fn();
     delete process.env.NOTIFICATION_TEST_ENABLED;
+    delete process.env.CRON_SECRET;
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
@@ -218,10 +225,15 @@ describe('AppModule (e2e)', () => {
           findFirst: findSchedule,
           findMany: findSchedules,
         },
+        maintenanceAlertDelivery: {
+          createManyAndReturn: createAlertDeliveries,
+          update: updateAlertDelivery,
+        },
       })
       .overrideProvider(FirebaseService)
       .useValue({
         sendMessage,
+        sendDataMessage,
         verifyIdToken,
       })
       .compile();
@@ -258,6 +270,33 @@ describe('AppModule (e2e)', () => {
     queryRaw.mockRejectedValue(new Error('connection failed'));
 
     return request(app.getHttpServer()).get('/health/db').expect(503);
+  });
+
+  describe('/cron/maintenance-alerts (GET)', () => {
+    it('rejects a missing or invalid cron secret without running the review', async () => {
+      await request(app.getHttpServer()).get('/cron/maintenance-alerts').expect(401);
+      process.env.CRON_SECRET = 'expected-secret';
+      await request(app.getHttpServer())
+        .get('/cron/maintenance-alerts')
+        .set('Authorization', 'Bearer wrong-secret')
+        .expect(401);
+
+      expect(findSchedules).not.toHaveBeenCalled();
+      expect(verifyIdToken).not.toHaveBeenCalled();
+    });
+
+    it('runs once with the cron secret and bypasses Firebase authentication', async () => {
+      process.env.CRON_SECRET = 'expected-secret';
+
+      await request(app.getHttpServer())
+        .get('/cron/maintenance-alerts')
+        .set('Authorization', 'Bearer expected-secret')
+        .expect(200)
+        .expect({ selected: 0, claimed: 0, sent: 0, failed: 0 });
+
+      expect(findSchedules).toHaveBeenCalledTimes(1);
+      expect(verifyIdToken).not.toHaveBeenCalled();
+    });
   });
 
   describe('/me (GET)', () => {
@@ -455,9 +494,10 @@ describe('AppModule (e2e)', () => {
         expect(sendMessage).toHaveBeenCalledWith({
           token: deliveryDevice.token,
           data: {
+            kind: 'test',
+            notificationId: response.body.testId,
             title: 'Notificación de prueba',
             body: 'Las notificaciones de PitStop están activadas.',
-            testId: response.body.testId,
           },
         });
       });
@@ -984,6 +1024,7 @@ describe('AppModule (e2e)', () => {
 
   afterEach(async () => {
     delete process.env.NOTIFICATION_TEST_ENABLED;
+    delete process.env.CRON_SECRET;
     await app.close();
   });
 });

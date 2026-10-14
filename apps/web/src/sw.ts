@@ -1,7 +1,5 @@
 /// <reference lib="webworker" />
 
-import { initializeApp } from 'firebase/app';
-import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import { clientsClaim } from 'workbox-core';
 import {
   cleanupOutdatedCaches,
@@ -9,7 +7,10 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { parseNotificationMessageData } from './features/notifications/notification-message';
+import {
+  buildMaintenanceAlertDestination,
+  parseNotificationMessageData,
+} from './features/notifications/notification-message';
 import { firebaseConfig } from './lib/firebase-config';
 
 declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<unknown> };
@@ -25,15 +26,48 @@ registerRoute(
   }),
 );
 
-const messaging = getMessaging(initializeApp(firebaseConfig));
+self.addEventListener('notificationclick', (event) => {
+  const message = parseNotificationMessageData(event.notification.data);
+  if (!message || message.kind !== 'maintenance-alert') return;
 
-onBackgroundMessage(messaging, async (payload) => {
-  const message = parseNotificationMessageData(payload.data);
-  if (!message) return;
-
-  await self.registration.showNotification(message.title, {
-    body: message.body,
-    icon: '/icon-192.png',
-    tag: message.testId,
-  });
+  event.notification.close();
+  event.waitUntil(
+    focusOrOpenDestination(buildMaintenanceAlertDestination(message.vehicleId, message.scheduleId)),
+  );
 });
+
+async function focusOrOpenDestination(destination: string): Promise<void> {
+  const destinationUrl = new URL(destination, self.location.origin).href;
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
+
+  if (existing) {
+    const navigated = await existing.navigate(destinationUrl);
+    await (navigated ?? existing).focus();
+    return;
+  }
+
+  await self.clients.openWindow(destinationUrl);
+}
+
+async function initializeMessaging(): Promise<void> {
+  const [{ initializeApp }, { getMessaging, onBackgroundMessage }] = await Promise.all([
+    import('firebase/app'),
+    import('firebase/messaging/sw'),
+  ]);
+  const messaging = getMessaging(initializeApp(firebaseConfig));
+
+  onBackgroundMessage(messaging, async (payload) => {
+    const message = parseNotificationMessageData(payload.data);
+    if (!message) return;
+
+    await self.registration.showNotification(message.title, {
+      body: message.body,
+      icon: '/icon-192.png',
+      tag: message.notificationId,
+      data: message,
+    });
+  });
+}
+
+void initializeMessaging();

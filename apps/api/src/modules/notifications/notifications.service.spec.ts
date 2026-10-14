@@ -142,9 +142,10 @@ describe('NotificationsService', () => {
     expect(sendMessage).toHaveBeenCalledWith({
       token: deliveryDevice.token,
       data: {
+        kind: 'test',
+        notificationId: result.testId,
         title: 'Notificación de prueba',
         body: 'Las notificaciones de PitStop están activadas.',
-        testId: result.testId,
       },
     });
     expect(sendMessage.mock.calls[0]?.[0]).not.toHaveProperty('notification');

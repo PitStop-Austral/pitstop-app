@@ -3,7 +3,11 @@ import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getStorage } from 'firebase-admin/storage';
 
-import { FirebaseService } from './firebase.service';
+import {
+  FirebaseService,
+  getFirebaseMessagingErrorCode,
+  isStaleFirebaseMessagingTokenError,
+} from './firebase.service';
 
 jest.mock('firebase-admin/app', () => ({
   initializeApp: jest.fn(() => ({})),
@@ -119,5 +123,28 @@ describe('FirebaseService', () => {
       (initializeApp as jest.Mock).mock.results.at(-1)?.value,
     );
     expect(sendMessage).toHaveBeenCalledWith(message);
+  });
+
+  it('sends a data-only message', async () => {
+    sendMessage.mockResolvedValue('projects/test-project/messages/message-2');
+    const service = new FirebaseService();
+
+    await expect(service.sendDataMessage('fcm-token', { kind: 'maintenance-alert' })).resolves.toBe(
+      'projects/test-project/messages/message-2',
+    );
+    expect(sendMessage).toHaveBeenCalledWith({
+      token: 'fcm-token',
+      data: { kind: 'maintenance-alert' },
+    });
+  });
+
+  it('classifies only sanitized Firebase Messaging error codes', () => {
+    expect(
+      getFirebaseMessagingErrorCode({ code: 'messaging/registration-token-not-registered' }),
+    ).toBe('messaging/registration-token-not-registered');
+    expect(
+      isStaleFirebaseMessagingTokenError({ code: 'messaging/invalid-registration-token' }),
+    ).toBe(true);
+    expect(getFirebaseMessagingErrorCode({ code: 'secret-value' })).toBeUndefined();
   });
 });

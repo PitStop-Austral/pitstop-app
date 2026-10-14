@@ -4,6 +4,24 @@ import { DecodedIdToken, getAuth } from 'firebase-admin/auth';
 import { getMessaging, type Message } from 'firebase-admin/messaging';
 import { getStorage } from 'firebase-admin/storage';
 
+const STALE_MESSAGING_TOKEN_ERROR_CODES = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+]);
+const MESSAGING_ERROR_CODE_PATTERN = /^messaging\/[a-z-]+$/;
+
+export function getFirebaseMessagingErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  return typeof error.code === 'string' && MESSAGING_ERROR_CODE_PATTERN.test(error.code)
+    ? error.code
+    : undefined;
+}
+
+export function isStaleFirebaseMessagingTokenError(error: unknown): boolean {
+  const code = getFirebaseMessagingErrorCode(error);
+  return code !== undefined && STALE_MESSAGING_TOKEN_ERROR_CODES.has(code);
+}
+
 @Injectable()
 export class FirebaseService {
   private readonly app: App;
@@ -40,6 +58,10 @@ export class FirebaseService {
 
   sendMessage(message: Message): Promise<string> {
     return getMessaging(this.app).send(message);
+  }
+
+  sendDataMessage(token: string, data: Record<string, string>): Promise<string> {
+    return this.sendMessage({ token, data });
   }
 
   async deleteFile(path: string): Promise<void> {
