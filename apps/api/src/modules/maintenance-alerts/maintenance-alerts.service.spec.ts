@@ -63,13 +63,11 @@ describe('MaintenanceAlertsService', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-10-13T15:00:00.000Z'));
     findEligibleSchedules = jest.fn().mockResolvedValue([]);
+    let deliveryIndex = 0;
     claimDeliveries = jest.fn().mockImplementation(async (inputs) =>
       inputs.map(
-        (
-          { ownerId: _ownerId, token: _token, ...input }: MaintenanceAlertClaimCandidate,
-          index: number,
-        ) => ({
-          id: `delivery-${index}`,
+        ({ ownerId: _ownerId, token: _token, ...input }: MaintenanceAlertClaimCandidate) => ({
+          id: `delivery-${deliveryIndex++}`,
           ...input,
         }),
       ),
@@ -243,5 +241,41 @@ describe('MaintenanceAlertsService', () => {
     await expect(service.runDailyReview()).rejects.toThrow('database unavailable');
     expect(sendDataMessage).toHaveBeenCalledTimes(1);
     expect(markFailed).not.toHaveBeenCalled();
+  });
+
+  it('leaves later deliveries claimable when a run is interrupted', async () => {
+    const secondScheduleId = '55555555-5555-4555-8555-555555555555';
+    findEligibleSchedules.mockResolvedValue([
+      eligibleSchedule(),
+      eligibleSchedule({
+        id: secondScheduleId,
+        baselineDate: new Date('2026-04-21T00:00:00.000Z'),
+      }),
+    ]);
+    claimDeliveries
+      .mockImplementationOnce(async ([input]) => [
+        { id: 'first-delivery', ...input, notificationDeviceId: input.notificationDeviceId },
+      ])
+      .mockRejectedValueOnce(new Error('database unavailable'));
+
+    await expect(service.runDailyReview()).rejects.toThrow('database unavailable');
+    expect(sendDataMessage).toHaveBeenCalledTimes(1);
+
+    claimDeliveries
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(async ([input]) => [
+        { id: 'second-delivery', ...input, notificationDeviceId: input.notificationDeviceId },
+      ]);
+
+    await expect(service.runDailyReview()).resolves.toEqual({
+      selected: 2,
+      claimed: 1,
+      sent: 1,
+      failed: 0,
+    });
+    expect(sendDataMessage).toHaveBeenCalledTimes(2);
+    expect(sendDataMessage.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({ notificationId: 'second-delivery', scheduleId: secondScheduleId }),
+    );
   });
 });

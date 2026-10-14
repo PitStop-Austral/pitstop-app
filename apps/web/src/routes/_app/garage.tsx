@@ -52,20 +52,40 @@ function GaragePage() {
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const { mutateAsync: setActiveVehicle } = useSetActiveVehicle();
   const schedulesQuery = useSchedules(activeVehicle?.id);
+  const { refetch: refetchSchedules } = schedulesQuery;
+  const { refetch: refetchVehicles } = vehiclesQuery;
   const { openCreateSchedule, openScheduleDetail } = useScheduleSheet();
   const switchingDestination = useRef<string | undefined>(undefined);
   const handledDestination = useRef<string | undefined>(undefined);
+  const refreshedVehiclesDestination = useRef<string | undefined>(undefined);
+  const refreshedSchedulesDestination = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!targetVehicleId || !targetScheduleId) {
       switchingDestination.current = undefined;
       handledDestination.current = undefined;
+      refreshedVehiclesDestination.current = undefined;
+      refreshedSchedulesDestination.current = undefined;
       return;
     }
     if (vehiclesQuery.isPending || currentUserQuery.isPending) return;
 
     const destinationKey = `${targetVehicleId}:${targetScheduleId}`;
     if (handledDestination.current === destinationKey) return;
+    if (refreshedVehiclesDestination.current !== destinationKey) {
+      refreshedVehiclesDestination.current = destinationKey;
+      void refetchVehicles();
+      return;
+    }
+    if (vehiclesQuery.isFetching) return;
+    if (
+      activeVehicle?.id === targetVehicleId &&
+      refreshedSchedulesDestination.current !== destinationKey
+    ) {
+      refreshedSchedulesDestination.current = destinationKey;
+      void refetchSchedules();
+      return;
+    }
     const clearDestination = () =>
       navigate({
         to: '/garage',
@@ -80,6 +100,7 @@ function GaragePage() {
       schedulesQuery.isError ? [] : schedulesQuery.data,
       targetVehicleId,
       targetScheduleId,
+      vehiclesQuery.isFetching || schedulesQuery.isFetching,
     );
     if (resolution.kind === 'waiting') return;
     if (resolution.kind === 'invalid') {
@@ -109,12 +130,16 @@ function GaragePage() {
     currentUserQuery.isPending,
     navigate,
     openScheduleDetail,
+    refetchSchedules,
+    refetchVehicles,
     schedulesQuery.data,
     schedulesQuery.isError,
+    schedulesQuery.isFetching,
     setActiveVehicle,
     targetScheduleId,
     targetVehicleId,
     vehiclesQuery.data,
+    vehiclesQuery.isFetching,
     vehiclesQuery.isPending,
   ]);
 

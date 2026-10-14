@@ -11,7 +11,6 @@ import {
   type EligibleAlertSchedule,
   type MaintenanceAlertClaim,
   type MaintenanceAlertClaimCandidate,
-  type MaintenanceAlertClaimInput,
 } from './maintenance-alerts.repository';
 
 export type MaintenanceAlertRunResult = {
@@ -30,15 +29,10 @@ type DeliveryCandidate = MaintenanceAlertClaimCandidate & {
   status: Exclude<ScheduleStatus, 'on_track'>;
 };
 
-type DeliveryResult = 'sent' | 'failed';
+type DeliveryResult = 'sent' | 'failed' | 'skipped';
 type FirebaseDeliveryResult =
   | { status: 'sent'; messageId: string }
   | { status: 'failed'; error: unknown };
-type DeliveryWork = {
-  claim: MaintenanceAlertClaim;
-  candidate: DeliveryCandidate;
-};
-
 const DELIVERY_CONCURRENCY = 8;
 
 @Injectable()
@@ -53,58 +47,53 @@ export class MaintenanceAlertsService {
   async runDailyReview(): Promise<MaintenanceAlertRunResult> {
     const schedules = await this.maintenanceAlertsRepository.findEligibleSchedules();
     const candidates = this.buildCandidates(schedules, argentinaDateToday());
-    const claims = await this.maintenanceAlertsRepository.claimDeliveries(
-      candidates.map(
-        ({ vehicleId: _vehicleId, title: _title, body: _body, status: _status, ...claim }) => claim,
-      ),
-    );
-    const candidateByKey = new Map(
-      candidates.map((candidate) => [this.deliveryKey(candidate), candidate]),
-    );
-
-    const deliveryGroups = new Map<string, DeliveryWork[]>();
-    for (const claim of claims) {
-      const candidate = candidateByKey.get(this.deliveryKey(claim));
-      if (!candidate) throw new Error('Claimed maintenance alert has no delivery candidate');
-      const group = deliveryGroups.get(claim.installationId) ?? [];
-      group.push({ claim, candidate });
-      deliveryGroups.set(claim.installationId, group);
+    const deliveryGroups = new Map<string, DeliveryCandidate[]>();
+    for (const candidate of candidates) {
+      const group = deliveryGroups.get(candidate.installationId) ?? [];
+      group.push(candidate);
+      deliveryGroups.set(candidate.installationId, group);
     }
 
     const groups = [...deliveryGroups.values()];
-    const deliveryResults: PromiseSettledResult<DeliveryResult>[] = [];
+    const deliveryResults: DeliveryResult[] = [];
     for (let index = 0; index < groups.length; index += DELIVERY_CONCURRENCY) {
-      const batch = await Promise.all(
+      const batch = await Promise.allSettled(
         groups
           .slice(index, index + DELIVERY_CONCURRENCY)
-          .map((group) => this.deliverSequentially(group)),
+          .map((group) => this.claimAndDeliverSequentially(group)),
       );
-      deliveryResults.push(...batch.flat());
+      let infrastructureFailure: PromiseRejectedResult | undefined;
+      for (const result of batch) {
+        if (result.status === 'fulfilled') deliveryResults.push(...result.value);
+        else infrastructureFailure ??= result;
+      }
+      if (infrastructureFailure) throw infrastructureFailure.reason;
     }
 
-    const infrastructureFailure = deliveryResults.find(
-      (result): result is PromiseRejectedResult => result.status === 'rejected',
-    );
-    if (infrastructureFailure) throw infrastructureFailure.reason;
-
-    const results = deliveryResults.flatMap((result) =>
-      result.status === 'fulfilled' ? [result.value] : [],
-    );
     return {
       selected: candidates.length,
-      claimed: claims.length,
-      sent: results.filter((result) => result === 'sent').length,
-      failed: results.filter((result) => result === 'failed').length,
+      claimed: deliveryResults.filter((result) => result !== 'skipped').length,
+      sent: deliveryResults.filter((result) => result === 'sent').length,
+      failed: deliveryResults.filter((result) => result === 'failed').length,
     };
   }
 
-  private async deliverSequentially(
-    group: DeliveryWork[],
-  ): Promise<PromiseSettledResult<DeliveryResult>[]> {
-    const results: PromiseSettledResult<DeliveryResult>[] = [];
-    for (const { claim, candidate } of group) {
-      const [result] = await Promise.allSettled([this.deliver(claim, candidate)]);
-      results.push(result);
+  private async claimAndDeliverSequentially(group: DeliveryCandidate[]): Promise<DeliveryResult[]> {
+    const results: DeliveryResult[] = [];
+    for (const candidate of group) {
+      const {
+        vehicleId: _vehicleId,
+        title: _title,
+        body: _body,
+        status: _status,
+        ...claimInput
+      } = candidate;
+      const [claim] = await this.maintenanceAlertsRepository.claimDeliveries([claimInput]);
+      if (!claim) {
+        results.push('skipped');
+        continue;
+      }
+      results.push(await this.deliver(claim, candidate));
     }
     return results;
   }
@@ -196,11 +185,5 @@ export class MaintenanceAlertsService {
 
   private dueKey(dueDate: Date | null, dueMileage: number | null): string {
     return `${dueDate?.toISOString().slice(0, 10) ?? 'none'}:${dueMileage ?? 'none'}`;
-  }
-
-  private deliveryKey(
-    delivery: Pick<MaintenanceAlertClaimInput, 'scheduleId' | 'installationId' | 'dueKey'>,
-  ): string {
-    return `${delivery.scheduleId}:${delivery.installationId}:${delivery.dueKey}`;
   }
 }

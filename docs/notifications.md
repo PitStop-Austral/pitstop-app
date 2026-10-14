@@ -62,9 +62,11 @@ be started from **Actions > Maintenance alerts > Run workflow** after the workfl
 default branch.
 
 Each eligible frequency is claimed once per installation and calculated due date/kilometre pair.
-Claims are idempotent across repeated or concurrent workflow runs. A failed or interrupted claim is
-not retried for the same due occurrence; changing the frequency or recording maintenance can create
-a new due occurrence and therefore a new alert.
+Claims are idempotent across repeated or concurrent workflow runs. Each delivery is claimed
+immediately before its send; if a run is interrupted, later unclaimed deliveries remain eligible for
+the next run. A claimed delivery in `PENDING` or `FAILED` is not retried for the same due occurrence.
+Changing the frequency or recording maintenance can create a new due occurrence and therefore a new
+alert.
 
 ## Send a test notification
 
@@ -128,3 +130,17 @@ permission granted. Closing a tab is not equivalent to force-stopping the browse
 system, and delivery is not promised after a force stop. For PIT-63, run the workflow manually after
 deployment and record real delivery/navigation evidence for focused, background, and closed states;
 do not treat Firebase acceptance or local tests as delivery evidence.
+
+### PIT-63 local verification - 2026-10-14
+
+The maintenance alert flow was verified with a production web build served by `pnpm preview`, the
+local API and PostgreSQL, and PitStop installed as a Chrome PWA on macOS. Notification
+`59c54255-c73b-4177-b55e-98566f061d5a` produced one foreground toast; **Ver** opened vehicle
+`PIT063` at its `Filtro de aire` frequency and the consumed destination parameters were removed from
+the URL. With the PWA closed, the same setup displayed a native notification and clicking it opened
+the correct vehicle and frequency. A direct `ServiceWorkerRegistration.showNotification` probe also
+confirmed that Chrome and macOS could display native notifications independently of FCM.
+
+GitHub Actions evidence remains pending until this workflow is present on the default branch. After
+merge, run **Actions > Maintenance alerts > Run workflow** against the deployed environment and add
+the workflow URL plus the focused, background, and closed-state results here.

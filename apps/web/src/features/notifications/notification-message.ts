@@ -71,7 +71,9 @@ export function resolveMaintenanceAlertTarget(
   schedules: ReadonlyArray<{ id: string }> | undefined,
   vehicleId: string,
   scheduleId: string,
+  isRefreshing = false,
 ): MaintenanceAlertTargetResolution {
+  if (isRefreshing) return { kind: 'waiting' };
   if (!vehicles) return { kind: 'waiting' };
   if (!vehicles.some((vehicle) => vehicle.id === vehicleId)) return { kind: 'invalid' };
   if (activeVehicleId !== vehicleId) return { kind: 'switch-vehicle', vehicleId };

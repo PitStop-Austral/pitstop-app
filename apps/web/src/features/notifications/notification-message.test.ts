@@ -115,3 +115,17 @@ test('resolves vehicle switching and validates the schedule against the active v
     { kind: 'invalid' },
   );
 });
+
+test('waits for fresh deep-link data before rejecting stale cached results', () => {
+  assert.deepEqual(
+    resolveMaintenanceAlertTarget(
+      'vehicle-a',
+      [{ id: 'vehicle-a' }],
+      [{ id: 'schedule-a' }],
+      'vehicle-b',
+      'schedule-b',
+      true,
+    ),
+    { kind: 'waiting' },
+  );
+});
