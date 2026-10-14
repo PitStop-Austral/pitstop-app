@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { FirebaseService } from './../src/firebase/firebase.service';
+import { RequestLoggingMiddleware } from './../src/modules/request-logging/request-logging.middleware';
 import { PrismaService } from './../src/prisma/prisma.service';
 
 // firebase-admin/auth pulls in the ESM-only `jose` package, which the Node runtime loads fine
@@ -51,6 +52,7 @@ describe('AppModule (e2e)', () => {
   let findNotificationDevice: jest.Mock;
   let deleteConflictingNotificationToken: jest.Mock;
   let upsertNotificationDevice: jest.Mock;
+  let createHttpRequestLog: jest.Mock;
   let sendMessage: jest.Mock;
   let transaction: jest.Mock;
 
@@ -163,6 +165,7 @@ describe('AppModule (e2e)', () => {
     findNotificationDevice = jest.fn();
     deleteConflictingNotificationToken = jest.fn();
     upsertNotificationDevice = jest.fn();
+    createHttpRequestLog = jest.fn().mockResolvedValue(undefined);
     sendMessage = jest.fn();
     delete process.env.NOTIFICATION_TEST_ENABLED;
     transaction = jest.fn(async (callback) =>
@@ -202,6 +205,7 @@ describe('AppModule (e2e)', () => {
       .useValue({
         $queryRaw: queryRaw,
         $transaction: transaction,
+        httpRequestLog: { create: createHttpRequestLog },
         user: { findUnique, create, updateMany: markNotificationPrompt },
         notificationDevice: {
           deleteMany: deleteNotificationDevice,
@@ -227,6 +231,8 @@ describe('AppModule (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(app.get(RequestLoggingMiddleware).use.bind(app.get(RequestLoggingMiddleware)));
+    app.enableCors({ origin: 'http://localhost:3000' });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -248,6 +254,100 @@ describe('AppModule (e2e)', () => {
 
   it('/ (GET)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
+  });
+
+  it('keeps the original HTTP response when request-log persistence fails', async () => {
+    const logger = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    createHttpRequestLog.mockRejectedValueOnce(new Error('database unavailable: password=secret'));
+
+    try {
+      const response = await request(app.getHttpServer()).get('/').expect(200);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(response.text).toBe('Hello World!');
+      expect(logger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'HTTP request log persistence failed',
+          errorCode: 'PERSISTENCE_FAILED',
+        }),
+      );
+      expect(JSON.stringify(logger.mock.calls[0][0])).not.toContain('password=secret');
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
+  it('records one safe row for completed, unmatched, preflight, and malformed requests', async () => {
+    await request(app.getHttpServer()).get('/').expect(200);
+    await request(app.getHttpServer()).get('/vehicles?vehicleId=secret-id').expect(401);
+    authenticate();
+    createVehicle.mockResolvedValue(vehicle);
+    updateActiveUser.mockResolvedValue({ ...authenticatedUser, activeVehicleId: vehicle.id });
+    await request(app.getHttpServer())
+      .post('/vehicles')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        brand: 'Honda',
+        model: 'Civic',
+        year: 2021,
+        fuel: 'NAFTA',
+        plate: 'AF812KM',
+        mileage: 48000,
+      })
+      .expect(201);
+    await request(app.getHttpServer()).get('/missing?token=secret').expect(404);
+    await request(app.getHttpServer())
+      .options('/vehicles')
+      .set('Origin', 'http://localhost:3000')
+      .set('Access-Control-Request-Method', 'GET')
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/vehicles')
+      .set('Content-Type', 'application/json')
+      .send('{')
+      .expect(400);
+    findManyVehicles.mockRejectedValue(new Error('test failure'));
+    await request(app.getHttpServer())
+      .get('/vehicles')
+      .set('Authorization', 'Bearer valid-token')
+      .expect(500);
+    queryRaw.mockRejectedValue(new Error('database unavailable'));
+    await request(app.getHttpServer()).get('/health/db').expect(503);
+    await Promise.resolve();
+
+    const rows = createHttpRequestLog.mock.calls.map(([{ data }]) => data);
+    expect(rows).toHaveLength(8);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ statusCode: 200, route: '/', trafficKind: 'APPLICATION' }),
+        expect.objectContaining({
+          statusCode: 401,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
+        expect.objectContaining({
+          statusCode: 201,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
+        expect.objectContaining({ statusCode: 404, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({ statusCode: 204, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({ statusCode: 400, route: null, trafficKind: 'UNMATCHED' }),
+        expect.objectContaining({
+          statusCode: 500,
+          route: '/vehicles',
+          trafficKind: 'APPLICATION',
+        }),
+        expect.objectContaining({ statusCode: 503, route: '/health/db', trafficKind: 'HEALTH' }),
+      ]),
+    );
+    for (const row of rows) {
+      expect(row).toMatchObject({ outcome: 'COMPLETED' });
+      expect(row).not.toHaveProperty('originalUrl');
+      expect(row).not.toHaveProperty('query');
+      expect(row).not.toHaveProperty('headers');
+      expect(JSON.stringify(row)).not.toContain('secret');
+    }
   });
 
   it('/health/db (GET)', () => {

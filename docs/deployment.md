@@ -12,6 +12,9 @@ deployment per pull request.
   from `../dist/create-app` (the compiled output of `nest build`), not `../src`, because Vercel's
   function bundler doesn't support `emitDecoratorMetadata`, which Nest's DI needs. Vercel Build
   Command: `pnpm db:generate && pnpm build`.
+  - HTTP request-log persistence is registered with `@vercel/functions` `waitUntil`, allowing it to
+    complete after the response without delaying that response. It remains bounded by the function
+    timeout and is best-effort when Neon or the invocation fails.
   - `apps/api/api/` is excluded from the main `tsconfig.json`/`tsconfig.build.json` because it
     imports from `dist/`, which doesn't exist yet when those run. It's still type-checked, just
     separately and after the build: `pnpm --filter api check-types:vercel` (wired into CI right
