@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -254,6 +254,27 @@ describe('AppModule (e2e)', () => {
 
   it('/ (GET)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
+  });
+
+  it('keeps the original HTTP response when request-log persistence fails', async () => {
+    const logger = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    createHttpRequestLog.mockRejectedValueOnce(new Error('database unavailable: password=secret'));
+
+    try {
+      const response = await request(app.getHttpServer()).get('/').expect(200);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(response.text).toBe('Hello World!');
+      expect(logger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'HTTP request log persistence failed',
+          errorCode: 'PERSISTENCE_FAILED',
+        }),
+      );
+      expect(JSON.stringify(logger.mock.calls[0][0])).not.toContain('password=secret');
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   it('records one safe row for completed, unmatched, preflight, and malformed requests', async () => {
