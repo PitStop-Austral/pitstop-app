@@ -13,7 +13,7 @@ vehicle maintenance platform, plus the shared tooling the team uses locally and 
 - **Linting:** Oxlint
 - **Formatting:** Oxfmt
 - **Git hooks:** Husky + lint-staged
-- **Testing:** Jest (API)
+- **Testing:** Node.js test runner (health monitor), Jest (API)
 
 ## Repository layout
 
@@ -160,23 +160,24 @@ Definition of done for repository-level setup work:
 
 Run these commands from the repository root.
 
-| Command             | Purpose                                                              |
-| ------------------- | -------------------------------------------------------------------- |
-| `pnpm dev`          | Run all development servers.                                         |
-| `pnpm dev:web`      | Run only the web application.                                        |
-| `pnpm dev:api`      | Run only the API.                                                    |
-| `pnpm test`         | Run workspace tests.                                                 |
-| `pnpm build`        | Build all applications in dependency order.                          |
-| `pnpm check-types`  | Type-check all workspace packages.                                   |
-| `pnpm db:up`        | Start the local PostgreSQL container.                                |
-| `pnpm db:down`      | Stop the local PostgreSQL container (keeps its data volume).         |
-| `pnpm lint`         | Check the repository with Oxlint.                                    |
-| `pnpm lint:fix`     | Apply Oxlint autofixes where available.                              |
-| `pnpm format`       | Format files in place with Oxfmt.                                    |
-| `pnpm format:check` | Verify formatting without modifying files.                           |
-| `pnpm db:generate`  | Generate Prisma Client from the current schema.                      |
-| `pnpm db:migrate`   | Apply committed migrations and create migrations for schema changes. |
-| `pnpm db:studio`    | Open Prisma Studio for the local database.                           |
+| Command                | Purpose                                                              |
+| ---------------------- | -------------------------------------------------------------------- |
+| `pnpm dev`             | Run all development servers.                                         |
+| `pnpm dev:web`         | Run only the web application.                                        |
+| `pnpm dev:api`         | Run only the API.                                                    |
+| `pnpm test`            | Run health-monitor and workspace tests.                              |
+| `pnpm test:kpi-health` | Run the external health-monitor tests.                               |
+| `pnpm build`           | Build all applications in dependency order.                          |
+| `pnpm check-types`     | Type-check all workspace packages.                                   |
+| `pnpm db:up`           | Start the local PostgreSQL container.                                |
+| `pnpm db:down`         | Stop the local PostgreSQL container (keeps its data volume).         |
+| `pnpm lint`            | Check the repository with Oxlint.                                    |
+| `pnpm lint:fix`        | Apply Oxlint autofixes where available.                              |
+| `pnpm format`          | Format files in place with Oxfmt.                                    |
+| `pnpm format:check`    | Verify formatting without modifying files.                           |
+| `pnpm db:generate`     | Generate Prisma Client from the current schema.                      |
+| `pnpm db:migrate`      | Apply committed migrations and create migrations for schema changes. |
+| `pnpm db:studio`       | Open Prisma Studio for the local database.                           |
 
 API-specific Jest commands:
 

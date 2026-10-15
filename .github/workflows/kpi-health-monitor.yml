@@ -1,0 +1,46 @@
+name: KPI health monitor
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Check API and database health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Run health checks
+        id: health_checks
+        continue-on-error: true
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: node scripts/kpis/health-checks.mjs
+
+      - name: Upload health-check evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: kpi-health-${{ github.run_id }}-${{ github.run_attempt }}
+          path: health-checks.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Fail unhealthy run
+        if: ${{ always() && steps.health_checks.outcome == 'failure' }}
+        run: exit 1
