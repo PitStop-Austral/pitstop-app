@@ -3,6 +3,63 @@
 KPI runs and their results are stored in two tables shared by every indicator, whatever its source.
 Calculation, catalog, and endpoints are not implemented yet; only the storage layer exists.
 
+## External health monitor
+
+GitHub Actions runs `.github/workflows/kpi-health-monitor.yml` at minutes 00 and 30 of every hour
+(`*/30 * * * *`, UTC). It can also be started manually with `workflow_dispatch` after the workflow
+exists on the default branch. The workflow reads the deployed API origin from the repository
+variable `API_BASE_URL`; the value should not end with a health-check path.
+
+The monitor executes `GET /health` followed by `GET /health/db`. Each request has a 15-second
+timeout and is attempted once, even when the other request fails. The first endpoint succeeds only
+with HTTP 200 and `{ "status": "ok" }`; the second succeeds only with HTTP 200 and
+`{ "database": "up" }`. The database check observes whether the PitStop API can run its existing
+`SELECT 1`; it is not an independent connection from GitHub Actions to Neon.
+
+Run the same monitor locally from the repository root:
+
+```bash
+API_BASE_URL=http://localhost:3001 node scripts/kpis/health-checks.mjs
+pnpm test:kpi-health
+```
+
+Local runs use `runId: "local"` and `runAttempt: 1`. GitHub runs use their actual run ID and attempt.
+Every execution writes `health-checks.json` with exactly two ordered checks:
+
+```json
+{
+  "schemaVersion": 1,
+  "runId": "123456789",
+  "runAttempt": 1,
+  "checks": [
+    {
+      "target": "api",
+      "checkedAt": "2026-10-15T12:00:00.000Z",
+      "httpStatus": 200,
+      "ok": true,
+      "errorKind": null
+    },
+    {
+      "target": "db",
+      "checkedAt": "2026-10-15T12:00:01.000Z",
+      "httpStatus": 503,
+      "ok": false,
+      "errorKind": "http_error"
+    }
+  ]
+}
+```
+
+`httpStatus` is null when no HTTP response exists. `errorKind` is `http_error`, `timeout`,
+`connection_error`, `invalid_response`, or null. The artifact deliberately excludes response
+bodies, headers, transport messages, and credentials.
+
+GitHub uploads the file as `kpi-health-<runId>-<runAttempt>` even when a check fails, retains it for
+14 days, and only then marks an unhealthy run as failed. Download it from the workflow run's
+Artifacts section. A force-cancelled run, runner failure, or failure before the script executes may
+prevent artifact creation. Scheduled workflows can also be delayed or skipped by GitHub; an absent
+run is not represented by a fabricated sample.
+
 ## Data model
 
 - `kpi_runs` (`KpiRun`): one calculation run for an environment (`DEV`/`PROD`) and an Argentine day

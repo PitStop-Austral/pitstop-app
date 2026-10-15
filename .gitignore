@@ -15,6 +15,9 @@ node_modules
 # Testing
 coverage
 
+# Generated health-monitor evidence
+/health-checks.json
+
 # Turbo
 .turbo
 
