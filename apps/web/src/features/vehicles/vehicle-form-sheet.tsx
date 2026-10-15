@@ -137,6 +137,15 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
     setPhotoError(undefined);
   }
 
+  function closeAfterVehicleCreated() {
+    if (props.mode === 'add') {
+      setValues(initialValues());
+      setErrors({});
+    }
+
+    handleOpenChange(false);
+  }
+
   function handleOpenChange(open: boolean) {
     if (!open) clearPhotoSelection();
     props.onOpenChange(open);
@@ -171,7 +180,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
           const uploadedPhoto = await uploadVehiclePhoto(vehicle.id, resizedPhoto);
           await setVehiclePhoto.mutateAsync({ id: vehicle.id, input: uploadedPhoto });
         } catch {
-          handleOpenChange(false);
+          closeAfterVehicleCreated();
           toast.error(
             'Guardamos el vehículo, pero no pudimos subir la foto. Probá de nuevo desde Editar.',
           );
@@ -181,7 +190,7 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
         }
       }
 
-      handleOpenChange(false);
+      closeAfterVehicleCreated();
       toast.success(props.mode === 'add' ? 'Vehículo guardado' : 'Cambios guardados');
     } catch (error) {
       if (isApiError(error) && error.status === 409) {
