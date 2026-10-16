@@ -1,0 +1,206 @@
+name: KPI daily publication
+
+on:
+  schedule:
+    # 04:00 UTC = 01:00 in Argentina, once the previous Argentine day has closed.
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Publication environment
+        type: choice
+        options: [dev, prod]
+        default: dev
+        required: true
+      mode:
+        description: collect computes a new batch; recover re-sends a saved one unchanged
+        type: choice
+        options: [collect, recover]
+        default: collect
+        required: true
+      date:
+        description: Closed Argentine day (YYYY-MM-DD). Optional for collect (defaults to yesterday); required for recover
+        type: string
+        required: false
+      source_run_id:
+        description: 'recover only: run ID that holds the batch artifact'
+        type: string
+        required: false
+      artifact_name:
+        description: 'recover only: kpi-batch-<env>-<date>-<run>-<attempt>'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # Resolved without a GitHub Environment, so the next job can select one from it.
+  context:
+    name: Resolve KPI context
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      env: ${{ steps.resolve.outputs.env }}
+      mode: ${{ steps.resolve.outputs.mode }}
+      date: ${{ steps.resolve.outputs.date }}
+      source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+      artifact_name: ${{ steps.resolve.outputs.artifact_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Resolve env, mode, and date
+        id: resolve
+        env:
+          KPI_INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          KPI_INPUT_MODE: ${{ inputs.mode }}
+          KPI_INPUT_DATE: ${{ inputs.date }}
+          KPI_INPUT_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          KPI_INPUT_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          KPI_SCHEDULE_ENV: ${{ vars.KPI_SCHEDULE_ENV }}
+        run: node scripts/kpis/config.mjs
+
+  publish:
+    name: ${{ needs.context.outputs.mode }} ${{ needs.context.outputs.env }} ${{ needs.context.outputs.date }}
+    needs: context
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ needs.context.outputs.env }}
+    # Never cancels a publication in progress. GitHub keeps at most one pending run per group, so a
+    # newer queued run can still replace an older pending one.
+    concurrency:
+      group: kpi-daily-${{ needs.context.outputs.env }}
+      cancel-in-progress: false
+    env:
+      KPI_ENV: ${{ needs.context.outputs.env }}
+      KPI_DATE: ${{ needs.context.outputs.date }}
+      FRAGMENTS_DIR: .tmp/kpis/fragments
+      BATCH_DIR: .tmp/kpis/batch
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # ---- collect ----
+
+      - name: Collect API indicators
+        id: api
+        if: ${{ needs.context.outputs.mode == 'collect' }}
+        continue-on-error: true
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node scripts/kpis/api-snapshot.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/api.json"
+
+      # Integration point for PIT-72; disabled until that collector exists.
+      - name: Collect availability indicators
+        id: availability
+        if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_AVAILABILITY == 'true' }}
+        continue-on-error: true
+        run: node scripts/kpis/availability.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/availability.json"
+
+      # Integration point for PIT-74; disabled until that collector exists.
+      - name: Collect delivery indicators
+        id: delivery
+        if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_DELIVERY == 'true' }}
+        continue-on-error: true
+        run: node scripts/kpis/delivery.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/delivery.json"
+
+      - name: Preserve source fragments
+        if: ${{ always() && needs.context.outputs.mode == 'collect' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: kpi-sources-${{ env.KPI_ENV }}-${{ env.KPI_DATE }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.FRAGMENTS_DIR }}
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Prepare batch
+        id: prepare
+        if: ${{ needs.context.outputs.mode == 'collect' }}
+        env:
+          KPI_ENABLE_AVAILABILITY: ${{ vars.KPI_ENABLE_AVAILABILITY }}
+          KPI_ENABLE_DELIVERY: ${{ vars.KPI_ENABLE_DELIVERY }}
+        run: >-
+          node scripts/kpis/prepare-batch.mjs --date "$KPI_DATE" --env "$KPI_ENV"
+          --fragments-dir "$FRAGMENTS_DIR" --output-dir "$BATCH_DIR"
+
+      # Without READY values nothing is posted, but the diagnostics are kept.
+      - name: Preserve unpublished manifest
+        if: ${{ needs.context.outputs.mode == 'collect' && steps.prepare.outputs.ready == 'false' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: kpi-manifest-${{ env.KPI_ENV }}-${{ env.KPI_DATE }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.BATCH_DIR }}/manifest.json
+          retention-days: 14
+          if-no-files-found: error
+
+      # ---- recover: never runs a collector or prepare-batch ----
+
+      - name: Check selected source run
+        if: ${{ needs.context.outputs.mode == 'recover' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ needs.context.outputs.source_run_id }}
+          ARTIFACT_NAME: ${{ needs.context.outputs.artifact_name }}
+        run: >-
+          node scripts/kpis/recover-batch.mjs check --date "$KPI_DATE" --env "$KPI_ENV"
+          --source-run-id "$SOURCE_RUN_ID" --artifact-name "$ARTIFACT_NAME"
+
+      - name: Download selected batch
+        if: ${{ needs.context.outputs.mode == 'recover' }}
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ needs.context.outputs.artifact_name }}
+          run-id: ${{ needs.context.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ env.BATCH_DIR }}
+
+      - name: Validate recovered batch
+        if: ${{ needs.context.outputs.mode == 'recover' }}
+        env:
+          SOURCE_RUN_ID: ${{ needs.context.outputs.source_run_id }}
+          ARTIFACT_NAME: ${{ needs.context.outputs.artifact_name }}
+        run: >-
+          node scripts/kpis/recover-batch.mjs validate --date "$KPI_DATE" --env "$KPI_ENV"
+          --source-run-id "$SOURCE_RUN_ID" --artifact-name "$ARTIFACT_NAME" --batch-dir "$BATCH_DIR"
+
+      # ---- both modes ----
+
+      - name: Publish and verify batch
+        if: ${{ needs.context.outputs.mode == 'recover' || steps.prepare.outputs.ready == 'true' }}
+        uses: ./.github/actions/publish-kpis
+        with:
+          batch-dir: ${{ env.BATCH_DIR }}
+          date: ${{ env.KPI_DATE }}
+          env: ${{ env.KPI_ENV }}
+        env:
+          KPI_API_BASE_URL: ${{ vars.KPI_API_BASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          PROJECT_KEY: ${{ secrets.PROJECT_KEY }}
+
+      # READY values may have been published, but a failed source still fails the run.
+      - name: Fail on source errors
+        if: >-
+          ${{ always() && needs.context.outputs.mode == 'collect' && (
+            steps.api.outcome == 'failure' ||
+            steps.availability.outcome == 'failure' ||
+            steps.delivery.outcome == 'failure' ||
+            steps.prepare.outputs.has_errors == 'true'
+          ) }}
+        run: |
+          echo "::error::At least one enabled KPI source failed. See the step summary and the kpi-sources artifact."
+          exit 1

@@ -14,6 +14,7 @@
     "dev:api": "turbo run dev -F api",
     "test": "pnpm test:kpi-health && turbo run test",
     "test:kpi-health": "node --test scripts/kpis/*.test.mjs",
+    "test:kpis": "node --test scripts/kpis/tests/*.test.mjs",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt .",

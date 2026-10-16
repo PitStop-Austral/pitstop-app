@@ -18,6 +18,9 @@ coverage
 # Generated health-monitor evidence
 /health-checks.json
 
+# KPI pipeline working directory
+/.tmp/
+
 # Turbo
 .turbo
 

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-21",
+  "env": "dev",
+  "source": "api",
+  "calculationVersion": "1",
+  "sourceRef": {
+    "apiRunId": "2dd1afc0-43bb-4f82-bb16-0b4dbcb892c0"
+  },
+  "measurements": [
+    {
+      "kpi_id": "preventive_rate",
+      "value": 60
+    },
+    {
+      "kpi_id": "service_users_30d",
+      "value": 2
+    },
+    {
+      "kpi_id": "active_vehicles_30d",
+      "value": 3
+    },
+    {
+      "kpi_id": "api_error_rate",
+      "value": 25
+    },
+    {
+      "kpi_id": "api_latency_p95",
+      "value": 19
+    }
+  ],
+  "diagnostics": [
+    {
+      "kpi_id": "preventive_rate",
+      "status": "READY",
+      "windowStart": "2026-09-22T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "numerator": "3",
+      "denominator": "5"
+    },
+    {
+      "kpi_id": "alert_resolution_rate",
+      "status": "NO_DATA",
+      "code": "ALERT_RESOLUTION_EVIDENCE_MISSING",
+      "windowStart": "2026-09-22T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z"
+    },
+    {
+      "kpi_id": "service_users_30d",
+      "status": "READY",
+      "windowStart": "2026-09-22T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "sampleCount": "7"
+    },
+    {
+      "kpi_id": "active_vehicles_30d",
+      "status": "READY",
+      "windowStart": "2026-09-22T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "sampleCount": "7"
+    },
+    {
+      "kpi_id": "api_error_rate",
+      "status": "READY",
+      "windowStart": "2026-10-21T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "numerator": "1",
+      "denominator": "4"
+    },
+    {
+      "kpi_id": "api_latency_p95",
+      "status": "READY",
+      "windowStart": "2026-10-21T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "sampleCount": "20"
+    }
+  ]
+}

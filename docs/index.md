@@ -8,6 +8,7 @@
 - [PWA (installable app)](./pwa.md)
 - [Notification registration](./notifications.md)
 - [KPI persistence](./kpis.md)
+- [KPI daily publication and recovery](./kpis.md#daily-publication-to-supabase)
 
 ## Setup
 

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-21",
+  "env": "dev",
+  "source": "availability",
+  "calculationVersion": "1",
+  "sourceRef": {
+    "healthRunIds": ["123456789"]
+  },
+  "measurements": [
+    {
+      "kpi_id": "api_availability",
+      "value": 75
+    },
+    {
+      "kpi_id": "db_availability",
+      "value": 100
+    }
+  ],
+  "diagnostics": [
+    {
+      "kpi_id": "api_availability",
+      "status": "READY",
+      "windowStart": "2026-10-21T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "numerator": 3,
+      "denominator": 4
+    },
+    {
+      "kpi_id": "db_availability",
+      "status": "READY",
+      "windowStart": "2026-10-21T03:00:00.000Z",
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "numerator": 4,
+      "denominator": 4
+    }
+  ]
+}
