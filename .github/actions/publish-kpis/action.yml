@@ -1,0 +1,67 @@
+name: Publish KPI batch
+description: >-
+  Validate, preserve, publish, and verify an existing KPI batch without recalculating it.
+  The caller checks out the repository, sets up Node, and passes KPI_API_BASE_URL,
+  SUPABASE_PUBLISHABLE_KEY, and PROJECT_KEY through the step env.
+
+inputs:
+  batch-dir:
+    description: Directory holding payload.json and manifest.json.
+    required: true
+  date:
+    description: Expected closed Argentine day (YYYY-MM-DD).
+    required: true
+  env:
+    description: Expected publication env (dev or prod).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Validate batch and payload hash
+      shell: bash
+      env:
+        BATCH_DIR: ${{ inputs.batch-dir }}
+        KPI_DATE: ${{ inputs.date }}
+        KPI_ENV: ${{ inputs.env }}
+      run: node scripts/kpis/publish-batch.mjs validate --batch-dir "$BATCH_DIR" --date "$KPI_DATE" --env "$KPI_ENV"
+
+    - name: Preserve batch before publishing
+      id: backup
+      uses: actions/upload-artifact@v7
+      with:
+        name: kpi-batch-${{ inputs.env }}-${{ inputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ inputs.batch-dir }}
+        retention-days: 14
+        if-no-files-found: error
+
+    - name: Publish batch
+      id: publish
+      shell: bash
+      env:
+        BATCH_DIR: ${{ inputs.batch-dir }}
+        KPI_DATE: ${{ inputs.date }}
+        KPI_ENV: ${{ inputs.env }}
+        KPI_BACKUP_ARTIFACT_ID: ${{ steps.backup.outputs.artifact-id }}
+        RECEIPT_PATH: ${{ runner.temp }}/kpi-receipt/receipt.json
+      run: >-
+        node scripts/kpis/publish-batch.mjs --batch-dir "$BATCH_DIR" --date "$KPI_DATE" --env "$KPI_ENV"
+        --receipt "$RECEIPT_PATH"
+
+    # Runs after a failed POST too: a lost response may still have stored the rows.
+    - name: Verify receiver values
+      if: ${{ always() && steps.publish.outputs.verify == 'true' }}
+      shell: bash
+      env:
+        BATCH_DIR: ${{ inputs.batch-dir }}
+        RECEIPT_PATH: ${{ runner.temp }}/kpi-receipt/receipt.json
+      run: node scripts/kpis/verify-batch.mjs --batch-dir "$BATCH_DIR" --receipt "$RECEIPT_PATH"
+
+    - name: Preserve receipt
+      if: ${{ always() && steps.backup.outcome == 'success' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: kpi-receipt-${{ inputs.env }}-${{ inputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/kpi-receipt/receipt.json
+        retention-days: 14
+        if-no-files-found: warn

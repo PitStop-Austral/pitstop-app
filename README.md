@@ -167,6 +167,7 @@ Run these commands from the repository root.
 | `pnpm dev:api`         | Run only the API.                                                    |
 | `pnpm test`            | Run health-monitor and workspace tests.                              |
 | `pnpm test:kpi-health` | Run the external health-monitor tests.                               |
+| `pnpm test:kpis`       | Run the daily KPI publication pipeline tests.                        |
 | `pnpm build`           | Build all applications in dependency order.                          |
 | `pnpm check-types`     | Type-check all workspace packages.                                   |
 | `pnpm db:up`           | Start the local PostgreSQL container.                                |

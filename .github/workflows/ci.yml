@@ -49,6 +49,9 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Test KPI scripts
+        run: pnpm test:kpis
+
       - name: Build
         run: pnpm build
 
