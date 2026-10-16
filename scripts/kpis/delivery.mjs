@@ -1,89 +1,51 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
+
+import { ContractError, ENVS, SCHEMA_VERSION } from './contracts.mjs';
+import { parseDate } from './dates.mjs';
+import { isDirectRun, runCli, writeJson } from './io.mjs';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MIN_RANGE_MS = 1000;
 const MAX_PAGE_SIZE = 100;
 const WORKFLOW_FILE = 'ci.yml';
 
-class DeliveryError extends Error {
-  constructor(code) {
-    super(code);
-    this.code = code;
-  }
-}
-
-function parseDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) {
-    throw new DeliveryError('INVALID_DATE');
-  }
-
-  const [year, month, day] = value.split('-').map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-
-  if (parsed.toISOString().slice(0, 10) !== value) {
-    throw new DeliveryError('INVALID_DATE');
-  }
-
-  return parsed;
-}
-
 function parseRepository(value) {
   if (!/^[^/\s]+\/[^/\s]+$/.test(value ?? '')) {
-    throw new DeliveryError('INVALID_REPOSITORY');
+    throw new ContractError('INVALID_REPOSITORY');
   }
 
   const [owner, repo] = value.split('/');
   return { owner, repo, repository: value };
 }
 
-function parseArguments(argv) {
-  if (argv.length !== 8) {
-    throw new DeliveryError('INVALID_ARGUMENTS');
-  }
+function parseArguments(argv, env) {
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      date: { type: 'string' },
+      env: { type: 'string' },
+      output: { type: 'string' },
+      repository: { type: 'string' },
+    },
+    strict: true,
+  });
 
-  const values = {};
+  if (!values.output?.trim()) throw new ContractError('MISSING_OUTPUT');
+  if (!ENVS.includes(values.env)) throw new ContractError('INVALID_ENV');
 
-  for (let index = 0; index < argv.length; index += 2) {
-    const name = argv[index];
-    const value = argv[index + 1];
-
-    if (!['--date', '--env', '--output', '--repository'].includes(name) || value === undefined) {
-      throw new DeliveryError('INVALID_ARGUMENTS');
-    }
-
-    const key = name.slice(2);
-    if (values[key] !== undefined) {
-      throw new DeliveryError('INVALID_ARGUMENTS');
-    }
-    values[key] = value;
-  }
-
-  if (Object.keys(values).length !== 4) {
-    throw new DeliveryError('INVALID_ARGUMENTS');
-  }
-
-  parseDate(values.date);
-  parseRepository(values.repository);
-
-  if (!['dev', 'prod'].includes(values.env)) {
-    throw new DeliveryError('INVALID_ENV');
-  }
-  if (!values.output.trim()) {
-    throw new DeliveryError('INVALID_ARGUMENTS');
-  }
-
-  return values;
+  return {
+    date: parseDate(values.date),
+    env: values.env,
+    output: values.output,
+    repository: values.repository?.trim() || env.GITHUB_REPOSITORY?.trim() || null,
+  };
 }
 
 export function reportingWindow(date) {
-  const closedDay = parseDate(date);
-  const windowEnd = new Date(
-    Date.UTC(closedDay.getUTCFullYear(), closedDay.getUTCMonth(), closedDay.getUTCDate() + 1, 3),
-  );
+  const windowEnd = new Date(`${parseDate(date)}T03:00:00.000Z`);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 1);
   const windowStart = new Date(windowEnd.getTime() - 30 * DAY_MS);
 
   return { windowStart: windowStart.toISOString(), windowEnd: windowEnd.toISOString() };
@@ -184,7 +146,7 @@ function isMergedInsideWindow(pullRequest, windowStart, windowEnd) {
 function createGitHubClient({ fetchImplementation, repository, token }) {
   const { owner, repo } = parseRepository(repository);
 
-  async function request(path, query = {}) {
+  async function request(path, query = {}, missingCode = null) {
     const url = new URL(`https://api.github.com/repos/${owner}/${repo}/${path}`);
     for (const [key, value] of Object.entries(query)) {
       url.searchParams.set(key, String(value));
@@ -200,23 +162,32 @@ function createGitHubClient({ fetchImplementation, repository, token }) {
         },
       });
     } catch {
-      throw new DeliveryError('GITHUB_REQUEST_FAILED');
+      throw new ContractError('GITHUB_REQUEST_FAILED');
     }
 
+    if (missingCode && (response.status === 404 || response.status === 410)) {
+      throw new ContractError(missingCode);
+    }
     if (!response.ok) {
-      throw new DeliveryError('GITHUB_REQUEST_FAILED');
+      throw new ContractError('GITHUB_REQUEST_FAILED');
     }
 
     try {
       return await response.json();
     } catch {
-      throw new DeliveryError('GITHUB_INVALID_RESPONSE');
+      throw new ContractError('GITHUB_INVALID_RESPONSE');
     }
   }
 
   return {
     getPullRequest: (number) => request(`pulls/${number}`),
-    getRunAttempt: (runId) => request(`actions/runs/${runId}/attempts/1`),
+    getRunAttempt: async (runId) => {
+      const attempt = await request(`actions/runs/${runId}/attempts/1`, {}, 'EVIDENCE_INCOMPLETE');
+      if (typeof attempt.conclusion !== 'string' || typeof attempt.updated_at !== 'string') {
+        throw new ContractError('EVIDENCE_INCOMPLETE');
+      }
+      return attempt;
+    },
     listClosedPullRequests: (page) =>
       request('pulls', {
         direction: 'desc',
@@ -241,12 +212,12 @@ async function listWorkflowRunRange(client, startMs, endMs) {
   const firstPage = await client.listWorkflowRuns(start, end, 1);
 
   if (!Number.isInteger(firstPage.total_count) || !Array.isArray(firstPage.workflow_runs)) {
-    throw new DeliveryError('GITHUB_INVALID_RESPONSE');
+    throw new ContractError('GITHUB_INVALID_RESPONSE');
   }
 
   if (firstPage.total_count >= 1000) {
     if (endMs - startMs <= MIN_RANGE_MS) {
-      throw new DeliveryError('WINDOW_TRUNCATED');
+      throw new ContractError('WINDOW_TRUNCATED');
     }
 
     const middle = startMs + Math.floor((endMs - startMs) / 2);
@@ -259,7 +230,7 @@ async function listWorkflowRunRange(client, startMs, endMs) {
   for (let page = 2; runs.length < firstPage.total_count; page += 1) {
     const response = await client.listWorkflowRuns(start, end, page);
     if (!Array.isArray(response.workflow_runs) || response.workflow_runs.length === 0) {
-      throw new DeliveryError('GITHUB_INVALID_RESPONSE');
+      throw new ContractError('GITHUB_INVALID_RESPONSE');
     }
     runs.push(...response.workflow_runs);
   }
@@ -273,7 +244,7 @@ async function listAllClosedPullRequests(client) {
   for (let page = 1; ; page += 1) {
     const response = await client.listClosedPullRequests(page);
     if (!Array.isArray(response)) {
-      throw new DeliveryError('GITHUB_INVALID_RESPONSE');
+      throw new ContractError('GITHUB_INVALID_RESPONSE');
     }
     pullRequests.push(...response);
     if (response.length < MAX_PAGE_SIZE) {
@@ -282,7 +253,7 @@ async function listAllClosedPullRequests(client) {
   }
 }
 
-function diagnostic(kpiId, result, window, diagnosticCode = null) {
+function diagnostic(kpiId, result, window, code = null) {
   const value = {
     kpi_id: kpiId,
     status: result.status,
@@ -291,8 +262,9 @@ function diagnostic(kpiId, result, window, diagnosticCode = null) {
     numerator: result.numerator ?? null,
     denominator: result.denominator ?? null,
     sampleCount: result.sampleCount,
-    diagnosticCode,
   };
+
+  if (code) value.code = code;
 
   if (result.excluded) {
     value.excluded = result.excluded;
@@ -328,7 +300,7 @@ async function collectCiResult(client, window) {
     for (const run of runMap.values()) {
       const pullNumber = run.pull_requests?.[0]?.number;
       if (!Number.isInteger(pullNumber)) {
-        throw new DeliveryError('EVIDENCE_INCOMPLETE');
+        throw new ContractError('EVIDENCE_INCOMPLETE');
       }
 
       if (!pullRequestCache.has(pullNumber)) {
@@ -351,7 +323,7 @@ async function collectCiResult(client, window) {
     };
   } catch (error) {
     return {
-      code: error instanceof DeliveryError ? error.code : 'GITHUB_REQUEST_FAILED',
+      code: error instanceof ContractError ? error.code : 'GITHUB_REQUEST_FAILED',
       references: { pullRequestNumbers: [...pullRequestCache.keys()], runIds: [...runMap.keys()] },
       result: errorResult(),
     };
@@ -378,7 +350,7 @@ async function collectMergeResult(client, window) {
     };
   } catch (error) {
     return {
-      code: error instanceof DeliveryError ? error.code : 'GITHUB_REQUEST_FAILED',
+      code: error instanceof ContractError ? error.code : 'GITHUB_REQUEST_FAILED',
       references: { pullRequestNumbers: [] },
       result: errorResult(),
     };
@@ -408,12 +380,12 @@ export async function collectDeliveryKpis({
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     source: 'delivery',
     date,
     env,
     calculationVersion: 'delivery-v1',
-    references: {
+    sourceRef: {
       repository,
       workflow: WORKFLOW_FILE,
       ci: ci.references,
@@ -432,12 +404,12 @@ function createErrorReport({ date, env, repository, code }) {
   const result = errorResult();
 
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     source: 'delivery',
     date,
     env,
     calculationVersion: 'delivery-v1',
-    references: { repository, workflow: WORKFLOW_FILE, ci: {}, merge: {} },
+    sourceRef: { repository, workflow: WORKFLOW_FILE, ci: {}, merge: {} },
     measurements: [],
     diagnostics: [
       diagnostic('ci_success_rate', result, window, code),
@@ -452,36 +424,31 @@ export async function executeDeliveryKpis({
   fetchImplementation = globalThis.fetch,
   outputPath,
 } = {}) {
-  const options = parseArguments(argv);
-  const report = env.GITHUB_TOKEN?.trim()
-    ? await collectDeliveryKpis({
+  const options = parseArguments(argv, env);
+  const errorCode = options.repository
+    ? env.GITHUB_TOKEN?.trim()
+      ? null
+      : 'GITHUB_TOKEN_REQUIRED'
+    : 'GITHUB_REPOSITORY_REQUIRED';
+  const report = errorCode
+    ? createErrorReport({
+        date: options.date,
+        env: options.env,
+        repository: options.repository,
+        code: errorCode,
+      })
+    : await collectDeliveryKpis({
         date: options.date,
         env: options.env,
         fetchImplementation,
         repository: options.repository,
         token: env.GITHUB_TOKEN,
-      })
-    : createErrorReport({
-        date: options.date,
-        env: options.env,
-        repository: options.repository,
-        code: 'GITHUB_TOKEN_REQUIRED',
       });
-  const resolvedOutputPath = outputPath ?? resolve(options.output);
-  await mkdir(dirname(resolvedOutputPath), { recursive: true });
-  await writeFile(resolvedOutputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeJson(outputPath ?? options.output, report);
 
   return report.diagnostics.some(({ status }) => status === 'ERROR') ? 1 : 0;
 }
 
-const isDirectRun =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
-
-if (isDirectRun) {
-  try {
-    process.exitCode = await executeDeliveryKpis();
-  } catch (error) {
-    console.error(error instanceof DeliveryError ? error.code : 'DELIVERY_KPI_FAILED');
-    process.exitCode = 1;
-  }
+if (isDirectRun(import.meta.url)) {
+  await runCli(() => executeDeliveryKpis());
 }

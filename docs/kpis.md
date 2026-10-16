@@ -168,6 +168,10 @@ node scripts/kpis/availability.mjs --date 2026-10-21 --env dev --output .tmp/kpi
 node scripts/kpis/delivery.mjs --date 2026-10-21 --env dev --output .tmp/kpis/fragments/delivery.json
 ```
 
+The delivery collector uses GitHub's automatic `GITHUB_REPOSITORY` and `GITHUB_TOKEN` variables;
+`--repository owner/repo` is available for a local override. A workflow that enables it needs
+`actions: read` and `pull-requests: read` permissions.
+
 The last two are integration points for PIT-72 and PIT-74. Valid examples for each source are in
 `scripts/kpis/tests/fixtures/` and `validateFragment` in `contracts.mjs` is the authoritative check:
 
@@ -218,6 +222,7 @@ These checks need the dev receiver credentials and are not covered by the local 
 - **Actions run.** After the workflow reaches the default branch, run `mode=collect` in dev (it must
   fail visibly while PIT-69's endpoint is missing) and `mode=recover` against a saved batch. The full
   API → Supabase dev path is verified in PIT-75.
+
 ## Data model
 
 - `kpi_runs` (`KpiRun`): one calculation run for an environment (`DEV`/`PROD`) and an Argentine day
