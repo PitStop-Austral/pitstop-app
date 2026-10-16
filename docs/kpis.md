@@ -1,7 +1,8 @@
 # KPI persistence
 
 KPI runs and their results are stored in two tables shared by every indicator, whatever its source.
-Calculation, catalog, and endpoints are not implemented yet; only the storage layer exists.
+The API calculates and preserves the six business and HTTP indicators described below. Catalog and
+external publication remain separate concerns.
 
 ## External health monitor
 
@@ -86,13 +87,49 @@ Database constraints (CHECKs added by hand to the Prisma migration, since Prisma
 
 Diagnostics and error codes must never hold raw messages, credentials, or personal data.
 
-## API module
+## Daily KPI endpoint
 
-`KpisModule` (`apps/api/src/modules/kpis/`) is internal: no controller or service. It exports
-`KpisRepository`:
+The reporting runner calls:
+
+```http
+GET /internal/kpis/daily?date=2026-10-21&env=dev
+Authorization: Bearer <CRON_SECRET>
+```
+
+`date` must be a real, closed Argentine calendar day in strict `YYYY-MM-DD` format. `env` must be
+`dev` or `prod`; it labels the snapshot and does not select a database. The controller is public to
+the global Firebase guard but protected by `CronSecretGuard`, so it never synchronizes an end user.
+Responses use `Cache-Control: no-store`.
+
+The daily window uses `America/Argentina/Buenos_Aires`, with an inclusive start and exclusive end.
+For example, 2026-10-21 is `2026-10-21T03:00:00.000Z` through
+`2026-10-22T03:00:00.000Z`. The 30-day window contains that day and the preceding 29 days.
+
+| KPI                     | Source and rule                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `preventive_rate`       | `MANTENIMIENTO` services / all services by service date over 30 days, recorded before the cutoff.                  |
+| `alert_resolution_rate` | `NO_DATA` with `ALERT_RESOLUTION_EVIDENCE_MISSING` until PIT-73 adds resolution evidence.                          |
+| `service_users_30d`     | Distinct vehicle owners with a maintenance whose `createdAt` is in the 30-day window.                              |
+| `active_vehicles_30d`   | Distinct vehicles with a maintenance whose `createdAt` is in the 30-day window.                                    |
+| `api_error_rate`        | Completed application requests returning 5xx / all completed application requests for the day.                     |
+| `api_latency_p95`       | Nearest-rank p95 duration of the same completed application requests: position `ceil(0.95 × n)`, counted from one. |
+
+Successful empty count queries produce a measured zero. Ratios without a denominator and percentiles
+without samples produce `NO_DATA`, never a fabricated zero. `HEALTH`, `REPORTING`, `UNMATCHED`, and
+`ABORTED` traffic is excluded from HTTP measurements; the response reports the aggregated aborted count
+separately on both HTTP diagnostics.
+
+The response contains all six ordered diagnostics and only `READY` measurements. Evidence counts are
+serialized as decimal strings. A successful evaluation is persisted as one `COMPLETED` run with six
+results even when some results are `NO_DATA`. A source failure attempts to preserve a `FAILED` run with
+safe `ERROR` diagnostics and returns 503; a persistence failure also returns 503 without claiming that a
+snapshot was saved.
+
+`KpisModule` (`apps/api/src/modules/kpis/`) keeps Prisma access in `KpisRepository`:
 
 - `createRunWithResults` creates a run and all its results in one nested create, which Prisma runs
   as a single transaction: if any result fails, nothing is persisted.
+- `readDailySources` reads the related source data in a `RepeatableRead` transaction.
 - `findRunById` returns the run with its results ordered by `kpiId`, or `null`.
 
 A duplicate run UUID or a duplicate `(runId, kpiId)` fails with Prisma `P2002` and never overwrites
@@ -110,20 +147,20 @@ TEST_DATABASE_URL="$TEST_DATABASE_URL" pnpm --filter api test:e2e:db
 
 ## HTTP request logs
 
-The API records one `HttpRequestLog` row for every observed HTTP request. This data is evidence for
-future KPI work; PitStop does not yet expose, aggregate, filter, or delete these records.
+The API records one `HttpRequestLog` row for every observed HTTP request. The daily KPI endpoint
+aggregates the eligible application rows; PitStop does not otherwise expose or delete these records.
 
 ### Stored fields
 
-| Field                  | Meaning                                                                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `method`               | Observed HTTP method.                                                                                                                             |
-| `route`                | Resolved Express route template, or `null` when no safe route is resolved.                                                                        |
-| `startedAt`, `endedAt` | UTC timestamps at middleware entry and response completion or interruption.                                                                       |
-| `durationMs`           | Non-negative elapsed milliseconds measured with a monotonic clock. It ends before telemetry persistence starts.                                   |
-| `statusCode`           | Final HTTP status for completed responses; `null` for interrupted ones.                                                                           |
-| `outcome`              | `COMPLETED` after `finish`, or `ABORTED` after `close` without a preceding finish.                                                                |
-| `trafficKind`          | `HEALTH` for `/health` routes, `UNMATCHED` without a safe route, otherwise `APPLICATION`. `REPORTING` is reserved for future reporting endpoints. |
+| Field                  | Meaning                                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `method`               | Observed HTTP method.                                                                                                             |
+| `route`                | Resolved Express route template, or `null` when no safe route is resolved.                                                        |
+| `startedAt`, `endedAt` | UTC timestamps at middleware entry and response completion or interruption.                                                       |
+| `durationMs`           | Non-negative elapsed milliseconds measured with a monotonic clock. It ends before telemetry persistence starts.                   |
+| `statusCode`           | Final HTTP status for completed responses; `null` for interrupted ones.                                                           |
+| `outcome`              | `COMPLETED` after `finish`, or `ABORTED` after `close` without a preceding finish.                                                |
+| `trafficKind`          | `HEALTH` for `/health` routes, `REPORTING` for `/internal/kpis/daily`, `UNMATCHED` without a safe route, otherwise `APPLICATION`. |
 
 The log deliberately excludes raw URLs, query strings, route parameters, request bodies, IP addresses,
 cookies, and authorization headers.

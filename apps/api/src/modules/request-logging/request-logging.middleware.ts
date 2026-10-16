@@ -88,6 +88,7 @@ export class RequestLoggingMiddleware implements NestMiddleware {
   private trafficKind(route: string | null): HttpRequestTrafficKind {
     if (route === null) return 'UNMATCHED';
     if (route === '/health' || route === '/health/db') return 'HEALTH';
+    if (route === '/internal/kpis/daily') return 'REPORTING';
     return 'APPLICATION';
   }
 }

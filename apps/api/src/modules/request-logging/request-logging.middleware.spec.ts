@@ -67,6 +67,23 @@ describe('RequestLoggingMiddleware', () => {
     );
   });
 
+  it('classifies the daily KPI endpoint as reporting traffic', async () => {
+    const { response } = observe({
+      method: 'GET',
+      route: { path: '/internal/kpis/daily' },
+    });
+
+    response.emit('finish');
+    await Promise.resolve();
+
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: '/internal/kpis/daily',
+        trafficKind: 'REPORTING',
+      }),
+    );
+  });
+
   it('keeps the original response intact when persistence fails', async () => {
     const logger = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     record.mockRejectedValue(new Error('database unavailable: password=secret'));
