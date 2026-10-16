@@ -218,7 +218,6 @@ These checks need the dev receiver credentials and are not covered by the local 
 - **Actions run.** After the workflow reaches the default branch, run `mode=collect` in dev (it must
   fail visibly while PIT-69's endpoint is missing) and `mode=recover` against a saved batch. The full
   API → Supabase dev path is verified in PIT-75.
-
 ## Data model
 
 - `kpi_runs` (`KpiRun`): one calculation run for an environment (`DEV`/`PROD`) and an Argentine day
