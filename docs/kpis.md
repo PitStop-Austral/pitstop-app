@@ -169,6 +169,10 @@ node scripts/kpis/availability.mjs --date 2026-10-21 --env dev --output .tmp/kpi
 node scripts/kpis/delivery.mjs --date 2026-10-21 --env dev --output .tmp/kpis/fragments/delivery.json
 ```
 
+The delivery collector uses GitHub's automatic `GITHUB_REPOSITORY` and `GITHUB_TOKEN` variables;
+`--repository owner/repo` is available for a local override. A workflow that enables it needs
+`actions: read` and `pull-requests: read` permissions.
+
 The last two are integration points for PIT-72 and PIT-74. Valid examples for each source are in
 `scripts/kpis/tests/fixtures/` and `validateFragment` in `contracts.mjs` is the authoritative check:
 

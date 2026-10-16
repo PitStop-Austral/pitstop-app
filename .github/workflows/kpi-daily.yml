@@ -34,6 +34,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 
 jobs:
   # Resolved without a GitHub Environment, so the next job can select one from it.
@@ -117,6 +118,8 @@ jobs:
         id: delivery
         if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_DELIVERY == 'true' }}
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/kpis/delivery.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/delivery.json"
 
       - name: Preserve source fragments
