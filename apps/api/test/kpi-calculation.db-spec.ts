@@ -60,12 +60,36 @@ describe('Daily KPI source aggregation (PostgreSQL)', () => {
         name: 'KPI Source Two',
       },
     });
-    userIds.push(firstUser.id, secondUser.id);
+    const beforeStartUser = await prisma.user.create({
+      data: {
+        firebaseUid: `kpi-source-${randomUUID()}`,
+        email: `kpi-source-${randomUUID()}@example.com`,
+        name: 'KPI Before Start',
+      },
+    });
+    const atStartUser = await prisma.user.create({
+      data: {
+        firebaseUid: `kpi-source-${randomUUID()}`,
+        email: `kpi-source-${randomUUID()}@example.com`,
+        name: 'KPI At Start',
+      },
+    });
+    const atEndUser = await prisma.user.create({
+      data: {
+        firebaseUid: `kpi-source-${randomUUID()}`,
+        email: `kpi-source-${randomUUID()}@example.com`,
+        name: 'KPI At End',
+      },
+    });
+    userIds.push(firstUser.id, secondUser.id, beforeStartUser.id, atStartUser.id, atEndUser.id);
 
     for (const [ownerId, plate] of [
       [firstUser.id, `K${randomUUID().slice(0, 6)}`],
       [firstUser.id, `K${randomUUID().slice(0, 6)}`],
       [secondUser.id, `K${randomUUID().slice(0, 6)}`],
+      [beforeStartUser.id, `K${randomUUID().slice(0, 6)}`],
+      [atStartUser.id, `K${randomUUID().slice(0, 6)}`],
+      [atEndUser.id, `K${randomUUID().slice(0, 6)}`],
     ] as const) {
       const vehicle = await prisma.vehicle.create({
         data: {
@@ -147,6 +171,30 @@ describe('Daily KPI source aggregation (PostgreSQL)', () => {
           mileage: 10_008,
           createdAt: windows.windowEnd,
         },
+        {
+          vehicleId: vehicleIds[3],
+          type: 'Created before active window',
+          category: 'ARREGLO',
+          date: new Date('2040-09-21T00:00:00.000Z'),
+          mileage: 10_009,
+          createdAt: new Date(windows.thirtyDayWindowStart.getTime() - 1),
+        },
+        {
+          vehicleId: vehicleIds[4],
+          type: 'Created at active window start',
+          category: 'ARREGLO',
+          date: new Date('2040-09-21T00:00:00.000Z'),
+          mileage: 10_010,
+          createdAt: windows.thirtyDayWindowStart,
+        },
+        {
+          vehicleId: vehicleIds[5],
+          type: 'Created at active window end',
+          category: 'ARREGLO',
+          date: new Date('2040-09-21T00:00:00.000Z'),
+          mileage: 10_011,
+          createdAt: windows.windowEnd,
+        },
       ],
     });
 
@@ -205,8 +253,8 @@ describe('Daily KPI source aggregation (PostgreSQL)', () => {
     expect(sources).toMatchObject({
       preventiveCount: 3n,
       maintenanceCount: 5n,
-      serviceUserCount: 2n,
-      activeVehicleCount: 3n,
+      serviceUserCount: 3n,
+      activeVehicleCount: 4n,
     });
     expect(sources.httpRequests).toHaveLength(5);
 
