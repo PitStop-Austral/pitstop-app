@@ -25,6 +25,7 @@ describe('Daily KPI endpoint (e2e)', () => {
   let verifyIdToken: jest.Mock;
 
   const sourceData = {
+    alertResolution: { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: true },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -77,7 +78,7 @@ describe('Daily KPI endpoint (e2e)', () => {
     expect(response.body).toMatchObject({
       date: '2026-10-21',
       env: 'dev',
-      calculationVersion: '1',
+      calculationVersion: '2',
       measurements: expect.arrayContaining([
         { kpi_id: 'preventive_rate', value: 60 },
         { kpi_id: 'api_error_rate', value: 50 },

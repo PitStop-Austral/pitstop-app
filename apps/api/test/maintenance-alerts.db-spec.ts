@@ -50,7 +50,17 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
   });
 
   afterAll(async () => {
-    if (vehicleId) await prisma.vehicle.delete({ where: { id: vehicleId } });
+    if (vehicleId) {
+      const schedules = await prisma.schedule.findMany({
+        where: { vehicleId },
+        select: { id: true },
+      });
+      await prisma.maintenanceAlertDelivery.deleteMany({
+        where: { scheduleId: { in: schedules.map(({ id }) => id) } },
+      });
+      await prisma.maintenanceAlertCycle.deleteMany({ where: { vehicleId } });
+      await prisma.vehicle.delete({ where: { id: vehicleId } });
+    }
     if (userId) await prisma.user.delete({ where: { id: userId } });
     if (prisma) await prisma.$disconnect();
   });
@@ -78,11 +88,13 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
       scheduleId: schedule.id,
       installationId,
       notificationDeviceId: device.id,
-      dueKey: '2026-01-01:60000',
-      dueDate: new Date('2026-01-01T00:00:00.000Z'),
+      dueKey: 'none:60000',
+      dueDate: null,
       dueMileage: 60000,
       ownerId: userId,
       token: device.token,
+      vehicleId,
+      normalizedType: 'aceite',
     };
 
     const concurrentClaims = await Promise.all([
@@ -96,7 +108,11 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
     expect(firstClaim).toBeDefined();
     await repository.markSent(firstClaim!.id, 'projects/test/messages/accepted');
 
-    const secondDue = { ...firstDue, dueKey: '2026-01-01:70000', dueMileage: 70000 };
+    await prisma.schedule.update({
+      where: { id: schedule.id },
+      data: { baselineMileage: 60000 },
+    });
+    const secondDue = { ...firstDue, dueKey: 'none:70000', dueMileage: 70000 };
     await expect(repository.claimDeliveries([secondDue])).resolves.toHaveLength(1);
 
     await prisma.notificationDevice.delete({ where: { id: device.id } });
@@ -137,11 +153,13 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
       scheduleId: schedule.id,
       installationId,
       notificationDeviceId: device.id,
-      dueKey: '2026-01-01:60000',
-      dueDate: new Date('2026-01-01T00:00:00.000Z'),
+      dueKey: 'none:60000',
+      dueDate: null,
       dueMileage: 60000,
       ownerId: userId,
       token,
+      vehicleId,
+      normalizedType: 'filtros',
     };
 
     let releaseDelivery = () => {};
@@ -155,6 +173,7 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
 
     const delivery = repository.withCurrentDeviceLock(
       { id: device.id, ownerId: userId, installationId, token },
+      candidate,
       async () => {
         signalLocked();
         await deliveryCanFinish;
@@ -177,11 +196,83 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
     await expect(delivery).resolves.toBe('sent');
     await transfer;
 
-    await expect(
-      repository.claimDeliveries([{ ...candidate, dueKey: '2026-01-01:70000' }]),
-    ).resolves.toEqual([]);
+    await expect(repository.claimDeliveries([candidate])).resolves.toEqual([]);
 
     await prisma.notificationDevice.delete({ where: { id: device.id } });
     await prisma.user.delete({ where: { id: newOwner.id } });
+  });
+
+  it('rejects a stale candidate after its schedule changes or is deleted', async () => {
+    const installationId = randomUUID();
+    const schedule = await prisma.schedule.create({
+      data: {
+        vehicleId,
+        type: 'Correa',
+        normalizedType: 'correa',
+        intervalKm: 10000,
+        baselineDate: new Date('2026-01-01T00:00:00.000Z'),
+        baselineMileage: 50000,
+      },
+    });
+    const device = await prisma.notificationDevice.create({
+      data: { userId, installationId, token: `stale-schedule-${randomUUID()}` },
+    });
+    const candidate: MaintenanceAlertClaimCandidate = {
+      scheduleId: schedule.id,
+      installationId,
+      notificationDeviceId: device.id,
+      dueKey: 'none:60000',
+      dueDate: null,
+      dueMileage: 60000,
+      ownerId: userId,
+      token: device.token,
+      vehicleId,
+      normalizedType: 'correa',
+    };
+
+    let releaseDelivery = () => {};
+    const deliveryCanFinish = new Promise<void>((resolve) => {
+      releaseDelivery = resolve;
+    });
+    let signalLocked = () => {};
+    const scheduleLocked = new Promise<void>((resolve) => {
+      signalLocked = resolve;
+    });
+    const delivery = repository.withCurrentDeviceLock(
+      {
+        id: device.id,
+        ownerId: userId,
+        installationId,
+        token: device.token,
+      },
+      candidate,
+      async () => {
+        signalLocked();
+        await deliveryCanFinish;
+        return 'sent';
+      },
+    );
+    await scheduleLocked;
+    const scheduleUpdate = prisma.schedule.update({
+      where: { id: schedule.id },
+      data: { intervalKm: 20000 },
+    });
+    await expect(
+      Promise.race([
+        scheduleUpdate.then(() => 'updated'),
+        new Promise<string>((resolve) => setTimeout(() => resolve('waiting'), 50)),
+      ]),
+    ).resolves.toBe('waiting');
+    releaseDelivery();
+    await expect(delivery).resolves.toBe('sent');
+    await scheduleUpdate;
+    await expect(repository.claimDeliveries([candidate])).resolves.toEqual([]);
+
+    await prisma.schedule.delete({ where: { id: schedule.id } });
+    await expect(repository.claimDeliveries([candidate])).resolves.toEqual([]);
+    await expect(
+      prisma.maintenanceAlertDelivery.count({ where: { scheduleId: schedule.id } }),
+    ).resolves.toBe(0);
+    await prisma.notificationDevice.delete({ where: { id: device.id } });
   });
 });

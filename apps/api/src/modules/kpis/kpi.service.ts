@@ -17,7 +17,7 @@ import { buildKpiWindows, dateKeyInArgentina, type KpiWindows } from './kpi-date
 import type { DailyKpiEnvironment, DailyKpisQueryDto } from './dto/daily-kpis-query.dto';
 import { KpisRepository, type CreateKpiRunData } from './kpis.repository';
 
-const CALCULATION_VERSION = '1';
+const CALCULATION_VERSION = '2';
 
 export type KpiClock = { now(): Date };
 export const KPI_CLOCK = Symbol('KPI_CLOCK');

@@ -3,6 +3,11 @@ import { FuelType, Prisma, TransmissionType, User } from '../../generated/prisma
 import { PrismaService } from '../../prisma/prisma.service';
 import { argentinaDate } from '../schedules/schedule-date';
 import { DEFAULT_SCHEDULES, normalizeScheduleType } from '../schedules/schedule-type';
+import {
+  cancelAlertCycles,
+  lockVehicleSchedules,
+  observeAlertMileage,
+} from '../maintenance-alerts/alert-cycle-evidence.repository';
 
 const vehicleSelect = {
   id: true,
@@ -113,10 +118,17 @@ export class VehiclesRepository {
   }
 
   async update(id: string, data: UpdateVehicleData): Promise<VehicleView> {
-    return this.prisma.vehicle.update({
-      where: { id },
-      data,
-      select: vehicleSelect,
+    return this.prisma.$transaction(async (transaction) => {
+      if (data.mileage !== undefined) await lockVehicleSchedules(transaction, id);
+      const vehicle = await transaction.vehicle.update({
+        where: { id },
+        data,
+        select: vehicleSelect,
+      });
+      if (data.mileage !== undefined) {
+        await observeAlertMileage(transaction, id, data.mileage, new Date());
+      }
+      return vehicle;
     });
   }
 
@@ -133,18 +145,23 @@ export class VehiclesRepository {
     ownerId: string,
     mileage: number,
   ): Promise<VehicleView | null> {
-    const [vehicle] = await this.prisma.vehicle.updateManyAndReturn({
-      where: { id, ownerId, mileage: { lte: mileage } },
-      data: { mileage },
-      select: vehicleSelect,
+    return this.prisma.$transaction(async (transaction) => {
+      await lockVehicleSchedules(transaction, id);
+      const [vehicle] = await transaction.vehicle.updateManyAndReturn({
+        where: { id, ownerId, mileage: { lte: mileage } },
+        data: { mileage },
+        select: vehicleSelect,
+      });
+      if (vehicle) await observeAlertMileage(transaction, id, mileage, new Date());
+      return vehicle ?? null;
     });
-
-    return vehicle ?? null;
   }
 
   async deleteAndReassignActive(ownerId: string, vehicleId: string): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT 1 FROM "User" WHERE id = ${ownerId} FOR UPDATE`;
+      await lockVehicleSchedules(transaction, vehicleId);
+      await cancelAlertCycles(transaction, { vehicleId }, new Date());
 
       const user = await transaction.user.findUnique({
         where: { id: ownerId },

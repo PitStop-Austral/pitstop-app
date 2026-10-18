@@ -11,7 +11,6 @@ model Schedule {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   vehicle        Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  alertDeliveries MaintenanceAlertDelivery[]
 
   @@unique([vehicleId, normalizedType])
 }

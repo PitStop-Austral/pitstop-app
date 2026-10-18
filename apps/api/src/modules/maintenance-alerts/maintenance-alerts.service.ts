@@ -6,6 +6,7 @@ import {
 } from '../../firebase/firebase.service';
 import { computeScheduleDue, type ScheduleStatus } from '../schedules/schedule-due';
 import { argentinaDateToday } from '../schedules/schedule-date';
+import { normalizeScheduleType } from '../schedules/schedule-type';
 import {
   MaintenanceAlertsRepository,
   type EligibleAlertSchedule,
@@ -24,6 +25,7 @@ type DeliveryCandidate = MaintenanceAlertClaimCandidate & {
   notificationDeviceId: string;
   token: string;
   vehicleId: string;
+  normalizedType: string;
   title: string;
   body: string;
   status: Exclude<ScheduleStatus, 'on_track'>;
@@ -31,7 +33,7 @@ type DeliveryCandidate = MaintenanceAlertClaimCandidate & {
 
 type DeliveryResult = 'sent' | 'failed' | 'skipped';
 type FirebaseDeliveryResult =
-  | { status: 'sent'; messageId: string }
+  | { status: 'sent'; messageId: string; sentAt: Date }
   | { status: 'failed'; error: unknown };
 const DELIVERY_CONCURRENCY = 8;
 
@@ -81,13 +83,7 @@ export class MaintenanceAlertsService {
   private async claimAndDeliverSequentially(group: DeliveryCandidate[]): Promise<DeliveryResult[]> {
     const results: DeliveryResult[] = [];
     for (const candidate of group) {
-      const {
-        vehicleId: _vehicleId,
-        title: _title,
-        body: _body,
-        status: _status,
-        ...claimInput
-      } = candidate;
+      const { title: _title, body: _body, status: _status, ...claimInput } = candidate;
       const [claim] = await this.maintenanceAlertsRepository.claimDeliveries([claimInput]);
       if (!claim) {
         results.push('skipped');
@@ -126,6 +122,7 @@ export class MaintenanceAlertsService {
         ownerId: owner.id,
         token: device.token,
         vehicleId: schedule.vehicle.id,
+        normalizedType: normalizeScheduleType(schedule.type),
         title,
         body,
         status,
@@ -144,6 +141,7 @@ export class MaintenanceAlertsService {
         installationId: candidate.installationId,
         token: candidate.token,
       },
+      candidate,
       async (): Promise<FirebaseDeliveryResult> => {
         try {
           const messageId = await this.firebaseService.sendDataMessage(candidate.token, {
@@ -155,7 +153,7 @@ export class MaintenanceAlertsService {
             scheduleId: candidate.scheduleId,
             status: candidate.status,
           });
-          return { status: 'sent', messageId };
+          return { status: 'sent', messageId, sentAt: new Date() };
         } catch (error) {
           return { status: 'failed', error };
         }
@@ -179,7 +177,15 @@ export class MaintenanceAlertsService {
       return 'failed';
     }
 
-    await this.maintenanceAlertsRepository.markSent(claim.id, result.messageId);
+    await this.maintenanceAlertsRepository.markSent(claim.id, result.messageId, {
+      scheduleId: candidate.scheduleId,
+      dueKey: candidate.dueKey,
+      dueDate: candidate.dueDate,
+      dueMileage: candidate.dueMileage,
+      vehicleId: candidate.vehicleId,
+      normalizedType: candidate.normalizedType,
+      sentAt: result.sentAt,
+    });
     return 'sent';
   }
 

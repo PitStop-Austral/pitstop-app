@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { MaintenanceAlertDeliveryStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { addCalendarMonths } from '../schedules/schedule-due';
+import { normalizeScheduleType } from '../schedules/schedule-type';
+import {
+  ALERT_RESOLUTION_RULE_VERSION,
+  reconcileAlertResolutions,
+} from './alert-cycle-evidence.repository';
 
 const eligibleScheduleSelect = {
   id: true,
@@ -39,6 +45,17 @@ const claimedDeliverySelect = {
   dueKey: true,
 } satisfies Prisma.MaintenanceAlertDeliverySelect;
 
+const currentAlertScheduleSelect = {
+  id: true,
+  vehicleId: true,
+  normalizedType: true,
+  intervalMonths: true,
+  intervalKm: true,
+  baselineDate: true,
+  baselineMileage: true,
+  vehicle: { select: { ownerId: true } },
+} satisfies Prisma.ScheduleSelect;
+
 export type EligibleAlertSchedule = Prisma.ScheduleGetPayload<{
   select: typeof eligibleScheduleSelect;
 }>;
@@ -55,6 +72,8 @@ export type MaintenanceAlertClaimInput = {
 export type MaintenanceAlertClaimCandidate = MaintenanceAlertClaimInput & {
   ownerId: string;
   token: string;
+  vehicleId: string;
+  normalizedType: string;
 };
 
 export type LockedNotificationDevice = {
@@ -67,6 +86,24 @@ export type LockedNotificationDevice = {
 export type MaintenanceAlertClaim = Prisma.MaintenanceAlertDeliveryGetPayload<{
   select: typeof claimedDeliverySelect;
 }>;
+
+type CurrentAlertSchedule = Prisma.ScheduleGetPayload<{
+  select: typeof currentAlertScheduleSelect;
+}>;
+
+type AlertScheduleContext = Pick<
+  MaintenanceAlertClaimCandidate,
+  'scheduleId' | 'dueKey' | 'vehicleId' | 'normalizedType' | 'ownerId'
+>;
+
+export type SentAlertEvidence = Pick<
+  MaintenanceAlertClaimInput,
+  'scheduleId' | 'dueKey' | 'dueDate' | 'dueMileage'
+> & {
+  vehicleId: string;
+  normalizedType: string;
+  sentAt?: Date;
+};
 
 @Injectable()
 export class MaintenanceAlertsRepository {
@@ -91,8 +128,12 @@ export class MaintenanceAlertsRepository {
 
     return this.prisma.$transaction(async (transaction) => {
       const deviceIds = [...new Set(data.map(({ notificationDeviceId }) => notificationDeviceId))];
+      const scheduleIds = [...new Set(data.map(({ scheduleId }) => scheduleId))];
       await transaction.$queryRaw(
         Prisma.sql`SELECT "id" FROM "NotificationDevice" WHERE "id"::text IN (${Prisma.join(deviceIds)}) FOR UPDATE`,
+      );
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Schedule" WHERE "id"::text IN (${Prisma.join(scheduleIds)}) ORDER BY "id" FOR UPDATE`,
       );
       const currentDevices = await transaction.notificationDevice.findMany({
         where: { id: { in: deviceIds } },
@@ -108,18 +149,30 @@ export class MaintenanceAlertsRepository {
           }),
         ),
       );
-      const claims = data.flatMap(({ ownerId, token, ...claim }) =>
-        currentDeviceKeys.has(
+      const currentSchedules = await transaction.schedule.findMany({
+        where: { id: { in: scheduleIds } },
+        select: currentAlertScheduleSelect,
+      });
+      const schedulesById = new Map(currentSchedules.map((schedule) => [schedule.id, schedule]));
+      const claims = data.flatMap(({ ownerId, token, vehicleId, normalizedType, ...claim }) => {
+        const schedule = schedulesById.get(claim.scheduleId);
+        const deviceIsCurrent = currentDeviceKeys.has(
           this.deviceKey({
             id: claim.notificationDeviceId,
             ownerId,
             installationId: claim.installationId,
             token,
           }),
-        )
-          ? [claim]
-          : [],
-      );
+        );
+        const scheduleIsCurrent = this.scheduleMatchesContext(schedule, {
+          scheduleId: claim.scheduleId,
+          dueKey: claim.dueKey,
+          vehicleId,
+          normalizedType,
+          ownerId,
+        });
+        return deviceIsCurrent && scheduleIsCurrent ? [claim] : [];
+      });
       if (claims.length === 0) return [];
 
       return transaction.maintenanceAlertDelivery.createManyAndReturn({
@@ -132,6 +185,7 @@ export class MaintenanceAlertsRepository {
 
   withCurrentDeviceLock<T>(
     device: LockedNotificationDevice,
+    scheduleContext: AlertScheduleContext,
     action: () => Promise<T>,
   ): Promise<T | null> {
     return this.prisma.$transaction(
@@ -147,20 +201,119 @@ export class MaintenanceAlertsRepository {
             FOR UPDATE
           `,
         );
-        return rows.length === 0 ? null : action();
+        if (rows.length === 0) return null;
+        await transaction.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Schedule" WHERE "id" = ${scheduleContext.scheduleId}::uuid FOR UPDATE`,
+        );
+        const schedule = await transaction.schedule.findUnique({
+          where: { id: scheduleContext.scheduleId },
+          select: currentAlertScheduleSelect,
+        });
+        return this.scheduleMatchesContext(schedule, scheduleContext) ? action() : null;
       },
       { timeout: 30_000 },
     );
   }
 
-  async markSent(id: string, fcmMessageId: string): Promise<void> {
-    await this.prisma.maintenanceAlertDelivery.update({
-      where: { id },
-      data: {
-        status: MaintenanceAlertDeliveryStatus.SENT,
-        fcmMessageId,
-        finishedAt: new Date(),
-      },
+  async markSent(id: string, fcmMessageId: string, evidence?: SentAlertEvidence): Promise<void> {
+    const sentAt = evidence?.sentAt ?? new Date();
+    await this.prisma.$transaction(async (transaction) => {
+      const delivery = await transaction.maintenanceAlertDelivery.findUniqueOrThrow({
+        where: { id },
+      });
+      if (delivery.status === MaintenanceAlertDeliveryStatus.SENT) return;
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Schedule" WHERE "id" = ${delivery.scheduleId}::uuid FOR UPDATE`,
+      );
+      const schedule = await transaction.schedule.findUnique({
+        where: { id: delivery.scheduleId },
+        select: {
+          vehicleId: true,
+          normalizedType: true,
+          intervalMonths: true,
+          intervalKm: true,
+          baselineDate: true,
+          baselineMileage: true,
+          vehicle: { select: { mileage: true } },
+        },
+      });
+      const observedAt = new Date();
+      const snapshot =
+        evidence ??
+        (schedule
+          ? {
+              scheduleId: delivery.scheduleId,
+              dueKey: delivery.dueKey,
+              dueDate: delivery.dueDate,
+              dueMileage: delivery.dueMileage,
+              vehicleId: schedule.vehicleId,
+              normalizedType: schedule.normalizedType,
+            }
+          : null);
+      if (!snapshot) {
+        // A pre-migration delivery whose schedule disappeared cannot be reconstructed.
+        await transaction.maintenanceAlertDelivery.update({
+          where: { id },
+          data: { status: MaintenanceAlertDeliveryStatus.SENT, fcmMessageId, finishedAt: sentAt },
+        });
+        return;
+      }
+      const currentDueKey = schedule
+        ? `${schedule.intervalMonths === null ? 'none' : addCalendarMonths(schedule.baselineDate, schedule.intervalMonths).toISOString().slice(0, 10)}:${schedule.intervalKm === null ? 'none' : schedule.baselineMileage + schedule.intervalKm}`
+        : null;
+      const canceled =
+        !schedule ||
+        currentDueKey !== snapshot.dueKey ||
+        normalizeScheduleType(schedule.normalizedType) !== snapshot.normalizedType;
+      await transaction.maintenanceAlertCycle.createMany({
+        data: [
+          {
+            scheduleId: snapshot.scheduleId,
+            dueKey: snapshot.dueKey,
+            vehicleId: snapshot.vehicleId,
+            normalizedType: snapshot.normalizedType,
+            dueDate: snapshot.dueDate,
+            dueMileage: snapshot.dueMileage,
+            firstSentAt: sentAt,
+            mileageReachedAt:
+              snapshot.dueMileage !== null &&
+              schedule &&
+              schedule.vehicle.mileage >= snapshot.dueMileage
+                ? observedAt
+                : null,
+            canceledAt: canceled ? observedAt : null,
+            ruleVersion: ALERT_RESOLUTION_RULE_VERSION,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      const cycle = await transaction.maintenanceAlertCycle.findUniqueOrThrow({
+        where: { scheduleId_dueKey: { scheduleId: snapshot.scheduleId, dueKey: snapshot.dueKey } },
+      });
+      await transaction.maintenanceAlertCycle.updateMany({
+        where: { id: cycle.id, firstSentAt: { gt: sentAt } },
+        data: { firstSentAt: sentAt },
+      });
+      if (
+        snapshot.dueMileage !== null &&
+        schedule &&
+        schedule.vehicle.mileage >= snapshot.dueMileage
+      ) {
+        await transaction.maintenanceAlertCycle.updateMany({
+          where: { id: cycle.id, mileageReachedAt: null },
+          data: { mileageReachedAt: observedAt },
+        });
+      }
+      await transaction.maintenanceAlertDelivery.update({
+        where: { id },
+        data: {
+          cycleId: cycle.id,
+          status: MaintenanceAlertDeliveryStatus.SENT,
+          fcmMessageId,
+          finishedAt: sentAt,
+        },
+      });
+      await reconcileAlertResolutions(transaction, snapshot.vehicleId);
     });
   }
 
@@ -181,5 +334,29 @@ export class MaintenanceAlertsRepository {
 
   private deviceKey(device: LockedNotificationDevice): string {
     return `${device.id}:${device.ownerId}:${device.installationId}:${device.token}`;
+  }
+
+  private dueKey(dueDate: Date | null, dueMileage: number | null): string {
+    return `${dueDate?.toISOString().slice(0, 10) ?? 'none'}:${dueMileage ?? 'none'}`;
+  }
+
+  private scheduleMatchesContext(
+    schedule: CurrentAlertSchedule | null | undefined,
+    context: AlertScheduleContext,
+  ): boolean {
+    if (!schedule) return false;
+    const currentDueKey = this.dueKey(
+      schedule.intervalMonths === null
+        ? null
+        : addCalendarMonths(schedule.baselineDate, schedule.intervalMonths),
+      schedule.intervalKm === null ? null : schedule.baselineMileage + schedule.intervalKm,
+    );
+    return (
+      schedule.id === context.scheduleId &&
+      schedule.vehicleId === context.vehicleId &&
+      schedule.vehicle.ownerId === context.ownerId &&
+      normalizeScheduleType(schedule.normalizedType) === context.normalizedType &&
+      currentDueKey === context.dueKey
+    );
   }
 }

@@ -9,6 +9,7 @@ const windows = buildKpiWindows('2026-10-21');
 
 function sources(overrides: Partial<DailyKpiSources> = {}): DailyKpiSources {
   return {
+    alertResolution: { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: true },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -19,6 +20,40 @@ function sources(overrides: Partial<DailyKpiSources> = {}): DailyKpiSources {
 }
 
 describe('daily KPI calculations', () => {
+  it.each([
+    [{ timelyCount: 8n, evaluableCount: 10n, evidenceMissing: false }, 'READY', 80, null],
+    [{ timelyCount: 0n, evaluableCount: 3n, evidenceMissing: false }, 'READY', 0, null],
+    [
+      { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: false },
+      'NO_DATA',
+      null,
+      'NO_EVALUABLE_ALERT_CYCLES',
+    ],
+    [
+      { timelyCount: 8n, evaluableCount: 10n, evidenceMissing: true },
+      'NO_DATA',
+      null,
+      'ALERT_RESOLUTION_EVIDENCE_MISSING',
+    ],
+  ])(
+    'calculates alert resolution from complete evidence',
+    (alertResolution, status, value, diagnosticCode) => {
+      const result = calculateDailyKpis(sources({ alertResolution }), windows).results[1];
+      expect(result).toMatchObject({
+        kpiId: 'alert_resolution_rate',
+        status,
+        value,
+        diagnosticCode,
+      });
+      if (status === 'READY') {
+        expect(result).toMatchObject({
+          numerator: alertResolution.timelyCount,
+          denominator: alertResolution.evaluableCount,
+        });
+      }
+    },
+  );
+
   it('calculates the six ordered KPI results from known data', () => {
     const httpRequests: DailyHttpRequestSource[] = Array.from({ length: 20 }, (_, index) => ({
       outcome: 'COMPLETED' as const,

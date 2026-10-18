@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ALERT_RESOLUTION_RULE_VERSION } from '../maintenance-alerts/alert-cycle-evidence.repository';
 import type { DailyKpiSources } from './kpi-calculations';
+import { dateKeyInArgentina } from './kpi-dates';
 
 const runWithResults = {
   results: { orderBy: { kpiId: 'asc' } },
@@ -34,39 +36,85 @@ export class KpisRepository {
       `${thirtyDayWindowStart.toISOString().slice(0, 10)}T00:00:00.000Z`,
     );
     const maintenanceDateEnd = new Date(`${windowEnd.toISOString().slice(0, 10)}T00:00:00.000Z`);
+    const closedDay = dateKeyInArgentina(new Date(windowEnd.getTime() - 1));
 
     return this.prisma.$transaction(
       async (transaction) => {
-        const [maintenanceCount, preventiveCount, activeMaintenances, httpRequests] =
-          await Promise.all([
-            transaction.maintenance.count({
-              where: {
-                date: { gte: maintenanceDateStart, lt: maintenanceDateEnd },
-                createdAt: { lt: windowEnd },
-              },
-            }),
-            transaction.maintenance.count({
-              where: {
-                category: 'MANTENIMIENTO',
-                date: { gte: maintenanceDateStart, lt: maintenanceDateEnd },
-                createdAt: { lt: windowEnd },
-              },
-            }),
-            transaction.maintenance.findMany({
-              where: { createdAt: { gte: thirtyDayWindowStart, lt: windowEnd } },
-              distinct: ['vehicleId'],
-              select: { vehicleId: true, vehicle: { select: { ownerId: true } } },
-            }),
-            transaction.httpRequestLog.findMany({
-              where: {
-                trafficKind: 'APPLICATION',
-                startedAt: { gte: windowStart, lt: windowEnd },
-              },
-              select: { outcome: true, statusCode: true, durationMs: true },
-            }),
-          ]);
+        const [
+          maintenanceCount,
+          preventiveCount,
+          activeMaintenances,
+          httpRequests,
+          alertCounts,
+          missingDeliveries,
+        ] = await Promise.all([
+          transaction.maintenance.count({
+            where: {
+              date: { gte: maintenanceDateStart, lt: maintenanceDateEnd },
+              createdAt: { lt: windowEnd },
+            },
+          }),
+          transaction.maintenance.count({
+            where: {
+              category: 'MANTENIMIENTO',
+              date: { gte: maintenanceDateStart, lt: maintenanceDateEnd },
+              createdAt: { lt: windowEnd },
+            },
+          }),
+          transaction.maintenance.findMany({
+            where: { createdAt: { gte: thirtyDayWindowStart, lt: windowEnd } },
+            distinct: ['vehicleId'],
+            select: { vehicleId: true, vehicle: { select: { ownerId: true } } },
+          }),
+          transaction.httpRequestLog.findMany({
+            where: {
+              trafficKind: 'APPLICATION',
+              startedAt: { gte: windowStart, lt: windowEnd },
+            },
+            select: { outcome: true, statusCode: true, durationMs: true },
+          }),
+          transaction.$queryRaw<
+            Array<{ evaluableCount: bigint; timelyCount: bigint; incompleteCount: bigint }>
+          >(
+            Prisma.sql`
+                SELECT
+                  COUNT(*) FILTER (
+                    WHERE ("dueDate" <= ${closedDay}::date OR "mileageReachedAt" < ${windowEnd})
+                  )::bigint AS "evaluableCount",
+                  COUNT(*) FILTER (
+                    WHERE ("dueDate" <= ${closedDay}::date OR "mileageReachedAt" < ${windowEnd})
+                      AND "resolvedAt" < ${windowEnd}
+                      AND ("dueDate" IS NULL OR "resolvedServiceDate" <= "dueDate")
+                      AND ("dueMileage" IS NULL OR "resolvedServiceMileage" <= "dueMileage")
+                  )::bigint AS "timelyCount",
+                  COUNT(*) FILTER (
+                    WHERE "ruleVersion" <> ${ALERT_RESOLUTION_RULE_VERSION}
+                      OR ("dueDate" IS NULL AND "dueMileage" IS NULL)
+                      OR ("resolvedAt" IS NOT NULL AND
+                        ("resolvedMaintenanceId" IS NULL OR "resolvedServiceDate" IS NULL OR "resolvedServiceMileage" IS NULL))
+                  )::bigint AS "incompleteCount"
+                FROM "MaintenanceAlertCycle"
+                WHERE "firstSentAt" < ${windowEnd}
+                  AND ("canceledAt" IS NULL OR "canceledAt" >= ${windowEnd})
+              `,
+          ),
+          transaction.maintenanceAlertDelivery.count({
+            where: {
+              status: 'SENT',
+              finishedAt: { lt: windowEnd },
+              cycleId: null,
+            },
+          }),
+        ]);
+
+        const alertCount = alertCounts[0];
 
         return {
+          alertResolution: {
+            timelyCount: alertCount?.timelyCount ?? 0n,
+            evaluableCount: alertCount?.evaluableCount ?? 0n,
+            evidenceMissing: missingDeliveries > 0 || (alertCount?.incompleteCount ?? 0n) > 0n,
+          },
           preventiveCount: BigInt(preventiveCount),
           maintenanceCount: BigInt(maintenanceCount),
           serviceUserCount: BigInt(

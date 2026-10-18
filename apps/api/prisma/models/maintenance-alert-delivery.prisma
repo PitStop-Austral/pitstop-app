@@ -7,6 +7,7 @@ enum MaintenanceAlertDeliveryStatus {
 model MaintenanceAlertDelivery {
   id                   String                         @id @default(uuid()) @db.Uuid
   scheduleId           String                         @db.Uuid
+  cycleId              String?                        @db.Uuid
   installationId       String                         @db.Uuid
   notificationDeviceId String?                        @db.Uuid
   dueKey               String
@@ -17,10 +18,11 @@ model MaintenanceAlertDelivery {
   errorCode            String?
   attemptedAt          DateTime                       @default(now()) @db.Timestamptz(3)
   finishedAt           DateTime?                      @db.Timestamptz(3)
-  schedule             Schedule                       @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  cycle                MaintenanceAlertCycle?         @relation(fields: [cycleId], references: [id], onDelete: SetNull)
   notificationDevice   NotificationDevice?            @relation(fields: [notificationDeviceId], references: [id], onDelete: SetNull)
 
   @@unique([scheduleId, installationId, dueKey])
   @@index([notificationDeviceId])
+  @@index([cycleId])
   @@index([status, attemptedAt])
 }

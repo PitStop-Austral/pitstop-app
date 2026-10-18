@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { cancelAlertCycles } from '../maintenance-alerts/alert-cycle-evidence.repository';
 import { argentinaDate } from './schedule-date';
 import { normalizeScheduleType } from './schedule-type';
 
@@ -106,6 +107,7 @@ export class SchedulesRepository {
       try {
         return await this.prisma.$transaction(
           async (transaction) => {
+            await transaction.$queryRaw`SELECT "id" FROM "Schedule" WHERE "id" = ${data.id}::uuid FOR UPDATE`;
             const current = await transaction.schedule.findFirstOrThrow({
               where: { id: data.id, vehicleId: data.vehicleId },
               select: scheduleSelect,
@@ -132,7 +134,7 @@ export class SchedulesRepository {
               };
             }
 
-            return transaction.schedule.update({
+            const updated = await transaction.schedule.update({
               where: { id: data.id, vehicleId: data.vehicleId },
               data: {
                 type: update.type,
@@ -143,6 +145,14 @@ export class SchedulesRepository {
               },
               select: scheduleSelect,
             });
+            if (
+              normalizeScheduleType(current.type) !== update.normalizedType ||
+              current.intervalMonths !== update.intervalMonths ||
+              current.intervalKm !== update.intervalKm
+            ) {
+              await cancelAlertCycles(transaction, { scheduleId: data.id }, new Date());
+            }
+            return updated;
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
@@ -157,7 +167,11 @@ export class SchedulesRepository {
   }
 
   async delete(vehicleId: string, id: string): Promise<void> {
-    await this.prisma.schedule.delete({ where: { id, vehicleId } });
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT "id" FROM "Schedule" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      await cancelAlertCycles(transaction, { scheduleId: id }, new Date());
+      await transaction.schedule.delete({ where: { id, vehicleId } });
+    });
   }
 
   async recalculateBaselines(

@@ -55,7 +55,8 @@ describe('VehiclesRepository', () => {
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
-        vehicle: { create, delete: deleteVehicle, findFirst: findReplacement },
+        vehicle: { create, delete: deleteVehicle, findFirst: findReplacement, updateManyAndReturn },
+        maintenanceAlertCycle: { updateMany: jest.fn() },
         schedule: { createMany: createSchedules },
         user: { findUnique: findTransactionUser, update: updateUser },
       }),
@@ -225,7 +226,7 @@ describe('VehiclesRepository', () => {
     await expect(repository.deleteAndReassignActive('user-1', vehicle.id)).resolves.toBeUndefined();
 
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(lockOwner).toHaveBeenCalledTimes(1);
+    expect(lockOwner).toHaveBeenCalledTimes(2);
     expect(deleteVehicle).toHaveBeenCalledWith({ where: { id: vehicle.id } });
     expect(findReplacement).toHaveBeenCalledWith({
       where: { ownerId: 'user-1' },
