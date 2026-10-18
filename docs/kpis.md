@@ -61,6 +61,60 @@ Artifacts section. A force-cancelled run, runner failure, or failure before the 
 prevent artifact creation. Scheduled workflows can also be delayed or skipped by GitHub; an absent
 run is not represented by a fabricated sample.
 
+### Daily availability
+
+`scripts/kpis/availability.mjs` turns those artifacts into `api_availability` and
+`db_availability` for one closed Argentine day (`[<date>T03:00Z, <date+1>T03:00Z)`) and writes a
+`source: "availability"` fragment. It never publishes, writes to Neon, or assigns a run id.
+
+```bash
+GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=PitStop-Austral/pitstop-app KPI_HEALTH_MONITOR_ENV=prod \
+  node scripts/kpis/availability.mjs --date 2026-10-17 --env prod --output .tmp/kpis/fragments/availability.json
+```
+
+| Variable                 | Purpose                                                                  |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `GITHUB_TOKEN`           | Reads runs and artifacts (`actions: read`). Never written to the output. |
+| `GITHUB_REPOSITORY`      | `owner/repo`; `--repository` overrides it.                               |
+| `KPI_HEALTH_MONITOR_ENV` | Env the monitor's `API_BASE_URL` belongs to. Today `prod`.               |
+
+The artifact records no env, and the monitor watches a single deployment. `API_BASE_URL` is
+`https://pitstop-api.vercel.app`, which is the Production alias. Any `--env` other than
+`KPI_HEALTH_MONITOR_ENV` yields `ERROR` / `ENV_NOT_MONITORED` without reading GitHub.
+
+Rules:
+
+- Refuses a day that has not closed yet (`DAY_NOT_CLOSED`): it exits 1 and writes no fragment, like
+  `config.mjs`.
+- Lists completed `kpi-health-monitor.yml` runs created from one hour before the day opens until it
+  closes. For each run it uses the **first attempt** whose `kpi-health-<run>-<attempt>` artifact is a
+  valid report, so a rerun never adds a second sample. Reruns of runs created before that hour are
+  not found.
+- A report is valid only if `schemaVersion`, `runId`, and `runAttempt` match the artifact name, it
+  holds exactly one `api` and one `db` check, and `ok: true` comes with HTTP 200 and no
+  `errorKind`. Invalid, expired, and missing artifacts are excluded and counted
+  (`invalidArtifacts`, `expiredArtifacts`, `runsWithoutArtifact`) for runs created inside the day;
+  runs from the lookback hour count toward the previous day. They are not failures.
+- Both checks of a run are placed, in the day and in a 30-minute slot, by the run's earliest
+  `checkedAt`, so `api` and `db` always cover the same runs. Per slot, the earliest scheduled run
+  counts. The value is `100 × ok slots / observed slots`. `coverage` reports `expectedSlots` (48),
+  `observedSlots`, and the ISO starts of `missingSlots`. 36/48 successes is 75 %; 18/24 is also
+  75 %, but with only half the day covered.
+- Only a `schedule` run's **attempt 1** fills a slot. Manual (`workflow_dispatch`) runs and reruns
+  (attempt > 1, always started by a person) are reported in `manual` and excluded from the value,
+  because people tend to start them when they already suspect an outage.
+- No scheduled sample → `NO_DATA`. A GitHub read failure → `ERROR` (`GITHUB_REQUEST_FAILED` /
+  `GITHUB_INVALID_RESPONSE`) and exit 1; any other failure is `ERROR` / `UNEXPECTED_ERROR`.
+  `db_availability` measures database access through the API, not Neon directly.
+- The GitHub request helper and the workflow-run paginator are shared with `delivery.mjs` through
+  `scripts/kpis/github.mjs`.
+
+Real evidence, prod, 2026-10-17. GitHub ran 7 of the 48 scheduled slots, and all 7 artifacts were
+read. `api_availability` = `db_availability` = 100 (7/7), with `observedSlots: 7` and 41
+`missingSlots`, which matches `gh run list --workflow kpi-health-monitor.yml` for that day. The step
+in `kpi-daily.yml` still needs `GITHUB_TOKEN` and `KPI_HEALTH_MONITOR_ENV` in its env before
+`KPI_ENABLE_AVAILABILITY` is turned on (PIT-75).
+
 ## Daily publication to Supabase
 
 `.github/workflows/kpi-daily.yml` sends each closed Argentine day's KPI batch to the shared Supabase
@@ -75,15 +129,15 @@ The `context` job resolves the env before any GitHub Environment is selected: th
 other value fails the run. The `publish` job then selects the `dev` or `prod` GitHub Environment,
 which must define:
 
-| Name                       | Kind     | Purpose                                                                  |
-| -------------------------- | -------- | ------------------------------------------------------------------------ |
-| `API_BASE_URL`             | variable | PitStop API origin of that deployment (same name the other jobs use).    |
-| `CRON_SECRET`              | secret   | Service credential for `GET /internal/kpis/daily`.                       |
-| `KPI_API_BASE_URL`         | variable | Supabase receiver origin, e.g. `https://<ref>.supabase.co`.              |
-| `SUPABASE_PUBLISHABLE_KEY` | secret   | Receiver `apikey` header.                                                |
-| `PROJECT_KEY`              | secret   | Receiver `X-Project-Key`; bound to team and env, so dev and prod differ. |
-| `KPI_ENABLE_AVAILABILITY`  | variable | `true` once PIT-72's collector exists; otherwise the source is skipped.  |
-| `KPI_ENABLE_DELIVERY`      | variable | `true` once PIT-74's collector exists; otherwise the source is skipped.  |
+| Name                       | Kind     | Purpose                                                                   |
+| -------------------------- | -------- | ------------------------------------------------------------------------- |
+| `API_BASE_URL`             | variable | PitStop API origin of that deployment (same name the other jobs use).     |
+| `CRON_SECRET`              | secret   | Service credential for `GET /internal/kpis/daily`.                        |
+| `KPI_API_BASE_URL`         | variable | Supabase receiver origin, e.g. `https://<ref>.supabase.co`.               |
+| `SUPABASE_PUBLISHABLE_KEY` | secret   | Receiver `apikey` header.                                                 |
+| `PROJECT_KEY`              | secret   | Receiver `X-Project-Key`; bound to team and env, so dev and prod differ.  |
+| `KPI_ENABLE_AVAILABILITY`  | variable | `true` once PIT-75 wires the step's env; otherwise the source is skipped. |
+| `KPI_ENABLE_DELIVERY`      | variable | `true` once PIT-74's collector exists; otherwise the source is skipped.   |
 
 Credentials travel only through step env, never as arguments or JSON. A prod key is never used as a
 dev fallback. The first real publication must happen in dev; prod is selectable but not exercised by
