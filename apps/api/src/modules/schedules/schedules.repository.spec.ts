@@ -13,9 +13,17 @@ describe('SchedulesRepository', () => {
   const update = jest.fn();
   const deleteSchedule = jest.fn();
   const transactionClient = {
+    $queryRaw: jest.fn(),
+    maintenanceAlertCycle: { updateMany: jest.fn() },
     vehicle: { findUniqueOrThrow },
     maintenance: { findFirst },
-    schedule: { create, findFirstOrThrow: findScheduleOrThrow, findMany: findSchedules, update },
+    schedule: {
+      create,
+      findFirstOrThrow: findScheduleOrThrow,
+      findMany: findSchedules,
+      update,
+      delete: deleteSchedule,
+    },
   };
   const transaction = jest.fn(
     async (callback: (client: typeof transactionClient) => Promise<unknown>, _options?: unknown) =>

@@ -19,6 +19,12 @@ export type DailyHttpRequestSource = {
 };
 
 export type DailyKpiSources = {
+  alertResolution: {
+    timelyCount: bigint;
+    evaluableCount: bigint;
+    missingDeliveryCount: bigint;
+    incompleteCycleCount: bigint;
+  };
   preventiveCount: bigint;
   maintenanceCount: bigint;
   serviceUserCount: bigint;
@@ -88,10 +94,29 @@ export function calculateDailyKpis(
           denominator: sources.maintenanceCount,
         });
 
-  const alertResolution = result('alert_resolution_rate', ...dailyWindow, {
-    status: 'NO_DATA',
-    diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
-  });
+  const { timelyCount, evaluableCount, missingDeliveryCount, incompleteCycleCount } =
+    sources.alertResolution;
+  const evidenceMissing = missingDeliveryCount > 0n || incompleteCycleCount > 0n;
+  const alertResolution = evidenceMissing
+    ? result('alert_resolution_rate', ...dailyWindow, {
+        status: 'NO_DATA',
+        numerator: missingDeliveryCount,
+        denominator: incompleteCycleCount,
+        sampleCount: missingDeliveryCount + incompleteCycleCount,
+        diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
+      })
+    : evaluableCount === 0n
+      ? result('alert_resolution_rate', ...dailyWindow, {
+          status: 'NO_DATA',
+          numerator: 0n,
+          denominator: 0n,
+          diagnosticCode: 'NO_EVALUABLE_ALERT_CYCLES',
+        })
+      : result('alert_resolution_rate', ...dailyWindow, {
+          value: (100 * Number(timelyCount)) / Number(evaluableCount),
+          numerator: timelyCount,
+          denominator: evaluableCount,
+        });
 
   const serviceUsers = result('service_users_30d', ...thirtyDayWindow, {
     value: Number(sources.serviceUserCount),

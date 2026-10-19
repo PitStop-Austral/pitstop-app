@@ -25,6 +25,12 @@ describe('Daily KPI endpoint (e2e)', () => {
   let verifyIdToken: jest.Mock;
 
   const sourceData = {
+    alertResolution: {
+      timelyCount: 0n,
+      evaluableCount: 0n,
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 2n,
+    },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -77,13 +83,19 @@ describe('Daily KPI endpoint (e2e)', () => {
     expect(response.body).toMatchObject({
       date: '2026-10-21',
       env: 'dev',
-      calculationVersion: '1',
+      calculationVersion: '2',
       measurements: expect.arrayContaining([
         { kpi_id: 'preventive_rate', value: 60 },
         { kpi_id: 'api_error_rate', value: 50 },
       ]),
     });
     expect(response.body.diagnostics).toHaveLength(6);
+    expect(response.body.diagnostics[1]).toMatchObject({
+      diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
+      numerator: '1',
+      denominator: '2',
+      sampleCount: '3',
+    });
     expect(createRunWithResults).toHaveBeenCalledTimes(1);
     expect(verifyIdToken).not.toHaveBeenCalled();
   });

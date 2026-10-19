@@ -271,7 +271,7 @@ For example, 2026-10-21 is `2026-10-21T03:00:00.000Z` through
 | KPI                     | Source and rule                                                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `preventive_rate`       | `MANTENIMIENTO` services / all services by service date over 30 days, recorded before the cutoff.                  |
-| `alert_resolution_rate` | `NO_DATA` with `ALERT_RESOLUTION_EVIDENCE_MISSING` until PIT-73 adds resolution evidence.                          |
+| `alert_resolution_rate` | Distinct sent alert cycles resolved in time / evaluable sent cycles due by the closed-day cutoff.                  |
 | `service_users_30d`     | Distinct vehicle owners with a maintenance whose `createdAt` is in the 30-day window.                              |
 | `active_vehicles_30d`   | Distinct vehicles with a maintenance whose `createdAt` is in the 30-day window.                                    |
 | `api_error_rate`        | Completed application requests returning 5xx / all completed application requests for the day.                     |
@@ -281,6 +281,28 @@ Successful empty count queries produce a measured zero. Ratios without a denomin
 without samples produce `NO_DATA`, never a fabricated zero. `HEALTH`, `REPORTING`, `UNMATCHED`, and
 `ABORTED` traffic is excluded from HTTP measurements; the response reports the aggregated aborted count
 separately on both HTTP diagnostics.
+
+Alert resolution uses rule version `1` and KPI calculation version `2`. A cycle is one
+`(scheduleId, dueKey)`, regardless of device count. It becomes evaluable once its saved due date has
+arrived or the due mileage was observed before the cutoff. A service must match the vehicle and
+normalized type, be registered after the first effective send, and have a service date on or after
+that send's Argentine calendar day. The service is on time when its date and mileage are each at or
+below their respective saved limits; equality counts as on time. A retroactive service can first
+affect runs whose cutoff follows its registration. Edits and deletions update the live resolution,
+while prior KPI snapshots remain unchanged. Changed or deleted schedules cancel their active cycles.
+
+The denominator includes all evaluable cycles up to the cutoff, excluding cycles already canceled
+at that cutoff. Historical `SENT` deliveries without a cycle link cannot establish resolution, so
+they cause `NO_DATA` with `ALERT_RESOLUTION_EVIDENCE_MISSING` rather than a partial percentage. This
+diagnostic may persist indefinitely for a cumulative population. With complete evidence, zero
+evaluable cycles yields `NO_DATA` with `NO_EVALUABLE_ALERT_CYCLES`; a nonzero denominator with no
+timely resolutions yields a measured `0`.
+For `ALERT_RESOLUTION_EVIDENCE_MISSING`, the diagnostic stores legacy `SENT` deliveries without a
+cycle in `numerator`, incomplete cycles in `denominator`, and their sum in `sampleCount`. These fields
+describe evidence coverage rather than the unpublished KPI ratio.
+Cycle identifiers for schedules, vehicles, and resolving services are immutable snapshots rather
+than cascading foreign keys. Deliveries keep their schedule ID after schedule deletion and point to
+the cycle when evidence exists; deleting a device can still clear its optional device reference.
 
 The response contains all six ordered diagnostics and only `READY` measurements. Evidence counts are
 serialized as decimal strings. A successful evaluation is persisted as one `COMPLETED` run with six

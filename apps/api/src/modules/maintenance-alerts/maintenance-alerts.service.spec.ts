@@ -64,18 +64,25 @@ describe('MaintenanceAlertsService', () => {
     jest.setSystemTime(new Date('2026-10-13T15:00:00.000Z'));
     findEligibleSchedules = jest.fn().mockResolvedValue([]);
     let deliveryIndex = 0;
-    claimDeliveries = jest.fn().mockImplementation(async (inputs) =>
-      inputs.map(
-        ({ ownerId: _ownerId, token: _token, ...input }: MaintenanceAlertClaimCandidate) => ({
-          id: `delivery-${deliveryIndex++}`,
-          ...input,
-        }),
-      ),
-    );
+    claimDeliveries = jest
+      .fn()
+      .mockImplementation(async (inputs) =>
+        inputs.map(
+          ({
+            ownerId: _ownerId,
+            token: _token,
+            vehicleId: _vehicleId,
+            normalizedType: _normalizedType,
+            ...input
+          }: MaintenanceAlertClaimCandidate) => ({ id: `delivery-${deliveryIndex++}`, ...input }),
+        ),
+      );
     markSent = jest.fn();
     markFailed = jest.fn();
     removeDeviceIfTokenMatches = jest.fn();
-    withCurrentDeviceLock = jest.fn().mockImplementation(async (_device, action) => action());
+    withCurrentDeviceLock = jest
+      .fn()
+      .mockImplementation(async (_device, _schedule, action) => action());
     sendDataMessage = jest.fn().mockResolvedValue('projects/test/messages/message-1');
 
     const module: TestingModule = await Test.createTestingModule({
@@ -136,7 +143,11 @@ describe('MaintenanceAlertsService', () => {
       scheduleId,
       status: 'upcoming',
     });
-    expect(markSent).toHaveBeenCalledWith('delivery-0', 'projects/test/messages/message-1');
+    expect(markSent).toHaveBeenCalledWith(
+      'delivery-0',
+      'projects/test/messages/message-1',
+      expect.objectContaining({ dueKey: '2026-10-20:52000' }),
+    );
   });
 
   it('does not send a delivery that was already claimed by another run', async () => {
@@ -164,6 +175,7 @@ describe('MaintenanceAlertsService', () => {
     });
     expect(withCurrentDeviceLock).toHaveBeenCalledWith(
       { id: deviceId, ownerId, installationId, token: 'fcm-token' },
+      expect.objectContaining({ scheduleId, vehicleId, ownerId }),
       expect.any(Function),
     );
     expect(sendDataMessage).not.toHaveBeenCalled();
@@ -203,7 +215,11 @@ describe('MaintenanceAlertsService', () => {
     });
     expect(markFailed).toHaveBeenCalledWith('delivery-0', 'messaging/invalid-registration-token');
     expect(removeDeviceIfTokenMatches).toHaveBeenCalledWith(deviceId, 'stale-token');
-    expect(markSent).toHaveBeenCalledWith('delivery-1', 'projects/test/messages/message-2');
+    expect(markSent).toHaveBeenCalledWith(
+      'delivery-1',
+      'projects/test/messages/message-2',
+      expect.objectContaining({ dueKey: '2026-10-20:52000' }),
+    );
   });
 
   it('delivers alerts for the same installation sequentially', async () => {

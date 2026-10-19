@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { MaintenanceCategory, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SchedulesRepository } from '../schedules/schedules.repository';
+import {
+  lockVehicleSchedules,
+  observeAlertMileage,
+  reconcileAlertResolutions,
+} from '../maintenance-alerts/alert-cycle-evidence.repository';
 
 const maintenanceSelect = {
   id: true,
@@ -64,6 +69,7 @@ export class MaintenancesRepository {
     data: Partial<CreateMaintenanceData>,
   ): Promise<MaintenanceView> {
     return this.prisma.$transaction(async (transaction) => {
+      await lockVehicleSchedules(transaction, vehicleId);
       const previous = await transaction.maintenance.findUniqueOrThrow({
         where: { id, vehicleId },
         select: { type: true },
@@ -79,7 +85,10 @@ export class MaintenancesRepository {
           where: { id: vehicleId, mileage: { lt: data.mileage } },
           data: { mileage: data.mileage },
         });
+        await observeAlertMileage(transaction, vehicleId, data.mileage, new Date());
       }
+
+      await reconcileAlertResolutions(transaction, vehicleId);
 
       await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
         previous.type,
@@ -92,10 +101,12 @@ export class MaintenancesRepository {
 
   async delete(vehicleId: string, id: string): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
+      await lockVehicleSchedules(transaction, vehicleId);
       const maintenance = await transaction.maintenance.delete({
         where: { id, vehicleId },
         select: { type: true },
       });
+      await reconcileAlertResolutions(transaction, vehicleId);
       await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
         maintenance.type,
       ]);
@@ -109,6 +120,7 @@ export class MaintenancesRepository {
   ): Promise<MaintenanceCreation> {
     return this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${ownerId} FOR UPDATE`;
+      await lockVehicleSchedules(transaction, vehicleId);
 
       const maintenanceCount = await transaction.maintenance.count({
         where: { vehicle: { ownerId } },
@@ -123,6 +135,9 @@ export class MaintenancesRepository {
         where: { id: vehicleId, mileage: { lt: data.mileage } },
         data: { mileage: data.mileage },
       });
+
+      await observeAlertMileage(transaction, vehicleId, data.mileage, new Date());
+      await reconcileAlertResolutions(transaction, vehicleId);
 
       await this.schedulesRepository.recalculateBaselines(transaction, vehicleId, [
         maintenance.type,

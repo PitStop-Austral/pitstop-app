@@ -182,6 +182,11 @@ describe('AppModule (e2e)', () => {
           count: countMaintenances,
           create: createMaintenance,
           findFirst: findBaselineMaintenance,
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        maintenanceAlertCycle: {
+          findMany: jest.fn().mockResolvedValue([]),
+          updateMany: jest.fn(),
         },
         notificationDevice: {
           deleteMany: deleteConflictingNotificationToken,
@@ -193,6 +198,7 @@ describe('AppModule (e2e)', () => {
           findMany: findSchedules,
           findFirstOrThrow: findScheduleOrThrow,
           update: updateSchedule,
+          delete: deleteSchedule,
         },
         vehicle: {
           create: createVehicle,
@@ -200,6 +206,7 @@ describe('AppModule (e2e)', () => {
           findFirst: findReplacement,
           findUniqueOrThrow: findScheduleVehicle,
           updateMany: updateMaintenanceMileage,
+          update: updateVehicle,
         },
         user: { findUnique: findTransactionUser, update: updateActiveUser },
       }),

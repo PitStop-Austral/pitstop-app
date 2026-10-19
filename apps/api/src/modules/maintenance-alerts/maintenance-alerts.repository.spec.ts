@@ -10,6 +10,8 @@ describe('MaintenanceAlertsRepository', () => {
   let updateDelivery: jest.Mock;
   let deleteDevice: jest.Mock;
   let findDevices: jest.Mock;
+  let findCurrentSchedules: jest.Mock;
+  let findCurrentSchedule: jest.Mock;
   let queryRaw: jest.Mock;
 
   beforeEach(async () => {
@@ -18,11 +20,26 @@ describe('MaintenanceAlertsRepository', () => {
     updateDelivery = jest.fn();
     deleteDevice = jest.fn();
     findDevices = jest.fn().mockResolvedValue([]);
+    findCurrentSchedules = jest.fn().mockResolvedValue([]);
+    findCurrentSchedule = jest.fn().mockResolvedValue(null);
     queryRaw = jest.fn().mockResolvedValue([]);
     const transactionClient = {
       $queryRaw: queryRaw,
       notificationDevice: { findMany: findDevices },
-      maintenanceAlertDelivery: { createManyAndReturn: createDeliveries },
+      schedule: {
+        findMany: findCurrentSchedules,
+        findUnique: findCurrentSchedule,
+      },
+      maintenanceAlertCycle: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenance: { findMany: jest.fn().mockResolvedValue([]) },
+      maintenanceAlertDelivery: {
+        createManyAndReturn: createDeliveries,
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          scheduleId: '11111111-1111-4111-8111-111111111111',
+          status: MaintenanceAlertDeliveryStatus.PENDING,
+        }),
+        update: updateDelivery,
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -73,14 +90,34 @@ describe('MaintenanceAlertsRepository', () => {
       dueMileage: 52000,
       ownerId: '44444444-4444-4444-8444-444444444444',
       token: 'current-token',
+      vehicleId: '55555555-5555-4555-8555-555555555555',
+      normalizedType: 'aceite',
     };
-    const { ownerId: _ownerId, token: _token, ...claim } = input;
+    const {
+      ownerId: _ownerId,
+      token: _token,
+      vehicleId: _vehicleId,
+      normalizedType: _normalizedType,
+      ...claim
+    } = input;
     findDevices.mockResolvedValue([
       {
         id: input.notificationDeviceId,
         userId: input.ownerId,
         installationId: input.installationId,
         token: input.token,
+      },
+    ]);
+    findCurrentSchedules.mockResolvedValue([
+      {
+        id: input.scheduleId,
+        vehicleId: input.vehicleId,
+        normalizedType: input.normalizedType,
+        intervalMonths: 6,
+        intervalKm: 10000,
+        baselineDate: new Date('2026-04-20T00:00:00.000Z'),
+        baselineMileage: 42000,
+        vehicle: { ownerId: input.ownerId },
       },
     ]);
     createDeliveries.mockResolvedValue([{ id: 'claim-id', ...claim }]);
@@ -105,14 +142,71 @@ describe('MaintenanceAlertsRepository', () => {
           dueMileage: 52000,
           ownerId: '44444444-4444-4444-8444-444444444444',
           token: 'stale-token',
+          vehicleId: '55555555-5555-4555-8555-555555555555',
+          normalizedType: 'aceite',
         },
       ]),
     ).resolves.toEqual([]);
     expect(createDeliveries).not.toHaveBeenCalled();
   });
 
+  it('skips a claim when the locked schedule no longer has the candidate due occurrence', async () => {
+    const input = {
+      scheduleId: '11111111-1111-4111-8111-111111111111',
+      installationId: '22222222-2222-4222-8222-222222222222',
+      notificationDeviceId: '33333333-3333-4333-8333-333333333333',
+      dueKey: '2026-10-20:52000',
+      dueDate: new Date('2026-10-20T00:00:00.000Z'),
+      dueMileage: 52000,
+      ownerId: '44444444-4444-4444-8444-444444444444',
+      token: 'current-token',
+      vehicleId: '55555555-5555-4555-8555-555555555555',
+      normalizedType: 'aceite',
+    };
+    findDevices.mockResolvedValue([
+      {
+        id: input.notificationDeviceId,
+        userId: input.ownerId,
+        installationId: input.installationId,
+        token: input.token,
+      },
+    ]);
+    findCurrentSchedules.mockResolvedValue([
+      {
+        id: input.scheduleId,
+        vehicleId: input.vehicleId,
+        normalizedType: input.normalizedType,
+        intervalMonths: null,
+        intervalKm: 20000,
+        baselineDate: new Date('2026-01-01T00:00:00.000Z'),
+        baselineMileage: 42000,
+        vehicle: { ownerId: input.ownerId },
+      },
+    ]);
+
+    await expect(repository.claimDeliveries([input])).resolves.toEqual([]);
+    expect(createDeliveries).not.toHaveBeenCalled();
+  });
+
   it('runs delivery only while the exact current device row is locked', async () => {
     queryRaw.mockResolvedValue([{ id: 'device-id' }]);
+    const scheduleContext = {
+      scheduleId: '11111111-1111-4111-8111-111111111111',
+      dueKey: 'none:52000',
+      vehicleId: '55555555-5555-4555-8555-555555555555',
+      normalizedType: 'aceite',
+      ownerId: 'owner-id',
+    };
+    findCurrentSchedule.mockResolvedValue({
+      id: scheduleContext.scheduleId,
+      vehicleId: scheduleContext.vehicleId,
+      normalizedType: scheduleContext.normalizedType,
+      intervalMonths: null,
+      intervalKm: 10000,
+      baselineDate: new Date('2026-01-01T00:00:00.000Z'),
+      baselineMileage: 42000,
+      vehicle: { ownerId: scheduleContext.ownerId },
+    });
     const action = jest.fn().mockResolvedValue('sent');
 
     await expect(
@@ -123,9 +217,25 @@ describe('MaintenanceAlertsRepository', () => {
           installationId: 'installation-id',
           token: 'current-token',
         },
+        scheduleContext,
         action,
       ),
     ).resolves.toBe('sent');
+    expect(action).toHaveBeenCalledTimes(1);
+
+    findCurrentSchedule.mockResolvedValue(null);
+    await expect(
+      repository.withCurrentDeviceLock(
+        {
+          id: 'device-id',
+          ownerId: 'owner-id',
+          installationId: 'installation-id',
+          token: 'current-token',
+        },
+        scheduleContext,
+        action,
+      ),
+    ).resolves.toBeNull();
     expect(action).toHaveBeenCalledTimes(1);
 
     queryRaw.mockResolvedValue([]);
@@ -137,6 +247,7 @@ describe('MaintenanceAlertsRepository', () => {
           installationId: 'installation-id',
           token: 'current-token',
         },
+        scheduleContext,
         action,
       ),
     ).resolves.toBeNull();

@@ -1,0 +1,24 @@
+model MaintenanceAlertCycle {
+  id                         String   @id @default(uuid()) @db.Uuid
+  scheduleId                 String   @db.Uuid
+  dueKey                     String
+  vehicleId                  String   @db.Uuid
+  normalizedType             String
+  dueDate                    DateTime? @db.Date
+  dueMileage                 Int?
+  firstSentAt                DateTime @db.Timestamptz(3)
+  mileageReachedAt           DateTime? @db.Timestamptz(3)
+  resolvedMaintenanceId      String?  @db.Uuid
+  resolvedServiceDate        DateTime? @db.Date
+  resolvedServiceMileage     Int?
+  resolvedAt                 DateTime? @db.Timestamptz(3)
+  canceledAt                 DateTime? @db.Timestamptz(3)
+  ruleVersion                String
+  deliveries                 MaintenanceAlertDelivery[]
+
+  @@unique([scheduleId, dueKey])
+  @@index([vehicleId, normalizedType, canceledAt])
+  @@index([firstSentAt, canceledAt])
+  @@index([dueDate, mileageReachedAt])
+  @@index([resolvedMaintenanceId])
+}

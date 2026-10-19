@@ -60,8 +60,13 @@ describe('MaintenancesRepository', () => {
           update: updateMaintenance,
           delete: deleteMaintenance,
           findUniqueOrThrow: findMaintenance,
+          findMany: jest.fn().mockResolvedValue([]),
         },
         vehicle: { updateMany: updateVehicleMileage },
+        maintenanceAlertCycle: {
+          findMany: jest.fn().mockResolvedValue([]),
+          updateMany: jest.fn(),
+        },
       }),
     );
 
@@ -97,7 +102,7 @@ describe('MaintenancesRepository', () => {
       isFirstMaintenance: true,
     });
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(lockOwner).toHaveBeenCalledTimes(1);
+    expect(lockOwner).toHaveBeenCalledTimes(2);
     expect(countMaintenances).toHaveBeenCalledWith({ where: { vehicle: { ownerId } } });
     expect(createMaintenance).toHaveBeenCalledWith({
       data: { ...data, vehicleId },

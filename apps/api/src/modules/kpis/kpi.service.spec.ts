@@ -10,6 +10,12 @@ describe('KpiService', () => {
   const clock: KpiClock = { now: () => new Date('2026-10-22T12:00:00.000Z') };
 
   const sourceData = {
+    alertResolution: {
+      timelyCount: 0n,
+      evaluableCount: 0n,
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 2n,
+    },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -57,7 +63,7 @@ describe('KpiService', () => {
       runId: expect.any(String),
       date: '2026-10-21',
       env: 'dev',
-      calculationVersion: '1',
+      calculationVersion: '2',
       windowStart: '2026-10-21T03:00:00.000Z',
       windowEnd: '2026-10-22T03:00:00.000Z',
     });
@@ -78,6 +84,9 @@ describe('KpiService', () => {
     expect(response.diagnostics[1]).toMatchObject({
       kpi_id: 'alert_resolution_rate',
       status: 'NO_DATA',
+      numerator: '1',
+      denominator: '2',
+      sampleCount: '3',
       diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
     });
     expect(response.diagnostics[4]).toMatchObject({
@@ -100,7 +109,7 @@ describe('KpiService', () => {
         env: 'DEV',
         date: new Date('2026-10-21T00:00:00.000Z'),
         status: 'COMPLETED',
-        calculationVersion: '1',
+        calculationVersion: '2',
         results: expect.arrayContaining([
           expect.objectContaining({ kpiId: 'preventive_rate', value: 60 }),
           expect.objectContaining({
