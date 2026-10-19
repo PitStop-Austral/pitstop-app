@@ -8,8 +8,8 @@ external publication remain separate concerns.
 
 GitHub Actions runs `.github/workflows/kpi-health-monitor.yml` at minutes 00 and 30 of every hour
 (`*/30 * * * *`, UTC). It can also be started manually with `workflow_dispatch` after the workflow
-exists on the default branch. The monitor uses the `dev` GitHub Environment and reads its
-`API_BASE_URL`; the value should not end with a health-check path.
+exists on the default branch. The monitor reads the repository `API_BASE_URL`, which currently
+targets production; the value should not end with a health-check path.
 
 The monitor executes `GET /health` followed by `GET /health/db`. Each request has a 15-second
 timeout and is attempted once, even when the other request fails. The first endpoint succeeds only
@@ -68,19 +68,18 @@ run is not represented by a fabricated sample.
 `source: "availability"` fragment. It never publishes, writes to Neon, or assigns a run id.
 
 ```bash
-GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=PitStop-Austral/pitstop-app KPI_HEALTH_MONITOR_ENV=dev \
-  node scripts/kpis/availability.mjs --date 2026-10-17 --env dev --output .tmp/kpis/fragments/availability.json
+GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=PitStop-Austral/pitstop-app KPI_HEALTH_MONITOR_ENV=prod \
+  node scripts/kpis/availability.mjs --date 2026-10-17 --env prod --output .tmp/kpis/fragments/availability.json
 ```
 
 | Variable                 | Purpose                                                                  |
 | ------------------------ | ------------------------------------------------------------------------ |
 | `GITHUB_TOKEN`           | Reads runs and artifacts (`actions: read`). Never written to the output. |
 | `GITHUB_REPOSITORY`      | `owner/repo`; `--repository` overrides it.                               |
-| `KPI_HEALTH_MONITOR_ENV` | Env the monitor's `API_BASE_URL` belongs to. Today `dev`.                |
+| `KPI_HEALTH_MONITOR_ENV` | Env the monitor's `API_BASE_URL` belongs to. Today `prod`.               |
 
-The artifact records no env, and the monitor watches a single deployment: the API origin configured
-in the `dev` GitHub Environment. Any `--env` other than `KPI_HEALTH_MONITOR_ENV` yields `ERROR` /
-`ENV_NOT_MONITORED` without reading GitHub.
+The artifact records no env, and the monitor watches one production deployment. Any `--env` other
+than `KPI_HEALTH_MONITOR_ENV` yields `ERROR` / `ENV_NOT_MONITORED` without reading GitHub.
 
 Rules:
 
@@ -109,9 +108,9 @@ Rules:
 - The GitHub request helper and the workflow-run paginator are shared with `delivery.mjs` through
   `scripts/kpis/github.mjs`.
 
-The daily workflow passes GitHub's automatic token and `KPI_HEALTH_MONITOR_ENV=dev` to this
-collector. Enable availability only in the `dev` Environment until production gets independent
-monitor artifacts.
+The daily workflow passes GitHub's automatic token and `KPI_HEALTH_MONITOR_ENV=prod` to this
+collector, which can only run for `prod`. Keep availability disabled in both environments until
+PIT-67 provides separate, environment-tagged monitor artifacts.
 
 ## Daily publication to Supabase
 
@@ -134,7 +133,7 @@ which must define:
 | `KPI_API_BASE_URL`         | variable | Supabase receiver origin, e.g. `https://<ref>.supabase.co`.              |
 | `SUPABASE_PUBLISHABLE_KEY` | secret   | Receiver `apikey` header.                                                |
 | `PROJECT_KEY`              | secret   | Receiver `X-Project-Key`; bound to team and env, so dev and prod differ. |
-| `KPI_ENABLE_AVAILABILITY`  | variable | `true` in dev; keep `false` in prod until it has independent evidence.   |
+| `KPI_ENABLE_AVAILABILITY`  | variable | Keep `false` in dev and prod until PIT-67 provides independent evidence. |
 | `KPI_ENABLE_DELIVERY`      | variable | `true` in dev; keep `false` in prod for this rollout.                    |
 
 Credentials travel only through step env, never as arguments or JSON. A prod key is never used as a
@@ -274,10 +273,9 @@ These checks need the dev receiver credentials and are not covered by the local 
   `87.5` and `5.25`) and confirm the GET returns them unchanged; if they come back rounded or
   reformatted, every batch with such values will be reported as `conflict`.
 - **Actions run.** After the workflow reaches the default branch, confirm the `dev` Environment has
-  the variables and secrets above, run `mode=collect` for a closed day with health-monitor evidence,
-  and download the source, batch, and receipt artifacts. Compare date, environment, UUID, and all
-  received values; then run `mode=recover` against that saved batch. Do not use production values as
-  the test input.
+  the variables and secrets above, run `mode=collect` for a closed day, and download the source,
+  batch, and receipt artifacts. Compare date, environment, UUID, and all received values; then run
+  `mode=recover` against that saved batch. Do not use production values as the test input.
 
 ## Data model
 

@@ -108,11 +108,11 @@ jobs:
 
       - name: Collect availability indicators
         id: availability
-        if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_AVAILABILITY == 'true' }}
+        if: ${{ needs.context.outputs.mode == 'collect' && needs.context.outputs.env == 'prod' && vars.KPI_ENABLE_AVAILABILITY == 'true' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          KPI_HEALTH_MONITOR_ENV: dev
+          KPI_HEALTH_MONITOR_ENV: prod
         run: node scripts/kpis/availability.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/availability.json"
 
       - name: Collect delivery indicators
