@@ -13,6 +13,8 @@ jobs:
     name: Check API and database health
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # PIT-75 publishes availability only for dev. Production needs separate evidence before enabling it.
+    environment: dev
 
     steps:
       - name: Checkout repository

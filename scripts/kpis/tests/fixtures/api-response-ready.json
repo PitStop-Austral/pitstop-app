@@ -11,6 +11,10 @@
       "value": 60
     },
     {
+      "kpi_id": "alert_resolution_rate",
+      "value": 50
+    },
+    {
       "kpi_id": "service_users_30d",
       "value": 2
     },
@@ -38,10 +42,12 @@
     },
     {
       "kpi_id": "alert_resolution_rate",
-      "status": "NO_DATA",
-      "code": "ALERT_RESOLUTION_EVIDENCE_MISSING",
+      "status": "READY",
       "windowStart": "2026-09-22T03:00:00.000Z",
-      "windowEnd": "2026-10-22T03:00:00.000Z"
+      "windowEnd": "2026-10-22T03:00:00.000Z",
+      "numerator": "1",
+      "denominator": "2",
+      "sampleCount": "2"
     },
     {
       "kpi_id": "service_users_30d",
