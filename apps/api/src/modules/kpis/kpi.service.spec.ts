@@ -10,7 +10,12 @@ describe('KpiService', () => {
   const clock: KpiClock = { now: () => new Date('2026-10-22T12:00:00.000Z') };
 
   const sourceData = {
-    alertResolution: { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: true },
+    alertResolution: {
+      timelyCount: 0n,
+      evaluableCount: 0n,
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 2n,
+    },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -79,6 +84,9 @@ describe('KpiService', () => {
     expect(response.diagnostics[1]).toMatchObject({
       kpi_id: 'alert_resolution_rate',
       status: 'NO_DATA',
+      numerator: '1',
+      denominator: '2',
+      sampleCount: '3',
       diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
     });
     expect(response.diagnostics[4]).toMatchObject({

@@ -25,7 +25,12 @@ describe('Daily KPI endpoint (e2e)', () => {
   let verifyIdToken: jest.Mock;
 
   const sourceData = {
-    alertResolution: { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: true },
+    alertResolution: {
+      timelyCount: 0n,
+      evaluableCount: 0n,
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 2n,
+    },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -85,6 +90,12 @@ describe('Daily KPI endpoint (e2e)', () => {
       ]),
     });
     expect(response.body.diagnostics).toHaveLength(6);
+    expect(response.body.diagnostics[1]).toMatchObject({
+      diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
+      numerator: '1',
+      denominator: '2',
+      sampleCount: '3',
+    });
     expect(createRunWithResults).toHaveBeenCalledTimes(1);
     expect(verifyIdToken).not.toHaveBeenCalled();
   });

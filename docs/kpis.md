@@ -297,6 +297,9 @@ they cause `NO_DATA` with `ALERT_RESOLUTION_EVIDENCE_MISSING` rather than a part
 diagnostic may persist indefinitely for a cumulative population. With complete evidence, zero
 evaluable cycles yields `NO_DATA` with `NO_EVALUABLE_ALERT_CYCLES`; a nonzero denominator with no
 timely resolutions yields a measured `0`.
+For `ALERT_RESOLUTION_EVIDENCE_MISSING`, the diagnostic stores legacy `SENT` deliveries without a
+cycle in `numerator`, incomplete cycles in `denominator`, and their sum in `sampleCount`. These fields
+describe evidence coverage rather than the unpublished KPI ratio.
 Cycle identifiers for schedules, vehicles, and resolving services are immutable snapshots rather
 than cascading foreign keys. Deliveries keep their schedule ID after schedule deletion and point to
 the cycle when evidence exists; deleting a device can still clear its optional device reference.

@@ -80,8 +80,8 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
     }
   });
 
-  async function readAlert() {
-    const sources = await kpis.readDailySources(windows);
+  async function readAlert(kpiWindows = windows) {
+    const sources = await kpis.readDailySources(kpiWindows);
     return sources.alertResolution;
   }
 
@@ -136,7 +136,8 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
     expect(await readAlert()).toMatchObject({
       timelyCount: 0n,
       evaluableCount: 1n,
-      evidenceMissing: false,
+      missingDeliveryCount: 0n,
+      incompleteCycleCount: 0n,
     });
 
     const created = await maintenances.createWithMileageUpdate(userId, vehicleId, {
@@ -151,7 +152,8 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
     expect(await readAlert()).toMatchObject({
       timelyCount: 1n,
       evaluableCount: 1n,
-      evidenceMissing: false,
+      missingDeliveryCount: 0n,
+      incompleteCycleCount: 0n,
     });
     const snapshot = await new KpiService(kpis, {
       now: () => new Date('2026-10-22T12:00:00.000Z'),
@@ -177,7 +179,19 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
       type: 'Aceite',
     });
     expect(await readAlert()).toMatchObject({ timelyCount: 1n, evaluableCount: 1n });
-    await schedules.delete(vehicleId, schedule.id);
+    await schedules.updateWithBaseline({
+      id: schedule.id,
+      vehicleId,
+      fallbackDate: new Date('2026-10-19T00:00:00.000Z'),
+      resolve: () => ({
+        type: 'Aceite',
+        normalizedType: 'aceite',
+        intervalMonths: 7,
+        intervalKm: 10000,
+        resetBaseline: false,
+      }),
+    });
+    expect(await readAlert()).toMatchObject({ timelyCount: 0n, evaluableCount: 0n });
     await maintenances.delete(vehicleId, created.maintenance.id);
     expect(
       await prisma.maintenanceAlertCycle.findUnique({ where: { id: cycles[0].id } }),
@@ -186,6 +200,7 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
       resolvedMaintenanceId: null,
       resolvedAt: null,
     });
+    await schedules.delete(vehicleId, schedule.id);
     expect(
       await prisma.maintenanceAlertDelivery.count({ where: { scheduleId: schedule.id } }),
     ).toBe(2);
@@ -219,7 +234,11 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
       dueDate: null,
       dueMileage: 53000,
     });
-    expect(await readAlert()).toMatchObject({ evaluableCount: 0n, evidenceMissing: false });
+    expect(await readAlert()).toMatchObject({
+      evaluableCount: 0n,
+      missingDeliveryCount: 0n,
+      incompleteCycleCount: 0n,
+    });
     await vehicles.updateMileageIfNotDecreased(vehicleId, userId, 53000);
     expect(await readAlert()).toMatchObject({ evaluableCount: 1n, timelyCount: 0n });
     const created = await maintenances.createWithMileageUpdate(userId, vehicleId, {
@@ -309,7 +328,281 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
     await schedules.delete(vehicleId, schedule.id);
   });
 
-  it('reports missing historical evidence rather than a partial percentage', async () => {
+  it('counts exact date and combined limits while leaving late and open cycles untimely', async () => {
+    const before = await readAlert();
+    const cycleIds = Array.from({ length: 5 }, () => randomUUID());
+    const resolution = (date: string, mileage: number) => ({
+      resolvedMaintenanceId: randomUUID(),
+      resolvedServiceDate: new Date(date),
+      resolvedServiceMileage: mileage,
+      resolvedAt: new Date('2026-10-21T12:00:00.000Z'),
+    });
+    await prisma.maintenanceAlertCycle.createMany({
+      data: [
+        {
+          id: cycleIds[0],
+          scheduleId: randomUUID(),
+          dueKey: '2026-10-21:none',
+          vehicleId,
+          normalizedType: 'fecha-exacta',
+          dueDate: new Date('2026-10-21T00:00:00.000Z'),
+          firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+          ruleVersion: '1',
+          ...resolution('2026-10-21T00:00:00.000Z', 54000),
+        },
+        {
+          id: cycleIds[1],
+          scheduleId: randomUUID(),
+          dueKey: '2026-10-21:55000',
+          vehicleId,
+          normalizedType: 'limite-combinado-exacto',
+          dueDate: new Date('2026-10-21T00:00:00.000Z'),
+          dueMileage: 55000,
+          mileageReachedAt: new Date('2026-10-20T12:00:00.000Z'),
+          firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+          ruleVersion: '1',
+          ...resolution('2026-10-21T00:00:00.000Z', 55000),
+        },
+        {
+          id: cycleIds[2],
+          scheduleId: randomUUID(),
+          dueKey: '2026-10-21:55000',
+          vehicleId,
+          normalizedType: 'limite-combinado-tarde',
+          dueDate: new Date('2026-10-21T00:00:00.000Z'),
+          dueMileage: 55000,
+          mileageReachedAt: new Date('2026-10-20T12:00:00.000Z'),
+          firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+          ruleVersion: '1',
+          ...resolution('2026-10-21T00:00:00.000Z', 55001),
+        },
+        {
+          id: cycleIds[3],
+          scheduleId: randomUUID(),
+          dueKey: '2026-10-20:none',
+          vehicleId,
+          normalizedType: 'fecha-tarde',
+          dueDate: new Date('2026-10-20T00:00:00.000Z'),
+          firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+          ruleVersion: '1',
+          ...resolution('2026-10-21T00:00:00.000Z', 54000),
+        },
+        {
+          id: cycleIds[4],
+          scheduleId: randomUUID(),
+          dueKey: '2026-10-20:none',
+          vehicleId,
+          normalizedType: 'sin-resolver',
+          dueDate: new Date('2026-10-20T00:00:00.000Z'),
+          firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+          ruleVersion: '1',
+        },
+      ],
+    });
+
+    const after = await readAlert();
+    expect(after.evaluableCount - before.evaluableCount).toBe(5n);
+    expect(after.timelyCount - before.timelyCount).toBe(2n);
+
+    await prisma.maintenanceAlertCycle.updateMany({
+      where: { id: { in: cycleIds } },
+      data: { canceledAt: new Date() },
+    });
+  });
+
+  it('does not count a resolution registered after the requested cutoff', async () => {
+    const cutoffWindows = buildKpiWindows('2026-10-17');
+    const cycle = await prisma.maintenanceAlertCycle.create({
+      data: {
+        scheduleId: randomUUID(),
+        dueKey: '2026-10-17:none',
+        vehicleId,
+        normalizedType: 'registro-posterior',
+        dueDate: new Date('2026-10-17T00:00:00.000Z'),
+        firstSentAt: new Date('2026-10-01T12:00:00.000Z'),
+        resolvedMaintenanceId: randomUUID(),
+        resolvedServiceDate: new Date('2026-10-17T00:00:00.000Z'),
+        resolvedServiceMileage: 54000,
+        resolvedAt: new Date('2026-10-18T04:00:00.000Z'),
+        ruleVersion: '1',
+      },
+    });
+
+    expect(await readAlert(cutoffWindows)).toMatchObject({
+      evaluableCount: 1n,
+      timelyCount: 0n,
+    });
+
+    await prisma.maintenanceAlertCycle.update({
+      where: { id: cycle.id },
+      data: { canceledAt: new Date() },
+    });
+  });
+
+  it('rejects services from another vehicle, type, or pre-send date', async () => {
+    const before = await readAlert();
+    const schedule = await prisma.schedule.create({
+      data: {
+        vehicleId,
+        type: 'Direccion',
+        normalizedType: 'direccion',
+        intervalMonths: 1,
+        baselineDate: new Date('2026-09-21T00:00:00.000Z'),
+        baselineMileage: 54000,
+      },
+    });
+    scheduleIds.push(schedule.id);
+    const delivery = await prisma.maintenanceAlertDelivery.create({
+      data: {
+        scheduleId: schedule.id,
+        installationId: randomUUID(),
+        dueKey: '2026-10-21:none',
+        dueDate: new Date('2026-10-21T00:00:00.000Z'),
+      },
+    });
+    await alerts.markSent(delivery.id, 'isolation-message', {
+      scheduleId: schedule.id,
+      vehicleId,
+      normalizedType: 'direccion',
+      dueKey: '2026-10-21:none',
+      dueDate: new Date('2026-10-21T00:00:00.000Z'),
+      dueMileage: null,
+      sentAt: new Date('2026-10-10T12:00:00.000Z'),
+    });
+    const otherVehicle = await prisma.vehicle.create({
+      data: {
+        ownerId: userId,
+        brand: 'Ford',
+        model: 'Ka',
+        year: 2019,
+        fuel: 'NAFTA',
+        plate: `OV${randomUUID().slice(0, 5).toUpperCase()}`,
+        mileage: 54000,
+      },
+    });
+    await prisma.maintenance.create({
+      data: {
+        vehicleId: otherVehicle.id,
+        type: 'Direccion',
+        category: 'MANTENIMIENTO',
+        date: new Date('2026-10-15T00:00:00.000Z'),
+        mileage: 54000,
+      },
+    });
+    const wrongType = await maintenances.createWithMileageUpdate(userId, vehicleId, {
+      type: 'Suspension',
+      category: 'MANTENIMIENTO',
+      date: new Date('2026-10-15T00:00:00.000Z'),
+      mileage: 54000,
+      workshop: null,
+      cost: null,
+      notes: null,
+    });
+    const preSend = await maintenances.createWithMileageUpdate(userId, vehicleId, {
+      type: 'Direccion',
+      category: 'MANTENIMIENTO',
+      date: new Date('2026-10-09T00:00:00.000Z'),
+      mileage: 54000,
+      workshop: null,
+      cost: null,
+      notes: null,
+    });
+
+    const after = await readAlert();
+    expect(after.evaluableCount - before.evaluableCount).toBe(1n);
+    expect(after.timelyCount - before.timelyCount).toBe(0n);
+    expect(
+      await prisma.maintenanceAlertCycle.findUnique({
+        where: { scheduleId_dueKey: { scheduleId: schedule.id, dueKey: '2026-10-21:none' } },
+      }),
+    ).toMatchObject({ resolvedMaintenanceId: null, resolvedAt: null });
+
+    await maintenances.delete(vehicleId, wrongType.maintenance.id);
+    await maintenances.delete(vehicleId, preSend.maintenance.id);
+    await schedules.delete(vehicleId, schedule.id);
+    await prisma.vehicle.delete({ where: { id: otherVehicle.id } });
+  });
+
+  it('keeps FAILED deliveries cycle-free and rolls back a partial SENT transition', async () => {
+    const schedule = await prisma.schedule.create({
+      data: {
+        vehicleId,
+        type: 'Bateria',
+        normalizedType: 'bateria',
+        intervalMonths: 1,
+        baselineDate: new Date('2026-09-21T00:00:00.000Z'),
+        baselineMileage: 54000,
+      },
+    });
+    scheduleIds.push(schedule.id);
+    const deliveryData = {
+      scheduleId: schedule.id,
+      dueKey: '2026-10-21:none',
+      dueDate: new Date('2026-10-21T00:00:00.000Z'),
+    };
+    const failed = await prisma.maintenanceAlertDelivery.create({
+      data: { ...deliveryData, installationId: randomUUID() },
+    });
+    await alerts.markFailed(failed.id, 'messaging/server-unavailable');
+    expect(await prisma.maintenanceAlertCycle.count({ where: { scheduleId: schedule.id } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.maintenanceAlertDelivery.findUnique({ where: { id: failed.id } }),
+    ).toMatchObject({
+      status: 'FAILED',
+      cycleId: null,
+    });
+
+    const rollback = await prisma.maintenanceAlertDelivery.create({
+      data: { ...deliveryData, installationId: randomUUID() },
+    });
+    await prisma.$executeRawUnsafe(
+      'DROP TRIGGER IF EXISTS "pit73_fail_delivery_update" ON "MaintenanceAlertDelivery"',
+    );
+    await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "pit73_fail_delivery_update"()');
+    await prisma.$executeRawUnsafe(`
+      CREATE FUNCTION "pit73_fail_delivery_update"() RETURNS trigger AS $$
+      BEGIN
+        IF NEW."fcmMessageId" = 'force-rollback' THEN
+          RAISE EXCEPTION 'forced rollback';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TRIGGER "pit73_fail_delivery_update"
+      BEFORE UPDATE ON "MaintenanceAlertDelivery"
+      FOR EACH ROW EXECUTE FUNCTION "pit73_fail_delivery_update"()
+    `);
+    try {
+      await expect(
+        alerts.markSent(rollback.id, 'force-rollback', {
+          ...deliveryData,
+          vehicleId,
+          normalizedType: 'bateria',
+          dueMileage: null,
+          sentAt: new Date('2026-10-20T12:00:00.000Z'),
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await prisma.$executeRawUnsafe(
+        'DROP TRIGGER IF EXISTS "pit73_fail_delivery_update" ON "MaintenanceAlertDelivery"',
+      );
+      await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS "pit73_fail_delivery_update"()');
+    }
+    expect(await prisma.maintenanceAlertCycle.count({ where: { scheduleId: schedule.id } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.maintenanceAlertDelivery.findUnique({ where: { id: rollback.id } }),
+    ).toMatchObject({ status: 'PENDING', cycleId: null, fcmMessageId: null });
+
+    await schedules.delete(vehicleId, schedule.id);
+  });
+
+  it('preserves legacy SENT deliveries and persists observable coverage diagnostics', async () => {
     const schedule = await prisma.schedule.create({
       data: {
         vehicleId,
@@ -331,6 +624,41 @@ describe('Alert resolution evidence (PostgreSQL)', () => {
         finishedAt: new Date('2026-10-20T12:00:00.000Z'),
       },
     });
-    expect(await readAlert()).toMatchObject({ evidenceMissing: true });
+    await prisma.maintenanceAlertCycle.create({
+      data: {
+        scheduleId: schedule.id,
+        dueKey: 'legacy-incomplete',
+        vehicleId,
+        normalizedType: 'filtros',
+        firstSentAt: new Date('2026-10-20T12:00:00.000Z'),
+        ruleVersion: '0',
+      },
+    });
+    expect(await readAlert()).toMatchObject({
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 1n,
+    });
+
+    const snapshot = await new KpiService(kpis, {
+      now: () => new Date('2026-10-22T12:00:00.000Z'),
+    }).calculateDaily({ date: '2026-10-21', env: 'dev' });
+    runIds.push(snapshot.runId);
+    expect(snapshot.measurements).not.toContainEqual(
+      expect.objectContaining({ kpi_id: 'alert_resolution_rate' }),
+    );
+    expect(snapshot.diagnostics[1]).toMatchObject({
+      status: 'NO_DATA',
+      diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
+      numerator: '1',
+      denominator: '1',
+      sampleCount: '2',
+    });
+    expect(
+      await prisma.kpiResult.findUnique({
+        where: {
+          runId_kpiId: { runId: snapshot.runId, kpiId: 'alert_resolution_rate' },
+        },
+      }),
+    ).toMatchObject({ numerator: 1n, denominator: 1n, sampleCount: 2n });
   });
 });

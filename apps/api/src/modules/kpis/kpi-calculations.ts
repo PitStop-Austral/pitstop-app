@@ -22,7 +22,8 @@ export type DailyKpiSources = {
   alertResolution: {
     timelyCount: bigint;
     evaluableCount: bigint;
-    evidenceMissing: boolean;
+    missingDeliveryCount: bigint;
+    incompleteCycleCount: bigint;
   };
   preventiveCount: bigint;
   maintenanceCount: bigint;
@@ -93,10 +94,15 @@ export function calculateDailyKpis(
           denominator: sources.maintenanceCount,
         });
 
-  const { timelyCount, evaluableCount, evidenceMissing } = sources.alertResolution;
+  const { timelyCount, evaluableCount, missingDeliveryCount, incompleteCycleCount } =
+    sources.alertResolution;
+  const evidenceMissing = missingDeliveryCount > 0n || incompleteCycleCount > 0n;
   const alertResolution = evidenceMissing
     ? result('alert_resolution_rate', ...dailyWindow, {
         status: 'NO_DATA',
+        numerator: missingDeliveryCount,
+        denominator: incompleteCycleCount,
+        sampleCount: missingDeliveryCount + incompleteCycleCount,
         diagnosticCode: 'ALERT_RESOLUTION_EVIDENCE_MISSING',
       })
     : evaluableCount === 0n

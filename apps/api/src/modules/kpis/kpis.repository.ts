@@ -113,7 +113,8 @@ export class KpisRepository {
           alertResolution: {
             timelyCount: alertCount?.timelyCount ?? 0n,
             evaluableCount: alertCount?.evaluableCount ?? 0n,
-            evidenceMissing: missingDeliveries > 0 || (alertCount?.incompleteCount ?? 0n) > 0n,
+            missingDeliveryCount: BigInt(missingDeliveries),
+            incompleteCycleCount: alertCount?.incompleteCount ?? 0n,
           },
           preventiveCount: BigInt(preventiveCount),
           maintenanceCount: BigInt(maintenanceCount),

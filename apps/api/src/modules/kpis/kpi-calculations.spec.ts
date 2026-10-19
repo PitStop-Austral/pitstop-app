@@ -9,7 +9,12 @@ const windows = buildKpiWindows('2026-10-21');
 
 function sources(overrides: Partial<DailyKpiSources> = {}): DailyKpiSources {
   return {
-    alertResolution: { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: true },
+    alertResolution: {
+      timelyCount: 0n,
+      evaluableCount: 0n,
+      missingDeliveryCount: 1n,
+      incompleteCycleCount: 0n,
+    },
     preventiveCount: 3n,
     maintenanceCount: 5n,
     serviceUserCount: 2n,
@@ -21,16 +26,46 @@ function sources(overrides: Partial<DailyKpiSources> = {}): DailyKpiSources {
 
 describe('daily KPI calculations', () => {
   it.each([
-    [{ timelyCount: 8n, evaluableCount: 10n, evidenceMissing: false }, 'READY', 80, null],
-    [{ timelyCount: 0n, evaluableCount: 3n, evidenceMissing: false }, 'READY', 0, null],
     [
-      { timelyCount: 0n, evaluableCount: 0n, evidenceMissing: false },
+      {
+        timelyCount: 8n,
+        evaluableCount: 10n,
+        missingDeliveryCount: 0n,
+        incompleteCycleCount: 0n,
+      },
+      'READY',
+      80,
+      null,
+    ],
+    [
+      {
+        timelyCount: 0n,
+        evaluableCount: 3n,
+        missingDeliveryCount: 0n,
+        incompleteCycleCount: 0n,
+      },
+      'READY',
+      0,
+      null,
+    ],
+    [
+      {
+        timelyCount: 0n,
+        evaluableCount: 0n,
+        missingDeliveryCount: 0n,
+        incompleteCycleCount: 0n,
+      },
       'NO_DATA',
       null,
       'NO_EVALUABLE_ALERT_CYCLES',
     ],
     [
-      { timelyCount: 8n, evaluableCount: 10n, evidenceMissing: true },
+      {
+        timelyCount: 8n,
+        evaluableCount: 10n,
+        missingDeliveryCount: 2n,
+        incompleteCycleCount: 3n,
+      },
       'NO_DATA',
       null,
       'ALERT_RESOLUTION_EVIDENCE_MISSING',
@@ -50,6 +85,8 @@ describe('daily KPI calculations', () => {
           numerator: alertResolution.timelyCount,
           denominator: alertResolution.evaluableCount,
         });
+      } else if (diagnosticCode === 'ALERT_RESOLUTION_EVIDENCE_MISSING') {
+        expect(result).toMatchObject({ numerator: 2n, denominator: 3n, sampleCount: 5n });
       }
     },
   );
