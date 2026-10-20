@@ -62,7 +62,7 @@ test('validates a batch directory against its manifest hash and context', async 
   const dir = await batchDir(t);
   const batch = await validateBatchDir({ dir, ...CONTEXT });
 
-  assert.equal(batch.rows.length, 5);
+  assert.equal(batch.rows.length, 6);
   assert.equal(batch.manifest.publicationId, PUBLICATION_ID);
   await assert.rejects(validateBatchDir({ dir, ...CONTEXT, env: 'prod' }), {
     code: 'ENV_MISMATCH',

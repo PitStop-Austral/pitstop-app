@@ -88,8 +88,8 @@ async function workspace(t) {
 async function collect(t, receiver) {
   const paths = await workspace(t);
   const apiResponse = await fixture('api-response-ready.json');
-  const enabled = { api: true, availability: true, delivery: false };
-  const calls = { api: 0, prepare: 0 };
+  const enabled = { api: true, availability: true, delivery: true };
+  const calls = { api: 0, availability: 0, delivery: 0, prepare: 0 };
 
   const fragment = await collectApiFragment({
     processEnv: { API_BASE_URL: 'https://pitstop.example', CRON_SECRET: 'cron' },
@@ -100,9 +100,15 @@ async function collect(t, receiver) {
     },
   });
   await writeJson(join(paths.fragments, 'api.json'), fragment);
+  calls.availability += 1;
   await writeFile(
     join(paths.fragments, 'availability.json'),
     JSON.stringify(await fixture('availability.json')),
+  );
+  calls.delivery += 1;
+  await writeFile(
+    join(paths.fragments, 'delivery.json'),
+    JSON.stringify(await fixture('delivery.json')),
   );
 
   calls.prepare += 1;
@@ -185,7 +191,7 @@ test('a lost POST response, then a manual recovery, store the same batch exactly
 
   assert.equal(result.outcome, 'accepted');
   assert.deepEqual(result.attempts, [{ error: 'connection_error' }, { status: 201 }]);
-  assert.equal(receiver.rows.size, 7);
+  assert.equal(receiver.rows.size, 10);
   assert.ok(
     (await verifyBatch({ rows, baseUrl: receiver.url, ...keys })).results.every(
       ({ outcome }) => outcome === 'verified',
@@ -197,6 +203,7 @@ test('a lost POST response, then a manual recovery, store the same batch exactly
   run.enabled.availability = false;
   run.enabled.delivery = true;
   const callsBefore = { ...run.calls };
+  assert.deepEqual(callsBefore, { api: 1, availability: 1, delivery: 1, prepare: 1 });
 
   const outcome = await recover(run);
   const receipt = JSON.parse(await readFile(run.paths.receipt, 'utf8'));
@@ -210,7 +217,7 @@ test('a lost POST response, then a manual recovery, store the same batch exactly
   assert.equal(receipt.publicationId, run.batch.manifest.publicationId);
   assert.deepEqual(receipt.recoveredFrom, { sourceRunId: '555', artifactName: SOURCE_ARTIFACT });
   assert.ok(receipt.verification.results.every(({ outcome: kpi }) => kpi === 'verified'));
-  assert.equal(receiver.rows.size, 7);
+  assert.equal(receiver.rows.size, 10);
   assert.equal(receiver.rows.get('preventive_rate|2026-10-21|dev').value, 60);
   assert.equal(receiver.stats.posts, 3);
 });
@@ -219,7 +226,7 @@ test('recovery delivers a batch whose original send never landed', async (t) => 
   const run = await collect(t, await startReceiver(t));
 
   assert.deepEqual(await recover(run), { recovered: 0, published: 0, verified: 0 });
-  assert.equal(run.receiver.rows.size, 7);
+  assert.equal(run.receiver.rows.size, 10);
   assert.ok(
     [...run.receiver.rows.values()].every(
       ({ run_id }) => run_id === run.batch.manifest.publicationId,

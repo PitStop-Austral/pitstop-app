@@ -47,7 +47,19 @@ test('combines the three sources into one batch with a shared publication UUID',
   const rows = JSON.parse(batch.payloadText);
 
   assert.equal(batch.hasErrors, false);
-  assert.equal(rows.length, 9);
+  assert.equal(rows.length, 10);
+  assert.deepEqual(rows.map(({ kpi_id }) => kpi_id).sort(), [
+    'active_vehicles_30d',
+    'alert_resolution_rate',
+    'api_availability',
+    'api_error_rate',
+    'api_latency_p95',
+    'ci_success_rate',
+    'db_availability',
+    'mean_time_to_merge',
+    'preventive_rate',
+    'service_users_30d',
+  ]);
   assert.deepEqual(rows[0], {
     kpi_id: 'preventive_rate',
     date: '2026-10-21',
@@ -69,7 +81,7 @@ test('combines the three sources into one batch with a shared publication UUID',
 test('disabled sources are skipped even when a file exists', async (t) => {
   const batch = await prepare(await fragmentsDir(t, await allFixtures()), { api: true });
 
-  assert.equal(JSON.parse(batch.payloadText).length, 5);
+  assert.equal(JSON.parse(batch.payloadText).length, 6);
   assert.deepEqual(batch.manifest.sources.availability, { enabled: false, status: 'DISABLED' });
   assert.equal(batch.hasErrors, false);
 });
@@ -119,11 +131,12 @@ test('a failed source keeps the job failing but its READY siblings are batched',
   assert.equal(batch.hasErrors, true);
   assert.equal(batch.manifest.sources.availability.status, 'ERROR');
   assert.equal(batch.manifest.sources.availability.errorCode, 'PROBES_UNAVAILABLE');
-  assert.equal(JSON.parse(batch.payloadText).length, 7);
+  assert.equal(JSON.parse(batch.payloadText).length, 8);
 });
 
 test('a KPI-level ERROR diagnostic marks its source as failed', async (t) => {
   const api = await fixture('api.json');
+  api.measurements = api.measurements.filter(({ kpi_id }) => kpi_id !== 'alert_resolution_rate');
   api.diagnostics[1] = { ...api.diagnostics[1], status: 'ERROR', code: 'ALERTS_QUERY_FAILED' };
 
   const batch = await prepare(await fragmentsDir(t, { api }), { api: true });
@@ -142,7 +155,7 @@ test('an enabled source without a file is a visible error', async (t) => {
     status: 'ERROR',
     errorCode: 'FRAGMENT_MISSING',
   });
-  assert.equal(JSON.parse(batch.payloadText).length, 5);
+  assert.equal(JSON.parse(batch.payloadText).length, 6);
 });
 
 test('a fragment that breaks the global contract blocks the whole batch', async (t) => {

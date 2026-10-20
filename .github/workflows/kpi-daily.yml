@@ -106,14 +106,15 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: node scripts/kpis/api-snapshot.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/api.json"
 
-      # Integration point for PIT-72; disabled until that collector exists.
       - name: Collect availability indicators
         id: availability
-        if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_AVAILABILITY == 'true' }}
+        if: ${{ needs.context.outputs.mode == 'collect' && needs.context.outputs.env == 'prod' && vars.KPI_ENABLE_AVAILABILITY == 'true' }}
         continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          KPI_HEALTH_MONITOR_ENV: prod
         run: node scripts/kpis/availability.mjs --date "$KPI_DATE" --env "$KPI_ENV" --output "$FRAGMENTS_DIR/availability.json"
 
-      # Integration point for PIT-74; disabled until that collector exists.
       - name: Collect delivery indicators
         id: delivery
         if: ${{ needs.context.outputs.mode == 'collect' && vars.KPI_ENABLE_DELIVERY == 'true' }}
