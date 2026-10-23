@@ -13,6 +13,18 @@ export const ciRuns = [
   { conclusion: null, status: 'in_progress', updated_at: '2026-10-20T10:00:00.000Z' },
 ];
 
+export const mergedMainWorkflowRun = {
+  id: 10,
+  created_at: '2026-10-20T10:00:00.000Z',
+  head_branch: 'feature/merged',
+  head_sha: 'merged-sha',
+  pull_requests: [],
+  run_attempt: 1,
+  status: 'completed',
+  conclusion: 'success',
+  updated_at: '2026-10-20T10:00:00.000Z',
+};
+
 export const pullRequests = [
   {
     number: 1,
