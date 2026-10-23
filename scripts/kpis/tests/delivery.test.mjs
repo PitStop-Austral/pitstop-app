@@ -12,7 +12,12 @@ import {
   reportingWindow,
 } from '../delivery.mjs';
 import { validateFragment } from '../contracts.mjs';
-import { ciRuns, pullRequests, window } from './fixtures/delivery-github.mjs';
+import {
+  ciRuns,
+  mergedMainWorkflowRun,
+  pullRequests,
+  window,
+} from './fixtures/delivery-github.mjs';
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), { status });
@@ -184,6 +189,112 @@ test('uses the first rerun attempt and rejects a missing PR relationship', async
     merge: { pullRequestNumbers: [] },
   });
   assert.equal(validateFragment(report, { date: '2026-10-21', env: 'dev' }), report);
+});
+
+test('resolves merged pull requests from commits and caches each SHA', async () => {
+  let commitRequests = 0;
+  const report = await collectDeliveryKpis({
+    date: '2026-10-21',
+    env: 'dev',
+    repository: 'PitStop-Austral/pitstop-app',
+    token: 'secret-token',
+    fetchImplementation: async (url) => {
+      if (url.pathname.endsWith('/actions/workflows/ci.yml/runs')) {
+        return jsonResponse({
+          total_count: 2,
+          workflow_runs: [
+            mergedMainWorkflowRun,
+            { ...mergedMainWorkflowRun, id: 11, conclusion: 'failure' },
+          ],
+        });
+      }
+      if (url.pathname.endsWith('/commits/merged-sha/pulls')) {
+        commitRequests += 1;
+        return jsonResponse([
+          { number: 3, base: { ref: 'main' }, head: { ref: 'other-branch' } },
+          { number: 8, base: { ref: 'main' }, head: { ref: 'feature/merged' } },
+          { number: 5, base: { ref: 'main' }, head: { ref: 'feature/merged' } },
+        ]);
+      }
+      if (url.pathname.endsWith('/pulls')) return jsonResponse([]);
+      throw new Error('unexpected request');
+    },
+  });
+
+  assert.equal(report.measurements.find(({ kpi_id }) => kpi_id === 'ci_success_rate').value, 50);
+  assert.equal(commitRequests, 1);
+  assert.deepEqual(report.sourceRef.ci.pullRequestNumbers, [5]);
+  assert.equal(report.calculationVersion, 'delivery-v2');
+});
+
+test('excludes commit pull requests that do not target main without a branch fallback', async () => {
+  const requests = [];
+  const report = await collectDeliveryKpis({
+    date: '2026-10-21',
+    env: 'dev',
+    repository: 'PitStop-Austral/pitstop-app',
+    token: 'secret-token',
+    fetchImplementation: async (url) => {
+      requests.push(new URL(url));
+      if (url.pathname.endsWith('/actions/workflows/ci.yml/runs')) {
+        return jsonResponse({
+          total_count: 1,
+          workflow_runs: [{ ...mergedMainWorkflowRun, head_sha: 'sprint-sha' }],
+        });
+      }
+      if (url.pathname.endsWith('/commits/sprint-sha/pulls')) {
+        return jsonResponse([
+          { number: 9, base: { ref: 'sprint2' }, head: { ref: 'feature/merged' } },
+        ]);
+      }
+      if (url.pathname.endsWith('/pulls')) return jsonResponse([]);
+      throw new Error('unexpected request');
+    },
+  });
+
+  assert.equal(report.diagnostics[0].status, 'NO_DATA');
+  assert.deepEqual(report.diagnostics[0].excluded, { no_main_pull_request: 1 });
+  assert.equal(
+    requests.some((url) => url.pathname.endsWith('/pulls') && url.searchParams.has('head')),
+    false,
+  );
+});
+
+test('falls back to the branch when a commit has no pull requests', async () => {
+  const report = await collectDeliveryKpis({
+    date: '2026-10-21',
+    env: 'dev',
+    repository: 'PitStop-Austral/pitstop-app',
+    token: 'secret-token',
+    fetchImplementation: async (url) => {
+      if (url.pathname.endsWith('/actions/workflows/ci.yml/runs')) {
+        return jsonResponse({
+          total_count: 2,
+          workflow_runs: [
+            { ...mergedMainWorkflowRun, head_sha: 'orphan-sha', head_branch: 'feature/one' },
+            {
+              ...mergedMainWorkflowRun,
+              id: 11,
+              head_sha: 'missing-sha',
+              head_branch: 'feature/two',
+            },
+          ],
+        });
+      }
+      if (url.pathname.includes('/commits/')) return jsonResponse([]);
+      if (
+        url.pathname.endsWith('/pulls') &&
+        url.searchParams.get('head') === 'PitStop-Austral:feature/one'
+      ) {
+        return jsonResponse([{ number: 8, base: { ref: 'main' }, head: { ref: 'feature/one' } }]);
+      }
+      if (url.pathname.endsWith('/pulls')) return jsonResponse([]);
+      throw new Error('unexpected request');
+    },
+  });
+
+  assert.equal(report.measurements.find(({ kpi_id }) => kpi_id === 'ci_success_rate').value, 100);
+  assert.deepEqual(report.diagnostics[0].excluded, { no_main_pull_request: 1 });
 });
 
 test('excludes workflow runs whose pull request does not target main', async () => {
@@ -421,7 +532,7 @@ test('marks a first rerun response without conclusion or completion time as inco
   assert.equal(report.diagnostics[0].code, 'EVIDENCE_INCOMPLETE');
 });
 
-test('reports incomplete evidence and GitHub failures as errors', async () => {
+test('reports invalid commit responses and GitHub failures as errors', async () => {
   const report = await collectDeliveryKpis({
     date: '2026-10-21',
     env: 'dev',
@@ -431,9 +542,10 @@ test('reports incomplete evidence and GitHub failures as errors', async () => {
       if (url.pathname.endsWith('/actions/workflows/ci.yml/runs')) {
         return jsonResponse({
           total_count: 1,
-          workflow_runs: [{ id: 10, created_at: '2026-10-20T10:00:00.000Z', pull_requests: [] }],
+          workflow_runs: [mergedMainWorkflowRun],
         });
       }
+      if (url.pathname.endsWith('/commits/merged-sha/pulls')) return jsonResponse({});
       return jsonResponse({ message: 'not returned to output' }, 503);
     },
   });
@@ -441,7 +553,7 @@ test('reports incomplete evidence and GitHub failures as errors', async () => {
   assert.deepEqual(
     report.diagnostics.map(({ kpi_id, status, code }) => ({ kpi_id, status, code })),
     [
-      { kpi_id: 'ci_success_rate', status: 'ERROR', code: 'EVIDENCE_INCOMPLETE' },
+      { kpi_id: 'ci_success_rate', status: 'ERROR', code: 'GITHUB_INVALID_RESPONSE' },
       { kpi_id: 'mean_time_to_merge', status: 'ERROR', code: 'GITHUB_REQUEST_FAILED' },
     ],
   );
@@ -486,10 +598,12 @@ test('writes ERROR diagnostics instead of treating a missing token as no data', 
       ],
       env: {},
     });
+    const report = JSON.parse(await readFile(outputPath, 'utf8'));
 
     assert.equal(code, 1);
+    assert.equal(report.calculationVersion, 'delivery-v2');
     assert.deepEqual(
-      JSON.parse(await readFile(outputPath, 'utf8')).diagnostics.map(({ status, code }) => ({
+      report.diagnostics.map(({ status, code }) => ({
         status,
         code,
       })),

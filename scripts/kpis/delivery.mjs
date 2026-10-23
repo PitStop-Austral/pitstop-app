@@ -136,6 +136,7 @@ function isMergedInsideWindow(pullRequest, windowStart, windowEnd) {
 
 function createGitHubClient({ fetchImplementation, repository, token }) {
   const request = createGitHubRequest({ fetchImplementation, repository, token });
+  const [owner] = repository.split('/');
 
   return {
     getPullRequest: (number) => request(`pulls/${number}`),
@@ -154,6 +155,9 @@ function createGitHubClient({ fetchImplementation, repository, token }) {
         sort: 'updated',
         state: 'closed',
       }),
+    listMainPullRequestsForBranch: (branch) =>
+      request('pulls', { base: 'main', head: `${owner}:${branch}`, state: 'all' }),
+    listPullRequestsForCommit: (sha) => request(`commits/${sha}/pulls`),
     listWorkflowRuns: (start, end, page) =>
       request(`actions/workflows/${WORKFLOW_FILE}/runs`, {
         created: `${start}..${end}`,
@@ -162,6 +166,20 @@ function createGitHubClient({ fetchImplementation, repository, token }) {
         per_page: MAX_PAGE_SIZE,
       }),
   };
+}
+
+function selectMainPullRequest(pullRequests, headBranch) {
+  const mainPullRequests = pullRequests.filter((pullRequest) => pullRequest?.base?.ref === 'main');
+  const matchingBranch = mainPullRequests.filter(
+    (pullRequest) => pullRequest?.head?.ref === headBranch,
+  );
+  const candidates = matchingBranch.length > 0 ? matchingBranch : mainPullRequests;
+
+  return candidates.reduce(
+    (selected, pullRequest) =>
+      selected === null || pullRequest.number < selected.number ? pullRequest : selected,
+    null,
+  );
 }
 
 async function listAllClosedPullRequests(client) {
@@ -209,6 +227,7 @@ function errorResult() {
 async function collectCiResult(client, window) {
   const runMap = new Map();
   const pullRequestCache = new Map();
+  const commitPullRequestCache = new Map();
 
   try {
     const rawRuns = await listWorkflowRunRange(
@@ -223,20 +242,58 @@ async function collectCiResult(client, window) {
     }
 
     const firstAttempts = [];
+    let noMainPullRequestCount = 0;
     for (const run of runMap.values()) {
       const pullNumber = run.pull_requests?.[0]?.number;
-      if (!Number.isInteger(pullNumber)) {
-        throw new ContractError('EVIDENCE_INCOMPLETE');
+      let pullRequest;
+
+      if (Number.isInteger(pullNumber)) {
+        if (!pullRequestCache.has(pullNumber)) {
+          pullRequestCache.set(pullNumber, await client.getPullRequest(pullNumber));
+        }
+        pullRequest = pullRequestCache.get(pullNumber);
+      } else {
+        let commitPullRequests = [];
+        if (typeof run.head_sha === 'string' && run.head_sha) {
+          if (!commitPullRequestCache.has(run.head_sha)) {
+            const response = await client.listPullRequestsForCommit(run.head_sha);
+            if (!Array.isArray(response)) {
+              throw new ContractError('GITHUB_INVALID_RESPONSE');
+            }
+            commitPullRequestCache.set(run.head_sha, response);
+          }
+          commitPullRequests = commitPullRequestCache.get(run.head_sha);
+          pullRequest = selectMainPullRequest(commitPullRequests, run.head_branch);
+        }
+
+        if (
+          commitPullRequests.length === 0 &&
+          typeof run.head_branch === 'string' &&
+          run.head_branch
+        ) {
+          const response = await client.listMainPullRequestsForBranch(run.head_branch);
+          if (!Array.isArray(response)) {
+            throw new ContractError('GITHUB_INVALID_RESPONSE');
+          }
+          pullRequest = selectMainPullRequest(response, run.head_branch);
+        }
+
+        if (Number.isInteger(pullRequest?.number)) {
+          pullRequestCache.set(pullRequest.number, pullRequest);
+        }
       }
 
-      if (!pullRequestCache.has(pullNumber)) {
-        pullRequestCache.set(pullNumber, await client.getPullRequest(pullNumber));
-      }
-      if (pullRequestCache.get(pullNumber)?.base?.ref !== 'main') {
+      if (pullRequest?.base?.ref !== 'main') {
+        noMainPullRequestCount += 1;
         continue;
       }
 
       firstAttempts.push(run.run_attempt > 1 ? await client.getRunAttempt(run.id) : run);
+    }
+
+    const result = calculateCiSuccess(firstAttempts, window.windowEnd);
+    if (noMainPullRequestCount > 0) {
+      result.excluded.no_main_pull_request = noMainPullRequestCount;
     }
 
     return {
@@ -245,7 +302,7 @@ async function collectCiResult(client, window) {
         pullRequestNumbers: [...pullRequestCache.keys()],
         runIds: [...runMap.keys()],
       },
-      result: calculateCiSuccess(firstAttempts, window.windowEnd),
+      result,
     };
   } catch (error) {
     return {
@@ -310,7 +367,7 @@ export async function collectDeliveryKpis({
     source: 'delivery',
     date,
     env,
-    calculationVersion: 'delivery-v1',
+    calculationVersion: 'delivery-v2',
     sourceRef: {
       repository,
       workflow: WORKFLOW_FILE,
@@ -334,7 +391,7 @@ function createErrorReport({ date, env, repository, code }) {
     source: 'delivery',
     date,
     env,
-    calculationVersion: 'delivery-v1',
+    calculationVersion: 'delivery-v2',
     sourceRef: { repository, workflow: WORKFLOW_FILE, ci: {}, merge: {} },
     measurements: [],
     diagnostics: [

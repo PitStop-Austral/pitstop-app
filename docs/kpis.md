@@ -224,6 +224,9 @@ node scripts/kpis/delivery.mjs --date 2026-10-21 --env dev --output .tmp/kpis/fr
 The delivery collector uses GitHub's automatic `GITHUB_REPOSITORY` and `GITHUB_TOKEN` variables;
 `--repository owner/repo` is available for a local override. A workflow that enables it needs
 `actions: read` and `pull-requests: read` permissions.
+For CI runs whose `pull_requests` array is empty after a PR is merged, it resolves the PR from the
+run's `head_sha`; runs with no PR targeting `main` are excluded from the CI calculation and counted
+as `no_main_pull_request` in the diagnostic.
 
 The last two are integration points for PIT-72 and PIT-74. Valid examples for each source are in
 `scripts/kpis/tests/fixtures/` and `validateFragment` in `contracts.mjs` is the authoritative check:
