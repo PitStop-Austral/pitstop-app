@@ -7,16 +7,30 @@ describe('UsersRepository', () => {
   let findUnique: jest.Mock;
   let create: jest.Mock;
   let update: jest.Mock;
+  let countVehicles: jest.Mock;
+  let countMaintenances: jest.Mock;
+  let transaction: jest.Mock;
 
   beforeEach(async () => {
     findUnique = jest.fn();
     create = jest.fn();
     update = jest.fn();
+    countVehicles = jest.fn();
+    countMaintenances = jest.fn();
+    transaction = jest.fn((operations: Promise<unknown>[]) => Promise.all(operations));
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersRepository,
-        { provide: PrismaService, useValue: { user: { findUnique, create, update } } },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique, create, update },
+            vehicle: { count: countVehicles },
+            maintenance: { count: countMaintenances },
+            $transaction: transaction,
+          },
+        },
       ],
     }).compile();
 
@@ -37,7 +51,7 @@ describe('UsersRepository', () => {
     expect(result).toBe(created);
   });
 
-  it('updates the user when email or name changed', async () => {
+  it('updates only the email and preserves the stored name for an existing user', async () => {
     const existing = {
       id: 'uuid-1',
       firebaseUid: 'uid-1',
@@ -47,14 +61,14 @@ describe('UsersRepository', () => {
       notificationPromptShownAt: new Date('2026-10-01T12:00:00.000Z'),
     };
     findUnique.mockResolvedValue(existing);
-    const updated = { ...existing, email: 'new@b.com', name: 'New Name' };
+    const updated = { ...existing, email: 'new@b.com' };
     update.mockResolvedValue(updated);
 
     const result = await repository.syncByFirebaseUid('uid-1', 'new@b.com', 'New Name');
 
     expect(update).toHaveBeenCalledWith({
       where: { firebaseUid: 'uid-1' },
-      data: { email: 'new@b.com', name: 'New Name' },
+      data: { email: 'new@b.com' },
     });
     expect(updated.notificationsEnabled).toBe(true);
     expect(updated.notificationPromptShownAt).toBe(existing.notificationPromptShownAt);
@@ -71,5 +85,51 @@ describe('UsersRepository', () => {
     expect(update).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
     expect(result).toBe(existing);
+  });
+
+  it('does not overwrite an existing name when only the token name changed', async () => {
+    const existing = { id: 'uuid-1', firebaseUid: 'uid-1', email: 'a@b.com', name: 'Saved Name' };
+    findUnique.mockResolvedValue(existing);
+
+    const result = await repository.syncByFirebaseUid('uid-1', 'a@b.com', 'Firebase Name');
+
+    expect(update).not.toHaveBeenCalled();
+    expect(result).toBe(existing);
+  });
+
+  it('counts only vehicles and services owned by the user in one transaction', async () => {
+    countVehicles.mockResolvedValue(2);
+    countMaintenances.mockResolvedValue(13);
+
+    await expect(repository.getProfileSummary('user-1')).resolves.toEqual({
+      vehicleCount: 2,
+      serviceCount: 13,
+    });
+    expect(countVehicles).toHaveBeenCalledWith({ where: { ownerId: 'user-1' } });
+    expect(countMaintenances).toHaveBeenCalledWith({
+      where: { vehicle: { ownerId: 'user-1' } },
+    });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns zero counts for a user without vehicles or services', async () => {
+    countVehicles.mockResolvedValue(0);
+    countMaintenances.mockResolvedValue(0);
+
+    await expect(repository.getProfileSummary('user-1')).resolves.toEqual({
+      vehicleCount: 0,
+      serviceCount: 0,
+    });
+  });
+
+  it('updates a name by user id', async () => {
+    const updated = { id: 'user-1', name: 'Ada Lovelace' };
+    update.mockResolvedValue(updated);
+
+    await expect(repository.updateName('user-1', 'Ada Lovelace')).resolves.toBe(updated);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { name: 'Ada Lovelace' },
+    });
   });
 });

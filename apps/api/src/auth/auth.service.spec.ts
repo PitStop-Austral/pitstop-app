@@ -43,6 +43,20 @@ describe('AuthService', () => {
     expect(syncByFirebaseUid).toHaveBeenCalledWith('uid-2', 'driver@example.com', 'driver');
   });
 
+  it('delegates token data without deciding whether to overwrite an existing name', async () => {
+    const storedUser = { id: 'uuid-1', firebaseUid: 'uid-1', email: 'a@b.com', name: 'Saved Name' };
+    syncByFirebaseUid.mockResolvedValue(storedUser as never);
+
+    const result = await authService.syncUser({
+      uid: 'uid-1',
+      email: 'a@b.com',
+      name: 'Firebase Name',
+    } as Partial<DecodedIdToken> as DecodedIdToken);
+
+    expect(syncByFirebaseUid).toHaveBeenCalledWith('uid-1', 'a@b.com', 'Firebase Name');
+    expect(result).toBe(storedUser);
+  });
+
   it('throws Unauthorized when the token has no email', async () => {
     await expect(
       authService.syncUser({ uid: 'uid-3' } as Partial<DecodedIdToken> as DecodedIdToken),

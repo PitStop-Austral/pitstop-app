@@ -43,10 +43,10 @@ export class FirebaseAuthGuard implements CanActivate {
 
     const decodedToken = await this.verifyToken(idToken);
 
-    // AuthService.syncUser runs on every request, not just first login, so a name/email
-    // change in Firebase is reflected here on the very next request. UsersRepository only
-    // writes to the DB when email/name actually changed, so the common case (nothing
-    // changed) costs a single read, not a write.
+    // AuthService.syncUser runs on every request, not just first login. Firebase remains the
+    // source of truth for email, while the database keeps the user-edited name after account
+    // creation. UsersRepository writes only when the email changed, so the common case costs
+    // a single read rather than a write.
     try {
       request.user = await this.authService.syncUser(decodedToken);
     } catch (error) {

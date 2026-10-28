@@ -2,10 +2,13 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
+import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
+  let getProfileSummary: jest.MockedFunction<UsersRepository['getProfileSummary']>;
+  let updateName: jest.MockedFunction<UsersRepository['updateName']>;
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let setActiveVehicle: jest.MockedFunction<VehiclesRepository['setActiveVehicle']>;
 
@@ -24,12 +27,15 @@ describe('UsersService', () => {
   } satisfies User;
 
   beforeEach(async () => {
+    getProfileSummary = jest.fn();
+    updateName = jest.fn();
     findOwnedById = jest.fn();
     setActiveVehicle = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
+        { provide: UsersRepository, useValue: { getProfileSummary, updateName } },
         { provide: VehiclesRepository, useValue: { findOwnedById, setActiveVehicle } },
       ],
     }).compile();
@@ -61,5 +67,21 @@ describe('UsersService', () => {
     findOwnedById.mockResolvedValue(null);
 
     await expect(service.getMe(user)).resolves.toEqual({ ...user, activeVehicleId: null });
+  });
+
+  it('returns the profile summary for the authenticated user', async () => {
+    const summary = { vehicleCount: 0, serviceCount: 0 };
+    getProfileSummary.mockResolvedValue(summary);
+
+    await expect(service.getProfileSummary(user.id)).resolves.toBe(summary);
+    expect(getProfileSummary).toHaveBeenCalledWith(user.id);
+  });
+
+  it('updates only the authenticated user name', async () => {
+    const updated = { ...user, name: 'Ada Lovelace' };
+    updateName.mockResolvedValue(updated);
+
+    await expect(service.updateMe(user.id, { name: 'Ada Lovelace' })).resolves.toBe(updated);
+    expect(updateName).toHaveBeenCalledWith(user.id, 'Ada Lovelace');
   });
 });
