@@ -51,9 +51,10 @@ describe('AppModule (e2e)', () => {
   let updateMaintenanceMileage: jest.Mock;
   let updateActiveUser: jest.Mock;
   let markNotificationPrompt: jest.Mock;
-  let deleteNotificationDevice: jest.Mock;
   let findNotificationDevice: jest.Mock;
+  let findTransactionNotificationDevice: jest.Mock;
   let deleteConflictingNotificationToken: jest.Mock;
+  let disableNotificationsAfterRemoval: jest.Mock;
   let upsertNotificationDevice: jest.Mock;
   let createHttpRequestLog: jest.Mock;
   let sendMessage: jest.Mock;
@@ -169,10 +170,13 @@ describe('AppModule (e2e)', () => {
     updateVehicle = jest.fn();
     updateMaintenanceMileage = jest.fn();
     updateActiveUser = jest.fn();
-    markNotificationPrompt = jest.fn();
-    deleteNotificationDevice = jest.fn();
+    markNotificationPrompt = jest.fn().mockResolvedValue({ count: 1 });
     findNotificationDevice = jest.fn();
+    findTransactionNotificationDevice = jest
+      .fn()
+      .mockResolvedValue({ userId: authenticatedUser.id });
     deleteConflictingNotificationToken = jest.fn();
+    disableNotificationsAfterRemoval = jest.fn();
     upsertNotificationDevice = jest.fn();
     createHttpRequestLog = jest.fn().mockResolvedValue(undefined);
     sendMessage = jest.fn();
@@ -196,6 +200,7 @@ describe('AppModule (e2e)', () => {
         },
         notificationDevice: {
           deleteMany: deleteConflictingNotificationToken,
+          findFirst: findTransactionNotificationDevice,
           upsert: upsertNotificationDevice,
         },
         schedule: {
@@ -214,7 +219,11 @@ describe('AppModule (e2e)', () => {
           updateMany: updateMaintenanceMileage,
           update: updateVehicle,
         },
-        user: { findUnique: findTransactionUser, update: updateActiveUser },
+        user: {
+          findUnique: findTransactionUser,
+          update: updateActiveUser,
+          updateMany: disableNotificationsAfterRemoval,
+        },
       }),
     );
 
@@ -228,7 +237,6 @@ describe('AppModule (e2e)', () => {
         httpRequestLog: { create: createHttpRequestLog },
         user: { findUnique, create, update: updateUser, updateMany: markNotificationPrompt },
         notificationDevice: {
-          deleteMany: deleteNotificationDevice,
           findFirst: findNotificationDevice,
         },
         vehicle: {
@@ -517,6 +525,75 @@ describe('AppModule (e2e)', () => {
       installationId,
     };
 
+    it('requires authentication to update notification preferences', () => {
+      return request(app.getHttpServer())
+        .patch('/me/notification-preferences')
+        .send({ enabled: false })
+        .expect(401);
+    });
+
+    it.each([{ enabled: 'false' }, { enabled: 1 }, { enabled: null }, {}])(
+      'validates notification preference input %#',
+      (body) => {
+        authenticate();
+
+        return request(app.getHttpServer())
+          .patch('/me/notification-preferences')
+          .set('Authorization', 'Bearer valid-token')
+          .send(body)
+          .expect(400);
+      },
+    );
+
+    it('disables notification delivery for only the authenticated user', async () => {
+      authenticate();
+
+      await request(app.getHttpServer())
+        .patch('/me/notification-preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ enabled: false })
+        .expect(200)
+        .expect({ notificationsEnabled: false });
+
+      expect(markNotificationPrompt).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id },
+        data: { notificationsEnabled: false },
+      });
+    });
+
+    it('enables notification delivery when the authenticated user has a device', async () => {
+      authenticate();
+
+      await request(app.getHttpServer())
+        .patch('/me/notification-preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ enabled: true })
+        .expect(200)
+        .expect({ notificationsEnabled: true });
+
+      expect(markNotificationPrompt).toHaveBeenCalledWith({
+        where: {
+          id: authenticatedUser.id,
+          notificationDevices: { some: {} },
+        },
+        data: { notificationsEnabled: true },
+      });
+    });
+
+    it('returns conflict without changing preferences when the user has no device', async () => {
+      authenticate();
+      markNotificationPrompt.mockResolvedValueOnce({ count: 0 });
+
+      await request(app.getHttpServer())
+        .patch('/me/notification-preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ enabled: true })
+        .expect(409)
+        .expect(({ body }) => {
+          expect(body.message).toBe('Activá las notificaciones en este dispositivo');
+        });
+    });
+
     it('requires authentication to register a notification device', () => {
       return request(app.getHttpServer())
         .post('/me/notification-devices')
@@ -561,8 +638,15 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .expect(204);
 
-      expect(deleteNotificationDevice).toHaveBeenCalledWith({
+      expect(deleteConflictingNotificationToken).toHaveBeenCalledWith({
         where: { userId: authenticatedUser.id, installationId },
+      });
+      expect(disableNotificationsAfterRemoval).toHaveBeenCalledWith({
+        where: {
+          id: authenticatedUser.id,
+          notificationDevices: { none: {} },
+        },
+        data: { notificationsEnabled: false },
       });
     });
 
@@ -687,8 +771,15 @@ describe('AppModule (e2e)', () => {
           .set('Authorization', 'Bearer valid-token')
           .expect(410);
 
-        expect(deleteNotificationDevice).toHaveBeenCalledWith({
+        expect(deleteConflictingNotificationToken).toHaveBeenCalledWith({
           where: { id: deliveryDevice.id, token: deliveryDevice.token },
+        });
+        expect(disableNotificationsAfterRemoval).toHaveBeenCalledWith({
+          where: {
+            id: authenticatedUser.id,
+            notificationDevices: { none: {} },
+          },
+          data: { notificationsEnabled: false },
         });
       });
 

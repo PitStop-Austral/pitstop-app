@@ -5,13 +5,14 @@ import { NotificationsRepository } from './notifications.repository';
 describe('NotificationsRepository', () => {
   let repository: NotificationsRepository;
   let transaction: jest.Mock;
-  let lockRegistrations: jest.Mock;
-  let deleteConflictingToken: jest.Mock;
+  let lockDeviceMutations: jest.Mock;
+  let deleteTransactionDevice: jest.Mock;
+  let findTransactionDevice: jest.Mock;
   let upsertDevice: jest.Mock;
   let enableNotifications: jest.Mock;
-  let deleteOwnedDevice: jest.Mock;
+  let updateTransactionUsers: jest.Mock;
   let findOwnedDevice: jest.Mock;
-  let markPromptShown: jest.Mock;
+  let updateUsers: jest.Mock;
 
   const userId = '11111111-1111-4111-8111-111111111111';
   const installationId = '22222222-2222-4222-8222-222222222222';
@@ -23,18 +24,23 @@ describe('NotificationsRepository', () => {
   };
 
   beforeEach(async () => {
-    lockRegistrations = jest.fn();
-    deleteConflictingToken = jest.fn();
+    lockDeviceMutations = jest.fn();
+    deleteTransactionDevice = jest.fn();
+    findTransactionDevice = jest.fn().mockResolvedValue({ userId });
     upsertDevice = jest.fn().mockResolvedValue(device);
     enableNotifications = jest.fn();
-    deleteOwnedDevice = jest.fn();
+    updateTransactionUsers = jest.fn();
     findOwnedDevice = jest.fn().mockResolvedValue(deliveryDevice);
-    markPromptShown = jest.fn();
+    updateUsers = jest.fn().mockResolvedValue({ count: 1 });
     transaction = jest.fn(async (callback) =>
       callback({
-        $queryRaw: lockRegistrations,
-        notificationDevice: { deleteMany: deleteConflictingToken, upsert: upsertDevice },
-        user: { update: enableNotifications },
+        $queryRaw: lockDeviceMutations,
+        notificationDevice: {
+          deleteMany: deleteTransactionDevice,
+          findFirst: findTransactionDevice,
+          upsert: upsertDevice,
+        },
+        user: { update: enableNotifications, updateMany: updateTransactionUsers },
       }),
     );
 
@@ -46,10 +52,9 @@ describe('NotificationsRepository', () => {
           useValue: {
             $transaction: transaction,
             notificationDevice: {
-              deleteMany: deleteOwnedDevice,
               findFirst: findOwnedDevice,
             },
-            user: { updateMany: markPromptShown },
+            user: { updateMany: updateUsers },
           },
         },
       ],
@@ -61,8 +66,8 @@ describe('NotificationsRepository', () => {
   it('rotates or transfers an installation and enables notifications atomically', async () => {
     await expect(repository.register(userId, installationId, 'new-token')).resolves.toBe(device);
 
-    expect(lockRegistrations).toHaveBeenCalledTimes(1);
-    expect(deleteConflictingToken).toHaveBeenCalledWith({
+    expect(lockDeviceMutations).toHaveBeenCalledTimes(1);
+    expect(deleteTransactionDevice).toHaveBeenCalledWith({
       where: { token: 'new-token', installationId: { not: installationId } },
     });
     expect(upsertDevice).toHaveBeenCalledWith({
@@ -80,7 +85,40 @@ describe('NotificationsRepository', () => {
   it('deletes by installation and authenticated owner together', async () => {
     await repository.remove(userId, installationId);
 
-    expect(deleteOwnedDevice).toHaveBeenCalledWith({ where: { userId, installationId } });
+    expect(deleteTransactionDevice).toHaveBeenCalledWith({ where: { userId, installationId } });
+    expect(updateTransactionUsers).toHaveBeenCalledWith({
+      where: { id: userId, notificationDevices: { none: {} } },
+      data: { notificationsEnabled: false },
+    });
+  });
+
+  it('disables notifications for only the authenticated user without deleting devices', async () => {
+    await expect(repository.updatePreferences(userId, false)).resolves.toEqual({
+      notificationsEnabled: false,
+    });
+
+    expect(updateUsers).toHaveBeenCalledWith({
+      where: { id: userId },
+      data: { notificationsEnabled: false },
+    });
+    expect(deleteTransactionDevice).not.toHaveBeenCalled();
+  });
+
+  it('enables notifications only when the authenticated user has a registered device', async () => {
+    await expect(repository.updatePreferences(userId, true)).resolves.toEqual({
+      notificationsEnabled: true,
+    });
+
+    expect(updateUsers).toHaveBeenCalledWith({
+      where: { id: userId, notificationDevices: { some: {} } },
+      data: { notificationsEnabled: true },
+    });
+  });
+
+  it('reports a missing registered device without changing the preference', async () => {
+    updateUsers.mockResolvedValue({ count: 0 });
+
+    await expect(repository.updatePreferences(userId, true)).resolves.toBeNull();
   });
 
   it('finds a delivery target only when the installation belongs to the user', async () => {
@@ -101,15 +139,32 @@ describe('NotificationsRepository', () => {
   it('removes a stale device only when its token still matches the failed send', async () => {
     await repository.removeIfTokenMatches(device.id, 'stale-token');
 
-    expect(deleteOwnedDevice).toHaveBeenCalledWith({
+    expect(findTransactionDevice).toHaveBeenCalledWith({
+      where: { id: device.id, token: 'stale-token' },
+      select: { userId: true },
+    });
+    expect(deleteTransactionDevice).toHaveBeenCalledWith({
       where: { id: device.id, token: 'stale-token' },
     });
+    expect(updateTransactionUsers).toHaveBeenCalledWith({
+      where: { id: userId, notificationDevices: { none: {} } },
+      data: { notificationsEnabled: false },
+    });
+  });
+
+  it('preserves preferences when the stale token no longer matches', async () => {
+    findTransactionDevice.mockResolvedValue(null);
+
+    await repository.removeIfTokenMatches(device.id, 'rotated-token');
+
+    expect(deleteTransactionDevice).not.toHaveBeenCalled();
+    expect(updateTransactionUsers).not.toHaveBeenCalled();
   });
 
   it('preserves the original prompt timestamp on repeated calls', async () => {
     await repository.markPromptShown(userId);
 
-    expect(markPromptShown).toHaveBeenCalledWith({
+    expect(updateUsers).toHaveBeenCalledWith({
       where: { id: userId, notificationPromptShownAt: null },
       data: { notificationPromptShownAt: expect.any(Date) },
     });

@@ -73,8 +73,8 @@ alert.
 The endpoint is disabled by default, including production. Set `NOTIFICATION_TEST_ENABLED=true` in
 the API environment only for development or QA, then restart the API.
 
-Use a production build or an HTTPS deployment from the same Firebase environment. The service
-worker does not run under `pnpm dev`; locally, use:
+Use a local development server, a production build, or an HTTPS deployment from the same Firebase
+environment. For final production-worker validation, use:
 
 ```bash
 pnpm --filter web build

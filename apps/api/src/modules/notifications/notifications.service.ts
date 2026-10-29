@@ -15,6 +15,7 @@ import {
 import { RegisterNotificationDeviceDto } from './dto/register-notification-device.dto';
 import {
   NotificationsRepository,
+  type NotificationPreferences,
   type RegisteredNotificationDevice,
 } from './notifications.repository';
 
@@ -37,6 +38,15 @@ export class NotificationsService {
     dto: RegisterNotificationDeviceDto,
   ): Promise<RegisteredNotificationDevice> {
     return this.notificationsRepository.register(userId, dto.installationId, dto.token);
+  }
+
+  async updatePreferences(userId: string, enabled: boolean): Promise<NotificationPreferences> {
+    const preferences = await this.notificationsRepository.updatePreferences(userId, enabled);
+    if (!preferences && enabled) {
+      throw new ConflictException('Activá las notificaciones en este dispositivo');
+    }
+
+    return preferences ?? { notificationsEnabled: false };
   }
 
   removeDevice(userId: string, installationId: string): Promise<void> {

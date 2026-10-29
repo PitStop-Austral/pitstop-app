@@ -9,6 +9,8 @@ describe('MaintenanceAlertsRepository', () => {
   let createDeliveries: jest.Mock;
   let updateDelivery: jest.Mock;
   let deleteDevice: jest.Mock;
+  let findDeviceForCleanup: jest.Mock;
+  let disableUserNotifications: jest.Mock;
   let findDevices: jest.Mock;
   let findCurrentSchedules: jest.Mock;
   let findCurrentSchedule: jest.Mock;
@@ -19,13 +21,20 @@ describe('MaintenanceAlertsRepository', () => {
     createDeliveries = jest.fn().mockResolvedValue([]);
     updateDelivery = jest.fn();
     deleteDevice = jest.fn();
+    findDeviceForCleanup = jest.fn().mockResolvedValue({ userId: 'owner-id' });
+    disableUserNotifications = jest.fn();
     findDevices = jest.fn().mockResolvedValue([]);
     findCurrentSchedules = jest.fn().mockResolvedValue([]);
     findCurrentSchedule = jest.fn().mockResolvedValue(null);
     queryRaw = jest.fn().mockResolvedValue([]);
     const transactionClient = {
       $queryRaw: queryRaw,
-      notificationDevice: { findMany: findDevices },
+      notificationDevice: {
+        deleteMany: deleteDevice,
+        findFirst: findDeviceForCleanup,
+        findMany: findDevices,
+      },
+      user: { updateMany: disableUserNotifications },
       schedule: {
         findMany: findCurrentSchedules,
         findUnique: findCurrentSchedule,
@@ -54,7 +63,6 @@ describe('MaintenanceAlertsRepository', () => {
               createManyAndReturn: createDeliveries,
               update: updateDelivery,
             },
-            notificationDevice: { deleteMany: deleteDevice },
           },
         },
       ],
@@ -279,8 +287,25 @@ describe('MaintenanceAlertsRepository', () => {
   it('removes an invalid device only while its token still matches', async () => {
     await repository.removeDeviceIfTokenMatches('device-id', 'stale-token');
 
+    expect(findDeviceForCleanup).toHaveBeenCalledWith({
+      where: { id: 'device-id', token: 'stale-token' },
+      select: { userId: true },
+    });
     expect(deleteDevice).toHaveBeenCalledWith({
       where: { id: 'device-id', token: 'stale-token' },
     });
+    expect(disableUserNotifications).toHaveBeenCalledWith({
+      where: { id: 'owner-id', notificationDevices: { none: {} } },
+      data: { notificationsEnabled: false },
+    });
+  });
+
+  it('keeps the account preference when the invalid token was already rotated', async () => {
+    findDeviceForCleanup.mockResolvedValue(null);
+
+    await repository.removeDeviceIfTokenMatches('device-id', 'rotated-token');
+
+    expect(deleteDevice).not.toHaveBeenCalled();
+    expect(disableUserNotifications).not.toHaveBeenCalled();
   });
 });

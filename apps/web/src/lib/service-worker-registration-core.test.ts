@@ -50,3 +50,18 @@ test('shares a successful in-flight registration attempt', async () => {
   assert.equal(await firstAttempt, registration);
   assert.equal(attempts, 1);
 });
+
+test('times out a registration that never settles and allows a retry', async () => {
+  let attempts = 0;
+  const manager = createServiceWorkerRegistrationManager({
+    isSupported: () => true,
+    start: () => {
+      attempts += 1;
+    },
+    timeoutMs: 5,
+  });
+
+  await assert.rejects(manager.getRegistration(), /timed out/);
+  await assert.rejects(manager.getRegistration(), /timed out/);
+  assert.equal(attempts, 2);
+});

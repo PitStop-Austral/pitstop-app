@@ -189,11 +189,62 @@ describe('Notification devices and first maintenance persistence (PostgreSQL)', 
       await prisma.notificationDevice.count({ where: { installationId: firstInstallation } }),
     ).toBe(0);
 
-    const users = await prisma.user.findMany({
+    const usersAfterSecondUserRemoval = await prisma.user.findMany({
       where: { id: { in: [firstUserId, secondUserId] } },
-      select: { notificationsEnabled: true },
+      select: { id: true, notificationsEnabled: true },
     });
-    expect(users.every((user) => user.notificationsEnabled)).toBe(true);
+    expect(
+      usersAfterSecondUserRemoval.find((user) => user.id === firstUserId)?.notificationsEnabled,
+    ).toBe(true);
+    expect(
+      usersAfterSecondUserRemoval.find((user) => user.id === secondUserId)?.notificationsEnabled,
+    ).toBe(false);
+
+    await request(app.getHttpServer())
+      .delete(`${path}/${secondInstallation}`)
+      .set('Authorization', 'Bearer first-token')
+      .expect(204);
+    await expect(
+      prisma.user.findUniqueOrThrow({
+        where: { id: firstUserId },
+        select: { notificationsEnabled: true },
+      }),
+    ).resolves.toEqual({ notificationsEnabled: false });
+  });
+
+  it('keeps registered devices while notification preferences are disabled and re-enabled', async () => {
+    const installationId = randomUUID();
+    const notificationPath = '/me/notification-preferences';
+
+    await request(app.getHttpServer())
+      .post('/me/notification-devices')
+      .set('Authorization', 'Bearer first-token')
+      .send({ installationId, token: `preference-token-${randomUUID()}` })
+      .expect(200);
+
+    const deviceCount = await prisma.notificationDevice.count({ where: { userId: firstUserId } });
+
+    await request(app.getHttpServer())
+      .patch(notificationPath)
+      .set('Authorization', 'Bearer first-token')
+      .send({ enabled: false })
+      .expect(200)
+      .expect({ notificationsEnabled: false });
+
+    expect(await prisma.notificationDevice.count({ where: { userId: firstUserId } })).toBe(
+      deviceCount,
+    );
+
+    await request(app.getHttpServer())
+      .patch(notificationPath)
+      .set('Authorization', 'Bearer first-token')
+      .send({ enabled: true })
+      .expect(200)
+      .expect({ notificationsEnabled: true });
+
+    expect(await prisma.notificationDevice.count({ where: { userId: firstUserId } })).toBe(
+      deviceCount,
+    );
   });
 
   it('serializes concurrent claims for the same notification token', async () => {
