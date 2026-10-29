@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { profileSummaryQueryKey } from '@/features/users/queries';
 import { vehiclesQueryKey } from '@/features/vehicles/queries';
 import {
   createMaintenance,
@@ -54,7 +55,10 @@ export function useCreateMaintenance() {
     mutationFn: ({ vehicleId, input }: { vehicleId: string; input: MaintenanceInput }) =>
       createMaintenance(vehicleId, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: profileSummaryQueryKey }),
+      ]);
     },
   });
 }
@@ -93,7 +97,10 @@ export function useDeleteMaintenance() {
     onSuccess: async (_data, { vehicleId, id }) => {
       // Dropped first so the invalidation below doesn't refetch a detail that now 404s.
       queryClient.removeQueries({ queryKey: maintenanceQueryKey(vehicleId, id) });
-      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: profileSummaryQueryKey }),
+      ]);
     },
   });
 }
