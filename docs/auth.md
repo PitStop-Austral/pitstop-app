@@ -12,6 +12,13 @@
 
 `AuthProvider` (`lib/auth-context.tsx`) is the only place that calls Firebase's `onAuthStateChanged`. `isLoading` resolves on the first callback; `user` reflects Firebase's current state everywhere else via `useAuth()`.
 
+## Change password
+
+The Profile "Cambiar contraseña" flow is available only to email/password users. It re-authenticates
+the current Firebase user with their existing password before calling `updatePassword`; credentials
+remain in the form state and never reach the PitStop API or local storage. Firebase keeps the
+session active after a successful change.
+
 ## Logout
 
 `signOut()` (`lib/sign-out.ts`, wired up in `auth-context.tsx`) runs installation cleanup before its
