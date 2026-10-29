@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
+import { ChangePasswordSheet } from '@/features/users/change-password-sheet';
 import { getStoredInstallationId } from '@/features/notifications/installation-id';
 import {
   getNotificationCapability,
@@ -51,6 +52,7 @@ function ProfilePage() {
   const currentUserQuery = useCurrentUser();
   const summaryQuery = useProfileSummary();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
 
   const isInitialLoading = currentUserQuery.isPending || summaryQuery.isPending;
@@ -143,6 +145,7 @@ function ProfilePage() {
                 permissionSheetOpen={permissionSheetOpen}
                 onOpenPermissionSheet={() => setPermissionSheetOpen(true)}
               />
+              <AccountSettings onChangePassword={() => setPasswordSheetOpen(true)} />
             </div>
           </>
         )}
@@ -155,11 +158,37 @@ function ProfilePage() {
           onOpenChange={setEditorOpen}
         />
       ) : null}
+      <ChangePasswordSheet open={passwordSheetOpen} onOpenChange={setPasswordSheetOpen} />
       <NotificationPermissionSheet
         open={permissionSheetOpen}
         onOpenChange={setPermissionSheetOpen}
       />
     </PageContainer>
+  );
+}
+
+function AccountSettings({ onChangePassword }: { onChangePassword: () => void }) {
+  return (
+    <section className="space-y-3 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <Text color="muted" variant="overline">
+        Cuenta y app
+      </Text>
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <button
+          className="flex w-full items-center gap-3 p-4 text-left hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          type="button"
+          onClick={onChangePassword}
+        >
+          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100">
+            <Icon color="emphasis" name="Lock" size="md" strokeWidth={1.75} />
+          </div>
+          <Text color="default" variant="label">
+            Cambiar contraseña
+          </Text>
+          <Icon className="ml-auto" color="subtle" name="ChevronRight" size="md" />
+        </button>
+      </div>
+    </section>
   );
 }
 

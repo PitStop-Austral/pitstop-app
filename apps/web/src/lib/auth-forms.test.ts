@@ -4,7 +4,9 @@ import test from 'node:test';
 import {
   AUTH_MESSAGES,
   getPasswordStrength,
+  mapChangePasswordError,
   mapAuthOperationError,
+  validateChangePassword,
   validateEmail,
   validateLogin,
   validateRegistration,
@@ -47,6 +49,29 @@ test('login only requires a valid email and a non-empty password', () => {
   assert.deepStrictEqual(validateLogin({ email: 'person@example.com', password: 'old' }), {});
 });
 
+test('change password validates every required rule', () => {
+  assert.deepStrictEqual(
+    validateChangePassword({
+      currentPassword: '',
+      newPassword: 'short',
+      passwordConfirmation: 'different',
+    }),
+    {
+      currentPassword: AUTH_MESSAGES.passwordRequired,
+      newPassword: AUTH_MESSAGES.passwordTooShort,
+      passwordConfirmation: AUTH_MESSAGES.passwordsDoNotMatch,
+    },
+  );
+  assert.deepStrictEqual(
+    validateChangePassword({
+      currentPassword: 'current-password',
+      newPassword: 'new-password',
+      passwordConfirmation: 'new-password',
+    }),
+    {},
+  );
+});
+
 test('email validation trims surrounding whitespace', () => {
   assert.equal(validateEmail(' person@example.com '), undefined);
   assert.equal(validateEmail('not-an-email'), AUTH_MESSAGES.email);
@@ -78,6 +103,46 @@ test('Firebase errors map to safe Spanish messages', () => {
     target: 'form',
   });
   assert.deepStrictEqual(mapAuthOperationError(new Error('network details')), {
+    message: AUTH_MESSAGES.generic,
+    target: 'form',
+  });
+});
+
+test('change password Firebase errors map to the correct field or form message', () => {
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/invalid-credential' }), {
+    field: 'currentPassword',
+    message: AUTH_MESSAGES.currentPasswordIncorrect,
+    target: 'field',
+  });
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/wrong-password' }), {
+    field: 'currentPassword',
+    message: AUTH_MESSAGES.currentPasswordIncorrect,
+    target: 'field',
+  });
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/weak-password' }), {
+    field: 'newPassword',
+    message: AUTH_MESSAGES.passwordTooShort,
+    target: 'field',
+  });
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/too-many-requests' }), {
+    message: AUTH_MESSAGES.tooManyRequests,
+    target: 'form',
+  });
+  for (const code of [
+    'auth/requires-recent-login',
+    'auth/user-mismatch',
+    'auth/user-token-expired',
+  ]) {
+    assert.deepStrictEqual(mapChangePasswordError({ code }), {
+      message: AUTH_MESSAGES.recentLoginRequired,
+      target: 'form',
+    });
+  }
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/network-request-failed' }), {
+    message: AUTH_MESSAGES.networkRequestFailed,
+    target: 'form',
+  });
+  assert.deepStrictEqual(mapChangePasswordError({ code: 'auth/unknown' }), {
     message: AUTH_MESSAGES.generic,
     target: 'form',
   });

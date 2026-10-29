@@ -2,7 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { onAuthStateChanged, signOut as firebaseSignOut, type User } from 'firebase/auth';
+import {
+  EmailAuthProvider,
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  signOut as firebaseSignOut,
+  updatePassword,
+  type User,
+} from 'firebase/auth';
 
 import { setUnauthorizedHandler } from './api-client';
 import { AUTH_MESSAGES } from './auth-forms';
@@ -17,6 +24,7 @@ type AuthContextValue = {
   isSigningOut: boolean;
   isAuthenticating: boolean;
   setIsAuthenticating: (value: boolean) => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -59,12 +67,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(() => runSignOut('unauthorized'));
   }, [runSignOut]);
 
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const user = auth.currentUser;
+
+    if (!user?.email) {
+      throw Object.assign(new Error('Recent login required'), {
+        code: 'auth/requires-recent-login',
+      });
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+  }
+
   const value: AuthContextValue = {
     user,
     isLoading,
     isSigningOut,
     isAuthenticating,
     setIsAuthenticating,
+    changePassword,
     signOut: () => runSignOut('manual'),
   };
 

@@ -2,10 +2,13 @@ export const AUTH_MESSAGES = {
   email: 'Ingresá un email válido',
   generic: 'No pudimos completar la operación. Probá de nuevo',
   invalidCredential: 'El email o la contraseña no coinciden',
+  currentPasswordIncorrect: 'La contraseña actual no es correcta',
   name: 'Ingresá tu nombre',
+  networkRequestFailed: 'Revisá tu conexión y probá de nuevo',
   passwordRequired: 'Ingresá tu contraseña',
   passwordTooShort: 'Usá al menos 8 caracteres',
   passwordsDoNotMatch: 'Las contraseñas no coinciden',
+  recentLoginRequired: 'Por seguridad, cerrá sesión y volvé a entrar para cambiar la contraseña',
   tooManyRequests: 'Demasiados intentos. Probá de nuevo en unos minutos',
   usedEmail: 'Ya existe una cuenta con este email',
 } as const;
@@ -20,13 +23,25 @@ export type RegistrationValues = LoginValues & {
   passwordConfirmation: string;
 };
 
+export type ChangePasswordValues = {
+  currentPassword: string;
+  newPassword: string;
+  passwordConfirmation: string;
+};
+
 export type RegistrationField = keyof RegistrationValues;
 export type RegistrationErrors = Partial<Record<RegistrationField, string>>;
 export type LoginErrors = Partial<Record<keyof LoginValues, string>>;
+export type ChangePasswordField = keyof ChangePasswordValues;
+export type ChangePasswordErrors = Partial<Record<ChangePasswordField, string>>;
 export type PasswordStrength = 'weak' | 'acceptable' | 'strong';
 
 export type AuthOperationError =
   | { field: 'email' | 'password'; message: string; target: 'field' }
+  | { message: string; target: 'form' };
+
+export type ChangePasswordOperationError =
+  | { field: ChangePasswordField; message: string; target: 'field' }
   | { message: string; target: 'form' };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -73,6 +88,24 @@ export function validateRegistration(values: RegistrationValues): RegistrationEr
   return errors;
 }
 
+export function validateChangePassword(values: ChangePasswordValues): ChangePasswordErrors {
+  const errors: ChangePasswordErrors = {};
+
+  if (!values.currentPassword) {
+    errors.currentPassword = AUTH_MESSAGES.passwordRequired;
+  }
+
+  if (values.newPassword.length < 8) {
+    errors.newPassword = AUTH_MESSAGES.passwordTooShort;
+  }
+
+  if (values.passwordConfirmation !== values.newPassword) {
+    errors.passwordConfirmation = AUTH_MESSAGES.passwordsDoNotMatch;
+  }
+
+  return errors;
+}
+
 export function getPasswordStrength(password: string): PasswordStrength {
   if (password.length < 8) {
     return 'weak';
@@ -96,6 +129,32 @@ export function mapAuthOperationError(error: unknown): AuthOperationError {
       return { message: AUTH_MESSAGES.invalidCredential, target: 'form' };
     case 'auth/too-many-requests':
       return { message: AUTH_MESSAGES.tooManyRequests, target: 'form' };
+    default:
+      return { message: AUTH_MESSAGES.generic, target: 'form' };
+  }
+}
+
+export function mapChangePasswordError(error: unknown): ChangePasswordOperationError {
+  const code = getErrorCode(error);
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+      return {
+        field: 'currentPassword',
+        message: AUTH_MESSAGES.currentPasswordIncorrect,
+        target: 'field',
+      };
+    case 'auth/weak-password':
+      return { field: 'newPassword', message: AUTH_MESSAGES.passwordTooShort, target: 'field' };
+    case 'auth/too-many-requests':
+      return { message: AUTH_MESSAGES.tooManyRequests, target: 'form' };
+    case 'auth/requires-recent-login':
+    case 'auth/user-mismatch':
+    case 'auth/user-token-expired':
+      return { message: AUTH_MESSAGES.recentLoginRequired, target: 'form' };
+    case 'auth/network-request-failed':
+      return { message: AUTH_MESSAGES.networkRequestFailed, target: 'form' };
     default:
       return { message: AUTH_MESSAGES.generic, target: 'form' };
   }
