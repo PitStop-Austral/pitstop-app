@@ -7,3 +7,7 @@ export type RegisteredNotificationDevice = {
   id: string;
   installationId: string;
 };
+
+export type NotificationPreferences = {
+  notificationsEnabled: boolean;
+};

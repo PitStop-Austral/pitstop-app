@@ -17,16 +17,20 @@ import { firebaseConfig } from './lib/firebase-config';
 
 declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<unknown> };
 
-precacheAndRoute(self.__WB_MANIFEST);
+const precacheManifest = self.__WB_MANIFEST;
+
+precacheAndRoute(precacheManifest);
 cleanupOutdatedCaches();
 self.skipWaiting();
 clientsClaim();
 
-registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-    denylist: [/^\/api(?:\/|$)/],
-  }),
-);
+if (precacheManifest.length > 0) {
+  registerRoute(
+    new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+      denylist: [/^\/api(?:\/|$)/],
+    }),
+  );
+}
 
 self.addEventListener('notificationclick', (event) => {
   const message = parseNotificationMessageData(event.notification.data);

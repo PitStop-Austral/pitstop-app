@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { MaintenanceAlertDeliveryStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  disableNotificationsWithoutDevices,
+  lockNotificationDeviceMutations,
+} from '../notifications/notification-device-state';
 import { addCalendarMonths } from '../schedules/schedule-due';
 import { normalizeScheduleType } from '../schedules/schedule-type';
 import {
@@ -329,7 +333,17 @@ export class MaintenanceAlertsRepository {
   }
 
   async removeDeviceIfTokenMatches(id: string, token: string): Promise<void> {
-    await this.prisma.notificationDevice.deleteMany({ where: { id, token } });
+    await this.prisma.$transaction(async (transaction) => {
+      await lockNotificationDeviceMutations(transaction);
+      const device = await transaction.notificationDevice.findFirst({
+        where: { id, token },
+        select: { userId: true },
+      });
+      if (!device) return;
+
+      await transaction.notificationDevice.deleteMany({ where: { id, token } });
+      await disableNotificationsWithoutDevices(transaction, device.userId);
+    });
   }
 
   private deviceKey(device: LockedNotificationDevice): string {

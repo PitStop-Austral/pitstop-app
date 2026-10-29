@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-
-const NOTIFICATION_DEVICE_REGISTRATION_LOCK = 'pitstop:notification-device-registration';
+import {
+  disableNotificationsWithoutDevices,
+  lockNotificationDeviceMutations,
+} from './notification-device-state';
 
 export type RegisteredNotificationDevice = {
   id: string;
   installationId: string;
+};
+
+export type NotificationPreferences = {
+  notificationsEnabled: boolean;
 };
 
 export type NotificationDeliveryDevice = {
@@ -26,11 +32,7 @@ export class NotificationsRepository {
     return this.prisma.$transaction(async (transaction) => {
       // Registration is rare, and a transaction-scoped lock makes token transfers deterministic
       // even when two installations claim the same new token concurrently.
-      await transaction.$queryRaw`
-        SELECT pg_advisory_xact_lock(
-          hashtextextended(${NOTIFICATION_DEVICE_REGISTRATION_LOCK}, 0)
-        )::text AS "lockAcquired"
-      `;
+      await lockNotificationDeviceMutations(transaction);
 
       await transaction.notificationDevice.deleteMany({
         where: { token, installationId: { not: installationId } },
@@ -52,8 +54,24 @@ export class NotificationsRepository {
     });
   }
 
+  async updatePreferences(
+    userId: string,
+    enabled: boolean,
+  ): Promise<NotificationPreferences | null> {
+    const result = await this.prisma.user.updateMany({
+      where: enabled ? { id: userId, notificationDevices: { some: {} } } : { id: userId },
+      data: { notificationsEnabled: enabled },
+    });
+
+    return result.count === 0 ? null : { notificationsEnabled: enabled };
+  }
+
   async remove(userId: string, installationId: string): Promise<void> {
-    await this.prisma.notificationDevice.deleteMany({ where: { userId, installationId } });
+    await this.prisma.$transaction(async (transaction) => {
+      await lockNotificationDeviceMutations(transaction);
+      await transaction.notificationDevice.deleteMany({ where: { userId, installationId } });
+      await disableNotificationsWithoutDevices(transaction, userId);
+    });
   }
 
   findOwnedForDelivery(
@@ -71,7 +89,17 @@ export class NotificationsRepository {
   }
 
   async removeIfTokenMatches(id: string, token: string): Promise<void> {
-    await this.prisma.notificationDevice.deleteMany({ where: { id, token } });
+    await this.prisma.$transaction(async (transaction) => {
+      await lockNotificationDeviceMutations(transaction);
+      const device = await transaction.notificationDevice.findFirst({
+        where: { id, token },
+        select: { userId: true },
+      });
+      if (!device) return;
+
+      await transaction.notificationDevice.deleteMany({ where: { id, token } });
+      await disableNotificationsWithoutDevices(transaction, device.userId);
+    });
   }
 
   async markPromptShown(userId: string): Promise<void> {

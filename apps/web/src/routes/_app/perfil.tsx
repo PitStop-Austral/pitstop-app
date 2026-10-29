@@ -10,7 +10,22 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
+import { getStoredInstallationId } from '@/features/notifications/installation-id';
+import {
+  getNotificationCapability,
+  getNotificationToken,
+} from '@/features/notifications/messaging';
+import { NotificationPermissionSheet } from '@/features/notifications/notification-permission-sheet';
+import {
+  resolveNotificationToggleAction,
+  type NotificationCapabilityState,
+} from '@/features/notifications/notification-preferences';
+import {
+  useRegisterNotificationDevice,
+  useUpdateNotificationPreferences,
+} from '@/features/notifications/queries';
 import { useCurrentUser, useProfileSummary, useUpdateMe } from '@/features/users/queries';
 import { useAuth } from '@/lib/auth-context';
 
@@ -36,6 +51,7 @@ function ProfilePage() {
   const currentUserQuery = useCurrentUser();
   const summaryQuery = useProfileSummary();
   const [editorOpen, setEditorOpen] = useState(false);
+  const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
 
   const isInitialLoading = currentUserQuery.isPending || summaryQuery.isPending;
   const hasLoadingError = currentUserQuery.isLoadingError || summaryQuery.isLoadingError;
@@ -68,51 +84,67 @@ function ProfilePage() {
         ) : isInitialLoading || !currentUserQuery.data || !summaryQuery.data ? (
           <ProfileSkeleton />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <section className="relative rounded-[20px] border border-border bg-card p-5 shadow-sm">
-              <Button
-                aria-label="Cerrar sesión"
-                className="absolute top-3 right-3 size-11 bg-transparent hover:bg-red-50"
-                size="icon"
-                variant="ghost"
-                onClick={() => void signOut()}
-              >
-                <Icon color="danger" name="LogOut" size="md" />
-              </Button>
+          <>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <section className="relative rounded-[20px] border border-border bg-card p-5 shadow-sm">
+                <Button
+                  aria-label="Cerrar sesión"
+                  className="absolute top-3 right-3 size-11 bg-transparent hover:bg-red-50"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => void signOut()}
+                >
+                  <Icon color="danger" name="LogOut" size="md" />
+                </Button>
 
-              <div className="flex items-center gap-4 pr-10">
-                <div className="grid size-16 shrink-0 place-items-center rounded-full bg-primary">
-                  <Text color="on-primary" variant="heading">
-                    {getInitials(currentUserQuery.data.name)}
-                  </Text>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Text className="truncate" variant="subheading">
-                      {currentUserQuery.data.name}
+                <div className="flex items-center gap-4 pr-10">
+                  <div className="grid size-16 shrink-0 place-items-center rounded-full bg-primary">
+                    <Text color="on-primary" variant="heading">
+                      {getInitials(currentUserQuery.data.name)}
                     </Text>
-                    <Button
-                      aria-label="Editar nombre"
-                      className="shrink-0"
-                      size="icon"
-                      variant="icon"
-                      onClick={() => setEditorOpen(true)}
-                    >
-                      <Icon color="muted" name="Pencil" size="sm" />
-                    </Button>
                   </div>
-                  <Text className="mt-1 break-all" color="muted" variant="body">
-                    {currentUserQuery.data.email}
-                  </Text>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Text className="truncate" variant="subheading">
+                        {currentUserQuery.data.name}
+                      </Text>
+                      <Button
+                        aria-label="Editar nombre"
+                        className="shrink-0"
+                        size="icon"
+                        variant="icon"
+                        onClick={() => setEditorOpen(true)}
+                      >
+                        <Icon color="muted" name="Pencil" size="sm" />
+                      </Button>
+                    </div>
+                    <Text className="mt-1 break-all" color="muted" variant="body">
+                      {currentUserQuery.data.email}
+                    </Text>
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard count={summaryQuery.data.vehicleCount} labels={['Vehículo', 'Vehículos']} />
-              <StatCard count={summaryQuery.data.serviceCount} labels={['Servicio', 'Servicios']} />
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  count={summaryQuery.data.vehicleCount}
+                  labels={['Vehículo', 'Vehículos']}
+                />
+                <StatCard
+                  count={summaryQuery.data.serviceCount}
+                  labels={['Servicio', 'Servicios']}
+                />
+              </div>
             </div>
-          </div>
+
+            <div className="grid gap-8 lg:grid-cols-2 lg:gap-x-8">
+              <NotificationSettings
+                notificationsEnabled={currentUserQuery.data.notificationsEnabled}
+                permissionSheetOpen={permissionSheetOpen}
+                onOpenPermissionSheet={() => setPermissionSheetOpen(true)}
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -123,8 +155,150 @@ function ProfilePage() {
           onOpenChange={setEditorOpen}
         />
       ) : null}
+      <NotificationPermissionSheet
+        open={permissionSheetOpen}
+        onOpenChange={setPermissionSheetOpen}
+      />
     </PageContainer>
   );
+}
+
+function NotificationSettings({
+  notificationsEnabled,
+  permissionSheetOpen,
+  onOpenPermissionSheet,
+}: {
+  notificationsEnabled: boolean;
+  permissionSheetOpen: boolean;
+  onOpenPermissionSheet: () => void;
+}) {
+  const [capability, setCapability] = useState<NotificationCapabilityState>('checking');
+  const [isActivatingCurrentDevice, setIsActivatingCurrentDevice] = useState(false);
+  const registerDevice = useRegisterNotificationDevice();
+  const updatePreferences = useUpdateNotificationPreferences();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getNotificationCapability()
+      .then((result) => {
+        if (!cancelled) setCapability(result);
+      })
+      .catch(() => {
+        if (!cancelled) setCapability('unsupported');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [permissionSheetOpen]);
+
+  const isIosInstallRequired = capability === 'ios-install-required';
+  const isSupported = capability === 'supported';
+  const checked = notificationsEnabled && isSupported;
+  const isSaving =
+    isActivatingCurrentDevice || registerDevice.isPending || updatePreferences.isPending;
+  const disabled = capability === 'checking' || !isSupported || isSaving;
+
+  async function disableNotifications(): Promise<void> {
+    try {
+      await updatePreferences.mutateAsync(false);
+    } catch {
+      toast.error('No pudimos guardar el cambio. Probá de nuevo.');
+    }
+  }
+
+  async function registerCurrentDevice(installationId: string): Promise<void> {
+    if (isActivatingCurrentDevice) return;
+    setIsActivatingCurrentDevice(true);
+    try {
+      const token = await getNotificationToken();
+      await registerDevice.mutateAsync({ installationId, token });
+    } catch {
+      toast.error('No pudimos guardar el cambio. Probá de nuevo.');
+    } finally {
+      setIsActivatingCurrentDevice(false);
+    }
+  }
+
+  function handleCheckedChange(nextChecked: boolean): void {
+    const installationId = getStoredInstallationId(window.localStorage);
+    const action = resolveNotificationToggleAction({
+      capability,
+      hasInstallationId: Boolean(installationId),
+      nextChecked,
+      permission: isSupported ? Notification.permission : null,
+    });
+
+    switch (action) {
+      case 'disable-account':
+        void disableNotifications();
+        break;
+      case 'open-permission-sheet':
+        onOpenPermissionSheet();
+        break;
+      case 'register-current-device':
+        if (installationId) void registerCurrentDevice(installationId);
+        break;
+      case 'unavailable':
+        break;
+    }
+  }
+
+  function openIosHelp(): void {
+    if (isIosInstallRequired) onOpenPermissionSheet();
+  }
+
+  const description = getNotificationDescription(capability);
+
+  return (
+    <section className="space-y-3">
+      <Text color="muted" variant="overline">
+        Notificaciones
+      </Text>
+      <div className="relative flex items-center gap-3 overflow-hidden rounded-lg border border-border bg-card p-4">
+        {isIosInstallRequired ? (
+          <button
+            aria-label="Cómo instalar PitStop para recibir alertas"
+            className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            type="button"
+            onClick={openIosHelp}
+          />
+        ) : null}
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100">
+          <Icon color="emphasis" name="Bell" size="md" strokeWidth={1.75} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Text color="default" variant="label">
+            Alertas push
+          </Text>
+          <Text className="mt-0.5 block lg:truncate" color="muted" variant="caption">
+            {description}
+          </Text>
+        </div>
+        <Switch
+          aria-label="Alertas push"
+          checked={checked}
+          className={isIosInstallRequired ? 'pointer-events-none' : undefined}
+          disabled={disabled}
+          onCheckedChange={handleCheckedChange}
+        />
+      </div>
+    </section>
+  );
+}
+
+function getNotificationDescription(capability: NotificationCapabilityState): string {
+  switch (capability) {
+    case 'denied':
+      return 'Bloqueaste las notificaciones en este navegador. Habilitalas desde la configuración del sitio.';
+    case 'unsupported':
+      return 'Este navegador no permite notificaciones.';
+    case 'ios-install-required':
+      return 'Instalá PitStop en tu pantalla de inicio para recibir alertas.';
+    default:
+      return 'Recordatorios de mantenimientos próximos';
+  }
 }
 
 function StatCard({ count, labels }: { count: number; labels: readonly [string, string] }) {

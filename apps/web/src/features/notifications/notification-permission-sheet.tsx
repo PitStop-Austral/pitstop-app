@@ -64,11 +64,11 @@ export function NotificationPermissionSheet({
     setActivationError(null);
     setIsActivating(true);
 
-    // Keep the permission request in the original click task. Safari can reject it after an await.
-    const permissionRequest = Notification.requestPermission();
-
-    void permissionRequest
-      .then(async (permission) => {
+    void (async () => {
+      try {
+        // Keep the permission request in the original click task. Safari can reject it after an
+        // await, and some browsers can throw synchronously instead of returning a rejected promise.
+        const permission = await Notification.requestPermission();
         if (permission === 'denied') {
           setCapability('denied');
           return;
@@ -83,13 +83,12 @@ export function NotificationPermissionSheet({
         await registerDevice.mutateAsync({ installationId, token });
         toast.success('Notificaciones activadas');
         onOpenChange(false);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         setActivationError(errorMessage(error));
-      })
-      .finally(() => {
+      } finally {
         setIsActivating(false);
-      });
+      }
+    })();
   }
 
   const canActivate = capability === 'supported' && !isActivating;

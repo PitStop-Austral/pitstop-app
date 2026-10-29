@@ -62,9 +62,11 @@ ancestor, so a sheet's inner scroll area is unaffected by those rules. That area
 fits without overflowing, because WebKit ignores `overscroll-behavior` on a container that is not
 actually scrollable and hands the drag to the root instead.
 
-The service worker only registers over HTTPS or `localhost`, so it never runs under `pnpm dev`.
-Test it locally with `pnpm --filter web build && pnpm --filter web preview` in an incognito window
-(a stale service worker from a previous test otherwise stays registered).
+The service worker only registers over HTTPS or `localhost`. Development registration is enabled so
+notification flows can be exercised with `pnpm dev`; the plugin serves a development worker without
+the production precache. Use `pnpm --filter web build && pnpm --filter web preview` in an incognito
+window for final PWA cache and offline validation (a stale service worker from a previous test
+otherwise stays registered).
 
 Web Push also requires `VITE_FIREBASE_VAPID_KEY`, the public key generated under Firebase Console >
 Cloud Messaging > Web Push certificates for the current environment. It is safe to expose in the

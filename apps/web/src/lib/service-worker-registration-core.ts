@@ -6,7 +6,10 @@ export type ServiceWorkerRegistrationCallbacks = {
 type ServiceWorkerRegistrationManagerOptions = {
   isSupported: () => boolean;
   start: (callbacks: ServiceWorkerRegistrationCallbacks) => void;
+  timeoutMs?: number;
 };
+
+const DEFAULT_REGISTRATION_TIMEOUT_MS = 10_000;
 
 export function createServiceWorkerRegistrationManager(
   options: ServiceWorkerRegistrationManagerOptions,
@@ -18,16 +21,32 @@ export function createServiceWorkerRegistrationManager(
     if (registrationPromise) return registrationPromise;
 
     const attempt = new Promise<ServiceWorkerRegistration>((resolve, reject) => {
-      options.start({
-        onRegistered: (registration) => {
-          if (registration) {
-            resolve(registration);
-          } else {
-            reject(new Error('Service worker registration is unavailable'));
-          }
-        },
-        onError: reject,
-      });
+      let settled = false;
+      const timeout = setTimeout(() => {
+        settle(reject, new Error('Service worker registration timed out'));
+      }, options.timeoutMs ?? DEFAULT_REGISTRATION_TIMEOUT_MS);
+
+      function settle<Value>(callback: (value: Value) => void, value: Value): void {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback(value);
+      }
+
+      try {
+        options.start({
+          onRegistered: (registration) => {
+            if (registration) {
+              settle(resolve, registration);
+            } else {
+              settle(reject, new Error('Service worker registration is unavailable'));
+            }
+          },
+          onError: (error) => settle(reject, error),
+        });
+      } catch (error) {
+        settle(reject, error);
+      }
     });
     registrationPromise = attempt;
 

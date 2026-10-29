@@ -12,6 +12,7 @@ import { NotificationsService } from './notifications.service';
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let register: jest.MockedFunction<NotificationsRepository['register']>;
+  let updatePreferences: jest.MockedFunction<NotificationsRepository['updatePreferences']>;
   let remove: jest.MockedFunction<NotificationsRepository['remove']>;
   let markPromptShown: jest.MockedFunction<NotificationsRepository['markPromptShown']>;
   let findOwnedForDelivery: jest.MockedFunction<NotificationsRepository['findOwnedForDelivery']>;
@@ -28,6 +29,7 @@ describe('NotificationsService', () => {
 
   beforeEach(async () => {
     register = jest.fn();
+    updatePreferences = jest.fn();
     remove = jest.fn();
     markPromptShown = jest.fn();
     findOwnedForDelivery = jest.fn().mockResolvedValue(deliveryDevice);
@@ -42,6 +44,7 @@ describe('NotificationsService', () => {
           provide: NotificationsRepository,
           useValue: {
             register,
+            updatePreferences,
             remove,
             markPromptShown,
             findOwnedForDelivery,
@@ -81,6 +84,23 @@ describe('NotificationsService', () => {
       'user-1',
       '11111111-1111-4111-8111-111111111111',
       'fcm-token',
+    );
+  });
+
+  it.each([true, false])('updates notification preferences to %s', async (enabled) => {
+    updatePreferences.mockResolvedValue({ notificationsEnabled: enabled });
+
+    await expect(service.updatePreferences(userId, enabled)).resolves.toEqual({
+      notificationsEnabled: enabled,
+    });
+    expect(updatePreferences).toHaveBeenCalledWith(userId, enabled);
+  });
+
+  it('rejects enabling notifications when the user has no registered device', async () => {
+    updatePreferences.mockResolvedValue(null);
+
+    await expect(service.updatePreferences(userId, true)).rejects.toThrow(
+      'Activá las notificaciones en este dispositivo',
     );
   });
 
