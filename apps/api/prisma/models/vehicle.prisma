@@ -44,6 +44,7 @@ model Vehicle {
   owner                User              @relation(fields: [ownerId], references: [id])
   maintenances         Maintenance[]
   schedules            Schedule[]
+  wishlistItems        WishlistItem[]
 
   @@unique([ownerId, plate])
   @@index([ownerId])
