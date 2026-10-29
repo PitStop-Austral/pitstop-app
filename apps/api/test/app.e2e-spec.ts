@@ -26,11 +26,14 @@ describe('AppModule (e2e)', () => {
   let verifyIdToken: jest.Mock;
   let findUnique: jest.Mock;
   let create: jest.Mock;
+  let updateUser: jest.Mock;
   let findManyVehicles: jest.Mock;
+  let countVehicles: jest.Mock;
   let findOwnedVehicle: jest.Mock;
   let createVehicle: jest.Mock;
   let createMaintenance: jest.Mock;
   let countMaintenances: jest.Mock;
+  let countProfileMaintenances: jest.Mock;
   let createSchedule: jest.Mock;
   let createSchedules: jest.Mock;
   let findSchedules: jest.Mock;
@@ -141,11 +144,14 @@ describe('AppModule (e2e)', () => {
     verifyIdToken = jest.fn();
     findUnique = jest.fn();
     create = jest.fn();
+    updateUser = jest.fn();
     findManyVehicles = jest.fn();
+    countVehicles = jest.fn();
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
     createMaintenance = jest.fn();
     countMaintenances = jest.fn().mockResolvedValue(0);
+    countProfileMaintenances = jest.fn();
     createSchedule = jest.fn();
     createSchedules = jest.fn();
     findSchedules = jest.fn();
@@ -220,17 +226,18 @@ describe('AppModule (e2e)', () => {
         $queryRaw: queryRaw,
         $transaction: transaction,
         httpRequestLog: { create: createHttpRequestLog },
-        user: { findUnique, create, updateMany: markNotificationPrompt },
+        user: { findUnique, create, update: updateUser, updateMany: markNotificationPrompt },
         notificationDevice: {
           deleteMany: deleteNotificationDevice,
           findFirst: findNotificationDevice,
         },
         vehicle: {
+          count: countVehicles,
           findMany: findManyVehicles,
           findFirst: findOwnedVehicle,
           update: updateVehicle,
         },
-        maintenance: { findFirst: findBaselineMaintenance },
+        maintenance: { count: countProfileMaintenances, findFirst: findBaselineMaintenance },
         schedule: {
           delete: deleteSchedule,
           findFirst: findSchedule,
@@ -440,6 +447,66 @@ describe('AppModule (e2e)', () => {
         .set('Authorization', 'Bearer valid-token')
         .expect(200)
         .expect(user);
+    });
+  });
+
+  describe('/me/profile-summary (GET)', () => {
+    it('requires authentication', () => {
+      return request(app.getHttpServer()).get('/me/profile-summary').expect(401);
+    });
+
+    it('returns counts scoped to the authenticated user', async () => {
+      authenticate();
+      countVehicles.mockResolvedValue(2);
+      countProfileMaintenances.mockResolvedValue(5);
+      transaction.mockImplementationOnce((operations: Promise<number>[]) =>
+        Promise.all(operations),
+      );
+
+      await request(app.getHttpServer())
+        .get('/me/profile-summary')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200)
+        .expect({ vehicleCount: 2, serviceCount: 5 });
+
+      expect(countVehicles).toHaveBeenCalledWith({ where: { ownerId: authenticatedUser.id } });
+      expect(countProfileMaintenances).toHaveBeenCalledWith({
+        where: { vehicle: { ownerId: authenticatedUser.id } },
+      });
+    });
+  });
+
+  describe('/me (PATCH)', () => {
+    it('requires authentication', () => {
+      return request(app.getHttpServer()).patch('/me').send({ name: 'Ada' }).expect(401);
+    });
+
+    it('trims and updates the authenticated user name', async () => {
+      authenticate();
+      const updatedUser = { ...authenticatedUser, name: 'Ada Lovelace' };
+      updateUser.mockResolvedValue(updatedUser);
+
+      await request(app.getHttpServer())
+        .patch('/me')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ name: '  Ada Lovelace  ' })
+        .expect(200)
+        .expect(updatedUser);
+
+      expect(updateUser).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id },
+        data: { name: 'Ada Lovelace' },
+      });
+    });
+
+    it.each(['   ', 'a'.repeat(61)])('rejects an invalid name', (name) => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .patch('/me')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ name })
+        .expect(400);
     });
   });
 

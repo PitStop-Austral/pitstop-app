@@ -2,10 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { SetActiveVehicleDto } from './dto/set-active-vehicle.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { ProfileSummary, UsersRepository } from './users.repository';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly vehiclesRepository: VehiclesRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly vehiclesRepository: VehiclesRepository,
+  ) {}
 
   async getMe(user: User): Promise<User> {
     if (!user.activeVehicleId) return user;
@@ -21,5 +26,13 @@ export class UsersService {
     }
 
     return this.vehiclesRepository.setActiveVehicle(userId, vehicle.id);
+  }
+
+  getProfileSummary(userId: string): Promise<ProfileSummary> {
+    return this.usersRepository.getProfileSummary(userId);
+  }
+
+  updateMe(userId: string, dto: UpdateMeDto): Promise<User> {
+    return this.usersRepository.updateName(userId, dto.name);
   }
 }
