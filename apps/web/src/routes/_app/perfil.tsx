@@ -140,6 +140,7 @@ function ProfilePage() {
             <div className="grid gap-8 lg:grid-cols-2 lg:gap-x-8">
               <NotificationSettings
                 notificationsEnabled={currentUserQuery.data.notificationsEnabled}
+                permissionSheetOpen={permissionSheetOpen}
                 onOpenPermissionSheet={() => setPermissionSheetOpen(true)}
               />
             </div>
@@ -164,9 +165,11 @@ function ProfilePage() {
 
 function NotificationSettings({
   notificationsEnabled,
+  permissionSheetOpen,
   onOpenPermissionSheet,
 }: {
   notificationsEnabled: boolean;
+  permissionSheetOpen: boolean;
   onOpenPermissionSheet: () => void;
 }) {
   const [capability, setCapability] = useState<NotificationCapabilityState>('checking');
@@ -188,7 +191,7 @@ function NotificationSettings({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [permissionSheetOpen]);
 
   const isIosInstallRequired = capability === 'ios-install-required';
   const isSupported = capability === 'supported';
