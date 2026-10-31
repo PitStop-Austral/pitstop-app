@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { User } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 export type ProfileSummary = {
   vehicleCount: number;
@@ -36,5 +37,15 @@ export class UsersRepository {
 
   async updateName(userId: string, name: string): Promise<User> {
     return this.prisma.user.update({ where: { id: userId }, data: { name } });
+  }
+
+  async updatePreferences(userId: string, dto: UpdatePreferencesDto): Promise<User> {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        upcomingThresholdDays: dto.upcomingThresholdDays,
+        upcomingThresholdKm: dto.upcomingThresholdKm,
+      },
+    });
   }
 }

@@ -13,6 +13,7 @@ import { toast } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { ChangePasswordSheet } from '@/features/users/change-password-sheet';
+import { MaintenancePreferencesSheet } from '@/features/users/maintenance-preferences-sheet';
 import { getStoredInstallationId } from '@/features/notifications/installation-id';
 import {
   getNotificationCapability,
@@ -54,6 +55,7 @@ function ProfilePage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [passwordSheetOpen, setPasswordSheetOpen] = useState(false);
   const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
+  const [preferencesSheetOpen, setPreferencesSheetOpen] = useState(false);
 
   const isInitialLoading = currentUserQuery.isPending || summaryQuery.isPending;
   const hasLoadingError = currentUserQuery.isLoadingError || summaryQuery.isLoadingError;
@@ -140,6 +142,11 @@ function ProfilePage() {
             </div>
 
             <div className="grid gap-8 lg:grid-cols-2 lg:gap-x-8">
+              <MaintenancePreferences
+                days={currentUserQuery.data.upcomingThresholdDays}
+                km={currentUserQuery.data.upcomingThresholdKm}
+                onOpen={() => setPreferencesSheetOpen(true)}
+              />
               <NotificationSettings
                 notificationsEnabled={currentUserQuery.data.notificationsEnabled}
                 permissionSheetOpen={permissionSheetOpen}
@@ -152,11 +159,19 @@ function ProfilePage() {
       </div>
 
       {currentUserQuery.data ? (
-        <EditNameSheet
-          currentName={currentUserQuery.data.name}
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-        />
+        <>
+          <EditNameSheet
+            currentName={currentUserQuery.data.name}
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+          />
+          <MaintenancePreferencesSheet
+            days={currentUserQuery.data.upcomingThresholdDays}
+            km={currentUserQuery.data.upcomingThresholdKm}
+            open={preferencesSheetOpen}
+            onOpenChange={setPreferencesSheetOpen}
+          />
+        </>
       ) : null}
       <ChangePasswordSheet open={passwordSheetOpen} onOpenChange={setPasswordSheetOpen} />
       <NotificationPermissionSheet
@@ -164,6 +179,42 @@ function ProfilePage() {
         onOpenChange={setPermissionSheetOpen}
       />
     </PageContainer>
+  );
+}
+
+function MaintenancePreferences({
+  days,
+  km,
+  onOpen,
+}: {
+  days: number;
+  km: number;
+  onOpen: () => void;
+}) {
+  return (
+    <section className="space-y-3 lg:col-start-1 lg:row-start-1">
+      <Text color="muted" variant="overline">
+        Avisos de mantenimiento
+      </Text>
+      <button
+        className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        type="button"
+        onClick={onOpen}
+      >
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-neutral-100">
+          <Icon color="emphasis" name="SlidersHorizontal" size="md" strokeWidth={1.75} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Text color="default" variant="label">
+            Anticipación
+          </Text>
+          <Text className="mt-0.5 block truncate" color="muted" variant="caption">
+            {days} {days === 1 ? 'día' : 'días'} o {km.toLocaleString('es-AR')} km antes
+          </Text>
+        </div>
+        <Icon className="ml-auto" color="subtle" name="ChevronRight" size="md" />
+      </button>
+    </section>
   );
 }
 
@@ -281,7 +332,7 @@ function NotificationSettings({
   const description = getNotificationDescription(capability);
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 lg:col-start-1 lg:row-start-2">
       <Text color="muted" variant="overline">
         Notificaciones
       </Text>

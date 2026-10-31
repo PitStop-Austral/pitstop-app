@@ -150,6 +150,37 @@ describe('MaintenanceAlertsService', () => {
     );
   });
 
+  it('uses each user date threshold when selecting alerts', async () => {
+    const inFortyDays = eligibleSchedule({
+      baselineDate: new Date('2025-11-22T00:00:00.000Z'),
+      intervalMonths: 12,
+      intervalKm: null,
+    });
+    findEligibleSchedules.mockResolvedValue([
+      {
+        ...inFortyDays,
+        vehicle: {
+          ...inFortyDays.vehicle,
+          owner: { ...inFortyDays.vehicle.owner, upcomingThresholdDays: 30 },
+        },
+      },
+    ]);
+
+    await expect(service.runDailyReview()).resolves.toMatchObject({ selected: 0 });
+
+    findEligibleSchedules.mockResolvedValue([
+      {
+        ...inFortyDays,
+        vehicle: {
+          ...inFortyDays.vehicle,
+          owner: { ...inFortyDays.vehicle.owner, upcomingThresholdDays: 45 },
+        },
+      },
+    ]);
+
+    await expect(service.runDailyReview()).resolves.toMatchObject({ selected: 1 });
+  });
+
   it('does not send a delivery that was already claimed by another run', async () => {
     findEligibleSchedules.mockResolvedValue([eligibleSchedule()]);
     claimDeliveries.mockResolvedValue([]);

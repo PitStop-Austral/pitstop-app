@@ -132,4 +132,16 @@ describe('UsersRepository', () => {
       data: { name: 'Ada Lovelace' },
     });
   });
+
+  it('updates only the upcoming thresholds by user id', async () => {
+    const preferences = { upcomingThresholdDays: 45, upcomingThresholdKm: 2000 };
+    const updated = { id: 'user-1', ...preferences };
+    update.mockResolvedValue(updated);
+
+    await expect(repository.updatePreferences('user-1', preferences)).resolves.toBe(updated);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: preferences,
+    });
+  });
 });

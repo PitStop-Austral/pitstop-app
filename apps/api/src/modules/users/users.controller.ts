@@ -3,6 +3,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { User } from '../../generated/prisma/client';
 import { SetActiveVehicleDto } from './dto/set-active-vehicle.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import type { ProfileSummary } from './users.repository';
 import { UsersService } from './users.service';
 
@@ -23,6 +24,11 @@ export class UsersController {
   @Patch('me')
   updateMe(@CurrentUser() user: User, @Body() dto: UpdateMeDto): Promise<User> {
     return this.usersService.updateMe(user.id, dto);
+  }
+
+  @Patch('me/preferences')
+  updatePreferences(@CurrentUser() user: User, @Body() dto: UpdatePreferencesDto): Promise<User> {
+    return this.usersService.updatePreferences(user.id, dto);
   }
 
   @Patch('me/active-vehicle')

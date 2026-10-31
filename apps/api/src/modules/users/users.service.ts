@@ -3,6 +3,7 @@ import type { User } from '../../generated/prisma/client';
 import { VehiclesRepository } from '../vehicles/vehicles.repository';
 import { SetActiveVehicleDto } from './dto/set-active-vehicle.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { ProfileSummary, UsersRepository } from './users.repository';
 
 @Injectable()
@@ -34,5 +35,9 @@ export class UsersService {
 
   updateMe(userId: string, dto: UpdateMeDto): Promise<User> {
     return this.usersRepository.updateName(userId, dto.name);
+  }
+
+  updatePreferences(userId: string, dto: UpdatePreferencesDto): Promise<User> {
+    return this.usersRepository.updatePreferences(userId, dto);
   }
 }

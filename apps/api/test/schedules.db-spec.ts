@@ -209,4 +209,103 @@ describe('Schedules persistence (PostgreSQL)', () => {
       .send({ type: 'filtros', intervalKm: 5000 })
       .expect(409);
   });
+
+  it('persists user thresholds and recalculates date-based schedule statuses', async () => {
+    const path = `/vehicles/${vehicleId}/schedules`;
+    const today = new Date(
+      `${new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date())}T00:00:00.000Z`,
+    );
+    const dueInFortyDays = new Date(today);
+    dueInFortyDays.setUTCDate(dueInFortyDays.getUTCDate() + 40);
+    const baselineInFortyDays = new Date(dueInFortyDays);
+    baselineInFortyDays.setUTCFullYear(baselineInFortyDays.getUTCFullYear() - 1);
+    const dueTodayBaseline = new Date(today);
+    dueTodayBaseline.setUTCFullYear(dueTodayBaseline.getUTCFullYear() - 1);
+
+    const [upcomingCandidate] = await Promise.all([
+      prisma.schedule.create({
+        data: {
+          vehicleId,
+          type: 'Anticipación por fecha',
+          normalizedType: 'anticipación por fecha',
+          intervalMonths: 12,
+          intervalKm: null,
+          baselineDate: baselineInFortyDays,
+          baselineMileage: 48000,
+        },
+      }),
+      prisma.schedule.create({
+        data: {
+          vehicleId,
+          type: 'Vencida por fecha',
+          normalizedType: 'vencida por fecha',
+          intervalMonths: 12,
+          intervalKm: null,
+          baselineDate: dueTodayBaseline,
+          baselineMileage: 48000,
+        },
+      }),
+    ]);
+
+    const before = await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', token)
+      .expect(200);
+    expect(
+      before.body.find((schedule: { id: string }) => schedule.id === upcomingCandidate.id),
+    ).toMatchObject({
+      remainingDays: 40,
+      status: 'on_track',
+    });
+
+    await request(app.getHttpServer())
+      .patch('/me/preferences')
+      .set('Authorization', token)
+      .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 0 })
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).toEqual(
+          expect.objectContaining({ upcomingThresholdDays: 45, upcomingThresholdKm: 0 }),
+        ),
+      );
+
+    const after = await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', token)
+      .expect(200);
+    expect(
+      after.body.find((schedule: { id: string }) => schedule.id === upcomingCandidate.id),
+    ).toMatchObject({
+      remainingDays: 40,
+      status: 'upcoming',
+    });
+    expect(
+      after.body.find((schedule: { type: string }) => schedule.type === 'Vencida por fecha'),
+    ).toMatchObject({
+      status: 'overdue',
+    });
+
+    const otherUser = await prisma.user.create({
+      data: {
+        firebaseUid: `other-${randomUUID()}`,
+        email: `other-${randomUUID()}@example.com`,
+        name: 'Other Driver',
+      },
+    });
+    try {
+      await expect(
+        prisma.user.findUniqueOrThrow({ where: { id: otherUser.id } }),
+      ).resolves.toMatchObject({
+        upcomingThresholdDays: 30,
+        upcomingThresholdKm: 1500,
+      });
+    } finally {
+      await prisma.user.delete({ where: { id: otherUser.id } });
+    }
+  });
 });

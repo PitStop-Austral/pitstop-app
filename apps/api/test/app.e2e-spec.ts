@@ -518,6 +518,55 @@ describe('AppModule (e2e)', () => {
     });
   });
 
+  describe('/me/preferences (PATCH)', () => {
+    it('requires authentication', () => {
+      return request(app.getHttpServer())
+        .patch('/me/preferences')
+        .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 2000 })
+        .expect(401);
+    });
+
+    it('updates only the authenticated user thresholds', async () => {
+      authenticate();
+      const updatedUser = {
+        ...authenticatedUser,
+        upcomingThresholdDays: 45,
+        upcomingThresholdKm: 2000,
+      };
+      updateUser.mockResolvedValue(updatedUser);
+
+      await request(app.getHttpServer())
+        .patch('/me/preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 2000 })
+        .expect(200)
+        .expect(updatedUser);
+
+      expect(updateUser).toHaveBeenCalledWith({
+        where: { id: authenticatedUser.id },
+        data: { upcomingThresholdDays: 45, upcomingThresholdKm: 2000 },
+      });
+    });
+
+    it.each([
+      {},
+      { upcomingThresholdDays: -1, upcomingThresholdKm: 1500 },
+      { upcomingThresholdDays: 30.5, upcomingThresholdKm: 1500 },
+      { upcomingThresholdDays: '30', upcomingThresholdKm: 1500 },
+      { upcomingThresholdDays: 3651, upcomingThresholdKm: 1500 },
+      { upcomingThresholdDays: 30, upcomingThresholdKm: 500001 },
+      { upcomingThresholdDays: 30, upcomingThresholdKm: 1500, name: 'Ada' },
+    ])('rejects invalid preference payloads: %j', (body) => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .patch('/me/preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send(body)
+        .expect(400);
+    });
+  });
+
   describe('/me notification settings', () => {
     const installationId = '55555555-5555-4555-8555-555555555555';
     const registeredDevice = {

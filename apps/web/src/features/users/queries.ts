@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getCurrentUser, getProfileSummary, updateMe } from './api';
+import { getCurrentUser, getProfileSummary, updateMe, updatePreferences } from './api';
 import type { CurrentUser } from './api';
 
 export const currentUserQueryKey = ['me'] as const;
@@ -29,6 +29,18 @@ export function useUpdateMe() {
     mutationFn: updateMe,
     onSuccess: (updated) => {
       queryClient.setQueryData<CurrentUser>(currentUserQueryKey, updated);
+    },
+  });
+}
+
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updatePreferences,
+    onSuccess: (updated) => {
+      queryClient.setQueryData<CurrentUser>(currentUserQueryKey, updated);
+      return queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     },
   });
 }

@@ -284,6 +284,33 @@ describe('SchedulesService', () => {
     await expect(statusAt(56500, { ...owner, upcomingThresholdKm: 500 })).resolves.toBe('on_track');
   });
 
+  it('recomputes the status from the current user day threshold without changing overdue schedules', async () => {
+    const dueInFortyDays = {
+      ...schedule,
+      intervalMonths: 12,
+      intervalKm: null,
+      baselineDate: new Date('2025-10-27T00:00:00.000Z'),
+    };
+    findManyByVehicle.mockResolvedValue([dueInFortyDays]);
+
+    await expect(service.findByVehicle(owner, vehicleId)).resolves.toMatchObject([
+      { remainingDays: 40, status: 'on_track' },
+    ]);
+    await expect(
+      service.findByVehicle({ ...owner, upcomingThresholdDays: 45 }, vehicleId),
+    ).resolves.toMatchObject([{ remainingDays: 40, status: 'upcoming' }]);
+
+    findManyByVehicle.mockResolvedValue([
+      { ...dueInFortyDays, baselineDate: new Date('2025-09-17T00:00:00.000Z') },
+    ]);
+    await expect(
+      service.findByVehicle(
+        { ...owner, upcomingThresholdDays: 0, upcomingThresholdKm: 0 },
+        vehicleId,
+      ),
+    ).resolves.toMatchObject([{ status: 'overdue' }]);
+  });
+
   it('keeps the Argentine calendar day late at night so the due date does not shift', async () => {
     // 2026-09-18T02:30Z is still 17/09 23:30 in Buenos Aires.
     jest.setSystemTime(new Date('2026-09-18T02:30:00.000Z'));
