@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { filterAndSortMaintenances } from './history-controls.ts';
+import { filterAndSortMaintenances, paginateMaintenances } from './history-controls.ts';
 import type { Maintenance } from './types.ts';
 
 function maintenance(overrides: Partial<Maintenance>): Maintenance {
@@ -102,4 +102,24 @@ test('sorts descending and keeps missing costs last with stable ties', () => {
     }).map(({ id }) => id),
     ['first-tie', 'second-tie', 'older', 'without-cost'],
   );
+});
+
+test('paginates ten records at a time and clamps an out-of-range page', () => {
+  const maintenances = Array.from({ length: 21 }, (_, index) =>
+    maintenance({ id: `${index + 1}` }),
+  );
+
+  assert.deepEqual(
+    paginateMaintenances(maintenances, 1).items.map(({ id }) => id),
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+  );
+  assert.deepEqual(
+    paginateMaintenances(maintenances, 3).items.map(({ id }) => id),
+    ['21'],
+  );
+  assert.deepEqual(paginateMaintenances(maintenances, 4), {
+    items: [maintenances[20]],
+    page: 3,
+    totalPages: 3,
+  });
 });

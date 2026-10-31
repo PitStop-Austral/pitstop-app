@@ -2,6 +2,7 @@ import type { Maintenance } from './types';
 
 export const HISTORY_CATEGORIES = ['TODOS', 'MANTENIMIENTO', 'ARREGLO'] as const;
 export const HISTORY_SORTS = ['date', 'mileage', 'cost'] as const;
+export const HISTORY_PAGE_SIZE = 10;
 
 export type HistoryCategory = (typeof HISTORY_CATEGORIES)[number];
 export type HistorySort = (typeof HISTORY_SORTS)[number];
@@ -46,4 +47,16 @@ export function filterAndSortMaintenances(
         matchesCategory(maintenance, category) && matchesSearch(maintenance, normalizedSearch),
     )
     .toSorted((left, right) => compareBySort(left, right, sort));
+}
+
+export function paginateMaintenances(
+  maintenances: Maintenance[],
+  page: number,
+  pageSize = HISTORY_PAGE_SIZE,
+): { items: Maintenance[]; page: number; totalPages: number } {
+  const totalPages = Math.ceil(maintenances.length / pageSize);
+  const currentPage = totalPages === 0 ? 1 : Math.min(Math.max(page, 1), totalPages);
+  const start = (currentPage - 1) * pageSize;
+
+  return { items: maintenances.slice(start, start + pageSize), page: currentPage, totalPages };
 }

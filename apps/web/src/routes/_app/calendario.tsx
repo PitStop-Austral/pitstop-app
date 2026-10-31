@@ -23,7 +23,9 @@ import type { CalendarEvent } from '@/features/calendar/types';
 import {
   filterAndSortMaintenances,
   HISTORY_CATEGORIES,
+  HISTORY_PAGE_SIZE,
   HISTORY_SORTS,
+  paginateMaintenances,
 } from '@/features/maintenances/history-controls';
 import type { HistoryCategory, HistorySort } from '@/features/maintenances/history-controls';
 import { MaintenanceCard } from '@/features/maintenances/maintenance-card';
@@ -113,6 +115,7 @@ function CalendarPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<HistoryCategory>('TODOS');
   const [sort, setSort] = useState<HistorySort>('date');
+  const [historyPage, setHistoryPage] = useState(1);
   const [selection, setSelection] = useState<CalendarSelection | null>(null);
   const [pendingDetail, setPendingDetail] = useState<PendingDetail | null>(null);
   const [headerFocusRequest, setHeaderFocusRequest] = useState(0);
@@ -267,10 +270,16 @@ function CalendarPage() {
 
   const maintenances = maintenancesQuery.data ?? [];
   const visibleMaintenances = filterAndSortMaintenances(maintenances, { search, category, sort });
+  const paginatedMaintenances = paginateMaintenances(
+    visibleMaintenances,
+    historyPage,
+    HISTORY_PAGE_SIZE,
+  );
   const clearFilters = () => {
     setSearch('');
     setCategory('TODOS');
     setSort('date');
+    setHistoryPage(1);
   };
 
   let history: ReactNode;
@@ -324,7 +333,10 @@ function CalendarPage() {
               placeholder="Buscar en el historial"
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setHistoryPage(1);
+              }}
             />
           </div>
 
@@ -337,7 +349,10 @@ function CalendarPage() {
                     key={option}
                     aria-pressed={selected}
                     variant={selected ? 'primary' : 'secondary'}
-                    onClick={() => setCategory(option)}
+                    onClick={() => {
+                      setCategory(option);
+                      setHistoryPage(1);
+                    }}
                   >
                     <Text color={selected ? 'on-primary' : 'muted'} variant="caption-strong">
                       {CATEGORY_LABELS[option]}
@@ -351,7 +366,13 @@ function CalendarPage() {
               <Text className="mb-1.5" color="muted" variant="caption">
                 Ordenar por
               </Text>
-              <Select value={sort} onValueChange={(value) => setSort(value as HistorySort)}>
+              <Select
+                value={sort}
+                onValueChange={(value) => {
+                  setSort(value as HistorySort);
+                  setHistoryPage(1);
+                }}
+              >
                 <SelectTrigger aria-label="Ordenar historial">
                   <SelectValue>
                     {(value: HistorySort) => <Text variant="label">{SORT_LABELS[value]}</Text>}
@@ -383,16 +404,39 @@ function CalendarPage() {
             />
           </div>
         ) : (
-          <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-            {visibleMaintenances.map((maintenance) => (
-              <MaintenanceCard
-                key={maintenance.id}
-                maintenance={maintenance}
-                schedules={schedulesQuery.data}
-                onClick={() => openMaintenanceDetail(maintenance.id)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+              {paginatedMaintenances.items.map((maintenance) => (
+                <MaintenanceCard
+                  key={maintenance.id}
+                  maintenance={maintenance}
+                  schedules={schedulesQuery.data}
+                  onClick={() => openMaintenanceDetail(maintenance.id)}
+                />
+              ))}
+            </div>
+            {paginatedMaintenances.totalPages > 1 ? (
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <Button
+                  disabled={paginatedMaintenances.page === 1}
+                  variant="secondary"
+                  onClick={() => setHistoryPage(paginatedMaintenances.page - 1)}
+                >
+                  <Text variant="label">Anterior</Text>
+                </Button>
+                <Text color="muted" variant="caption">
+                  Página {paginatedMaintenances.page} de {paginatedMaintenances.totalPages}
+                </Text>
+                <Button
+                  disabled={paginatedMaintenances.page === paginatedMaintenances.totalPages}
+                  variant="secondary"
+                  onClick={() => setHistoryPage(paginatedMaintenances.page + 1)}
+                >
+                  <Text variant="label">Siguiente</Text>
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </>
     );
