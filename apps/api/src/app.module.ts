@@ -11,6 +11,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { RequestLoggingModule } from './modules/request-logging/request-logging.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SchedulesModule,
     KpisModule,
     MaintenanceAlertsModule,
+    WishlistModule,
   ],
   controllers: [AppController],
   providers: [AppService],
