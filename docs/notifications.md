@@ -24,6 +24,9 @@ so both notification fields survive later authenticated requests.
   user, title or body from the caller.
 - `PATCH /me/notification-prompt` returns `204` and stores the first server timestamp.
 - `GET /me` returns `notificationsEnabled` and `notificationPromptShownAt`, never tokens or devices.
+- `PATCH /me/preferences` accepts `upcomingThresholdDays` (0–3650) and
+  `upcomingThresholdKm` (0–500000), both integers. These account-level values define when a
+  schedule becomes upcoming; `0` disables advance notices without affecting overdue schedules.
 
 ## Browser flow
 
@@ -62,6 +65,8 @@ be started from **Actions > Maintenance alerts > Run workflow** after the workfl
 default branch.
 
 Each eligible frequency is claimed once per installation and calculated due date/kilometre pair.
+The daily review uses the owning account's saved advance thresholds, so changing them immediately
+changes which schedules qualify as upcoming on the next review.
 Claims are idempotent across repeated or concurrent workflow runs. Each delivery is claimed
 immediately before its send; if a run is interrupted, later unclaimed deliveries remain eligible for
 the next run. A claimed delivery in `PENDING` or `FAILED` is not retried for the same due occurrence.

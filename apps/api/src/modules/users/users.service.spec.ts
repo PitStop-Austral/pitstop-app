@@ -9,6 +9,7 @@ describe('UsersService', () => {
   let service: UsersService;
   let getProfileSummary: jest.MockedFunction<UsersRepository['getProfileSummary']>;
   let updateName: jest.MockedFunction<UsersRepository['updateName']>;
+  let updatePreferences: jest.MockedFunction<UsersRepository['updatePreferences']>;
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
   let setActiveVehicle: jest.MockedFunction<VehiclesRepository['setActiveVehicle']>;
 
@@ -29,13 +30,17 @@ describe('UsersService', () => {
   beforeEach(async () => {
     getProfileSummary = jest.fn();
     updateName = jest.fn();
+    updatePreferences = jest.fn();
     findOwnedById = jest.fn();
     setActiveVehicle = jest.fn();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: UsersRepository, useValue: { getProfileSummary, updateName } },
+        {
+          provide: UsersRepository,
+          useValue: { getProfileSummary, updateName, updatePreferences },
+        },
         { provide: VehiclesRepository, useValue: { findOwnedById, setActiveVehicle } },
       ],
     }).compile();
@@ -83,5 +88,14 @@ describe('UsersService', () => {
 
     await expect(service.updateMe(user.id, { name: 'Ada Lovelace' })).resolves.toBe(updated);
     expect(updateName).toHaveBeenCalledWith(user.id, 'Ada Lovelace');
+  });
+
+  it('updates only the authenticated user preferences', async () => {
+    const preferences = { upcomingThresholdDays: 45, upcomingThresholdKm: 2000 };
+    const updated = { ...user, ...preferences };
+    updatePreferences.mockResolvedValue(updated);
+
+    await expect(service.updatePreferences(user.id, preferences)).resolves.toBe(updated);
+    expect(updatePreferences).toHaveBeenCalledWith(user.id, preferences);
   });
 });

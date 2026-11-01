@@ -23,6 +23,11 @@ export type UpdateMeInput = {
   name: string;
 };
 
+export type UpdatePreferencesInput = {
+  upcomingThresholdDays: number;
+  upcomingThresholdKm: number;
+};
+
 export async function getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
   const response = await apiClient.get<CurrentUser>('/me', { signal });
   return response.data;
@@ -35,5 +40,10 @@ export async function getProfileSummary(signal?: AbortSignal): Promise<ProfileSu
 
 export async function updateMe(input: UpdateMeInput): Promise<CurrentUser> {
   const response = await apiClient.patch<CurrentUser>('/me', input);
+  return response.data;
+}
+
+export async function updatePreferences(input: UpdatePreferencesInput): Promise<CurrentUser> {
+  const response = await apiClient.patch<CurrentUser>('/me/preferences', input);
   return response.data;
 }
