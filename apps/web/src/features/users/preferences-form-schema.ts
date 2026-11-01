@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const MAX_DAYS = 3650;
 const MAX_KM = 500000;
+const KILOMETRE_PATTERN = /^(?:\d+|\d{1,3}(?:\.\d{3})+)$/;
 
 function preferenceNumberSchema(
   emptyMessage: string,
@@ -29,7 +30,7 @@ export const preferencesFormSchema = z.object({
     'Ingresá una cantidad de kilómetros',
     'Usá un número entero entre 0 y 500.000',
     MAX_KM,
-    (value) => value.replaceAll('.', ''),
+    (value) => (KILOMETRE_PATTERN.test(value) ? value.replaceAll('.', '') : value),
   ),
 });
 

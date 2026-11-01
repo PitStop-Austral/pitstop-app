@@ -286,6 +286,29 @@ describe('AppModule (e2e)', () => {
     findUnique.mockResolvedValue(authenticatedUser);
   }
 
+  function authenticateUsers(tokens: Map<string, typeof authenticatedUser>) {
+    const users = new Map([...tokens.values()].map((user) => [user.id, user]));
+    verifyIdToken.mockImplementation((token: string) => {
+      const user = tokens.get(token);
+      if (!user) return Promise.reject(new Error('Invalid token'));
+      return Promise.resolve({ uid: user.firebaseUid, email: user.email, name: user.name });
+    });
+    findUnique.mockImplementation(({ where }: { where: { firebaseUid: string } }) =>
+      Promise.resolve(
+        [...users.values()].find((user) => user.firebaseUid === where.firebaseUid) ?? null,
+      ),
+    );
+    updateUser.mockImplementation(
+      ({ where, data }: { where: { id: string }; data: Record<string, number> }) => {
+        const user = users.get(where.id);
+        if (!user) throw new Error('User not found');
+        const updated = { ...user, ...data };
+        users.set(user.id, updated);
+        return Promise.resolve(updated);
+      },
+    );
+  }
+
   it('/ (GET)', () => {
     return request(app.getHttpServer()).get('/').expect(200).expect('Hello World!');
   });
@@ -546,6 +569,63 @@ describe('AppModule (e2e)', () => {
         where: { id: authenticatedUser.id },
         data: { upcomingThresholdDays: 45, upcomingThresholdKm: 2000 },
       });
+    });
+
+    it('returns saved thresholds from GET /me', async () => {
+      authenticateUsers(new Map([['valid-token', authenticatedUser]]));
+
+      await request(app.getHttpServer())
+        .patch('/me/preferences')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 2000 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', 'Bearer valid-token')
+        .expect(200)
+        .expect(({ body }) =>
+          expect(body).toEqual(
+            expect.objectContaining({ upcomingThresholdDays: 45, upcomingThresholdKm: 2000 }),
+          ),
+        );
+    });
+
+    it('does not change another authenticated user thresholds', async () => {
+      const otherUser = {
+        ...authenticatedUser,
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        firebaseUid: 'firebase-uid-2',
+        email: 'other-driver@example.com',
+        name: 'Driver Two',
+        upcomingThresholdDays: 7,
+        upcomingThresholdKm: 700,
+      };
+      authenticateUsers(
+        new Map([
+          ['user-a-token', authenticatedUser],
+          ['user-b-token', otherUser],
+        ]),
+      );
+
+      await request(app.getHttpServer())
+        .patch('/me/preferences')
+        .set('Authorization', 'Bearer user-a-token')
+        .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 2000 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get('/me')
+        .set('Authorization', 'Bearer user-b-token')
+        .expect(200)
+        .expect(({ body }) =>
+          expect(body).toEqual(
+            expect.objectContaining({
+              upcomingThresholdDays: otherUser.upcomingThresholdDays,
+              upcomingThresholdKm: otherUser.upcomingThresholdKm,
+            }),
+          ),
+        );
     });
 
     it.each([

@@ -19,7 +19,17 @@ for (const upcomingThresholdDays of ['', '-1', '2,5', 'abc', '3651']) {
   });
 }
 
-for (const upcomingThresholdKm of ['', '-1', '2,5', 'abc', '500001']) {
+for (const upcomingThresholdKm of [
+  '',
+  '-1',
+  '2,5',
+  '1.5',
+  '2.5',
+  '10.0',
+  '1.2.3',
+  'abc',
+  '500001',
+]) {
   test(`rejects an invalid kilometre threshold: ${JSON.stringify(upcomingThresholdKm)}`, () => {
     assert.equal(
       preferencesFormSchema.safeParse({ upcomingThresholdDays: '0', upcomingThresholdKm }).success,

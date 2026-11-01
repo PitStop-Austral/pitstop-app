@@ -266,11 +266,11 @@ describe('Schedules persistence (PostgreSQL)', () => {
     await request(app.getHttpServer())
       .patch('/me/preferences')
       .set('Authorization', token)
-      .send({ upcomingThresholdDays: 45, upcomingThresholdKm: 0 })
+      .send({ upcomingThresholdDays: 0, upcomingThresholdKm: 0 })
       .expect(200)
       .expect(({ body }) =>
         expect(body).toEqual(
-          expect.objectContaining({ upcomingThresholdDays: 45, upcomingThresholdKm: 0 }),
+          expect.objectContaining({ upcomingThresholdDays: 0, upcomingThresholdKm: 0 }),
         ),
       );
 
@@ -282,7 +282,7 @@ describe('Schedules persistence (PostgreSQL)', () => {
       after.body.find((schedule: { id: string }) => schedule.id === upcomingCandidate.id),
     ).toMatchObject({
       remainingDays: 40,
-      status: 'upcoming',
+      status: 'on_track',
     });
     expect(
       after.body.find((schedule: { type: string }) => schedule.type === 'Vencida por fecha'),
