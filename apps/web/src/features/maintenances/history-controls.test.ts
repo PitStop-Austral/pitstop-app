@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { filterAndSortMaintenances, paginateMaintenances } from './history-controls.ts';
+import { filterAndSortMaintenances, paginateHistory } from './history-controls.ts';
 import type { Maintenance } from './types.ts';
 
 function maintenance(overrides: Partial<Maintenance>): Maintenance {
@@ -110,11 +110,11 @@ test('shows ten more records at a time without hiding previous records', () => {
   );
 
   assert.deepEqual(
-    paginateMaintenances(maintenances, 1).items.map(({ id }) => id),
+    paginateHistory(maintenances, 0).visible.map(({ id }) => id),
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
   );
   assert.deepEqual(
-    paginateMaintenances(maintenances, 2).items.map(({ id }) => id),
+    paginateHistory(maintenances, 2).visible.map(({ id }) => id),
     [
       '1',
       '2',
@@ -138,14 +138,14 @@ test('shows ten more records at a time without hiding previous records', () => {
       '20',
     ],
   );
-  assert.deepEqual(paginateMaintenances(maintenances, 3), {
-    items: maintenances,
+  assert.deepEqual(paginateHistory(maintenances, 3), {
+    visible: maintenances,
     shown: 21,
     total: 21,
     hasMore: false,
   });
-  assert.deepEqual(paginateMaintenances(maintenances, 4), {
-    items: maintenances,
+  assert.deepEqual(paginateHistory(maintenances, 4), {
+    visible: maintenances,
     shown: 21,
     total: 21,
     hasMore: false,

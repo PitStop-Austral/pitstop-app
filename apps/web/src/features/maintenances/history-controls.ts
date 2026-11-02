@@ -49,15 +49,15 @@ export function filterAndSortMaintenances(
     .toSorted((left, right) => compareBySort(left, right, sort));
 }
 
-export function paginateMaintenances(
+export function paginateHistory(
   maintenances: Maintenance[],
   pages: number,
   pageSize = HISTORY_PAGE_SIZE,
-): { items: Maintenance[]; shown: number; total: number; hasMore: boolean } {
+): { visible: Maintenance[]; shown: number; total: number; hasMore: boolean } {
   const shown = Math.min(Math.max(pages, 1) * pageSize, maintenances.length);
 
   return {
-    items: maintenances.slice(0, shown),
+    visible: maintenances.slice(0, shown),
     shown,
     total: maintenances.length,
     hasMore: shown < maintenances.length,

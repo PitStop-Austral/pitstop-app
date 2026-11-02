@@ -25,7 +25,7 @@ import {
   HISTORY_CATEGORIES,
   HISTORY_PAGE_SIZE,
   HISTORY_SORTS,
-  paginateMaintenances,
+  paginateHistory,
 } from '@/features/maintenances/history-controls';
 import type { HistoryCategory, HistorySort } from '@/features/maintenances/history-controls';
 import { MaintenanceCard } from '@/features/maintenances/maintenance-card';
@@ -270,7 +270,7 @@ function CalendarPage() {
 
   const maintenances = maintenancesQuery.data ?? [];
   const visibleMaintenances = filterAndSortMaintenances(maintenances, { search, category, sort });
-  const paginatedMaintenances = paginateMaintenances(
+  const paginatedMaintenances = paginateHistory(
     visibleMaintenances,
     historyPages,
     HISTORY_PAGE_SIZE,
@@ -406,7 +406,7 @@ function CalendarPage() {
         ) : (
           <>
             <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-              {paginatedMaintenances.items.map((maintenance) => (
+              {paginatedMaintenances.visible.map((maintenance) => (
                 <MaintenanceCard
                   key={maintenance.id}
                   maintenance={maintenance}
