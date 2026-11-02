@@ -115,7 +115,7 @@ function CalendarPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<HistoryCategory>('TODOS');
   const [sort, setSort] = useState<HistorySort>('date');
-  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPages, setHistoryPages] = useState(1);
   const [selection, setSelection] = useState<CalendarSelection | null>(null);
   const [pendingDetail, setPendingDetail] = useState<PendingDetail | null>(null);
   const [headerFocusRequest, setHeaderFocusRequest] = useState(0);
@@ -272,14 +272,14 @@ function CalendarPage() {
   const visibleMaintenances = filterAndSortMaintenances(maintenances, { search, category, sort });
   const paginatedMaintenances = paginateMaintenances(
     visibleMaintenances,
-    historyPage,
+    historyPages,
     HISTORY_PAGE_SIZE,
   );
   const clearFilters = () => {
     setSearch('');
     setCategory('TODOS');
     setSort('date');
-    setHistoryPage(1);
+    setHistoryPages(1);
   };
 
   let history: ReactNode;
@@ -335,7 +335,7 @@ function CalendarPage() {
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
-                setHistoryPage(1);
+                setHistoryPages(1);
               }}
             />
           </div>
@@ -351,7 +351,7 @@ function CalendarPage() {
                     variant={selected ? 'primary' : 'secondary'}
                     onClick={() => {
                       setCategory(option);
-                      setHistoryPage(1);
+                      setHistoryPages(1);
                     }}
                   >
                     <Text color={selected ? 'on-primary' : 'muted'} variant="caption-strong">
@@ -370,7 +370,7 @@ function CalendarPage() {
                 value={sort}
                 onValueChange={(value) => {
                   setSort(value as HistorySort);
-                  setHistoryPage(1);
+                  setHistoryPages(1);
                 }}
               >
                 <SelectTrigger aria-label="Ordenar historial">
@@ -415,25 +415,21 @@ function CalendarPage() {
                 />
               ))}
             </div>
-            {paginatedMaintenances.totalPages > 1 ? (
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <Button
-                  disabled={paginatedMaintenances.page === 1}
-                  variant="secondary"
-                  onClick={() => setHistoryPage(paginatedMaintenances.page - 1)}
-                >
-                  <Text variant="label">Anterior</Text>
-                </Button>
+            {paginatedMaintenances.total > HISTORY_PAGE_SIZE ? (
+              <div className="mt-4 flex flex-col items-center gap-3">
                 <Text color="muted" variant="caption">
-                  Página {paginatedMaintenances.page} de {paginatedMaintenances.totalPages}
+                  Mostrando {paginatedMaintenances.shown} de {paginatedMaintenances.total}
                 </Text>
-                <Button
-                  disabled={paginatedMaintenances.page === paginatedMaintenances.totalPages}
-                  variant="secondary"
-                  onClick={() => setHistoryPage(paginatedMaintenances.page + 1)}
-                >
-                  <Text variant="label">Siguiente</Text>
-                </Button>
+                {paginatedMaintenances.hasMore ? (
+                  <Button
+                    className="h-12 w-full gap-2 rounded-full lg:min-w-48 lg:w-auto"
+                    variant="secondary"
+                    onClick={() => setHistoryPages((pages) => pages + 1)}
+                  >
+                    <Text variant="label">Ver más</Text>
+                    <Icon color="muted" name="ChevronDown" size="sm" />
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </>

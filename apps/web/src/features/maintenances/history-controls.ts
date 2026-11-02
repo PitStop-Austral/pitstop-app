@@ -51,12 +51,15 @@ export function filterAndSortMaintenances(
 
 export function paginateMaintenances(
   maintenances: Maintenance[],
-  page: number,
+  pages: number,
   pageSize = HISTORY_PAGE_SIZE,
-): { items: Maintenance[]; page: number; totalPages: number } {
-  const totalPages = Math.ceil(maintenances.length / pageSize);
-  const currentPage = totalPages === 0 ? 1 : Math.min(Math.max(page, 1), totalPages);
-  const start = (currentPage - 1) * pageSize;
+): { items: Maintenance[]; shown: number; total: number; hasMore: boolean } {
+  const shown = Math.min(Math.max(pages, 1) * pageSize, maintenances.length);
 
-  return { items: maintenances.slice(start, start + pageSize), page: currentPage, totalPages };
+  return {
+    items: maintenances.slice(0, shown),
+    shown,
+    total: maintenances.length,
+    hasMore: shown < maintenances.length,
+  };
 }

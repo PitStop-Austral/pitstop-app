@@ -104,7 +104,7 @@ test('sorts descending and keeps missing costs last with stable ties', () => {
   );
 });
 
-test('paginates ten records at a time and clamps an out-of-range page', () => {
+test('shows ten more records at a time without hiding previous records', () => {
   const maintenances = Array.from({ length: 21 }, (_, index) =>
     maintenance({ id: `${index + 1}` }),
   );
@@ -114,12 +114,40 @@ test('paginates ten records at a time and clamps an out-of-range page', () => {
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
   );
   assert.deepEqual(
-    paginateMaintenances(maintenances, 3).items.map(({ id }) => id),
-    ['21'],
+    paginateMaintenances(maintenances, 2).items.map(({ id }) => id),
+    [
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+      '11',
+      '12',
+      '13',
+      '14',
+      '15',
+      '16',
+      '17',
+      '18',
+      '19',
+      '20',
+    ],
   );
+  assert.deepEqual(paginateMaintenances(maintenances, 3), {
+    items: maintenances,
+    shown: 21,
+    total: 21,
+    hasMore: false,
+  });
   assert.deepEqual(paginateMaintenances(maintenances, 4), {
-    items: [maintenances[20]],
-    page: 3,
-    totalPages: 3,
+    items: maintenances,
+    shown: 21,
+    total: 21,
+    hasMore: false,
   });
 });
