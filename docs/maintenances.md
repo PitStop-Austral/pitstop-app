@@ -67,7 +67,7 @@ The history controls run locally on the loaded active-vehicle list: text search 
 type, workshop, and notes without case or accent differences; category filters combine with a
 descending date, mileage, or cost order. Missing costs sort last, and a no-match state can reset
 all controls without affecting the distinct empty-history state. After filtering and sorting, the
-history shows ten records per page with previous/next controls.
+history shows ten records at a time with a "Ver más" button and a shown/total counter.
 
 ## Home summary
 
