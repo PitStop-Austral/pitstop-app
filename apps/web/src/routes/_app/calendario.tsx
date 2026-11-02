@@ -138,6 +138,13 @@ function CalendarPage() {
   }, [activeVehicle?.id]);
 
   useEffect(() => {
+    if (firstNewMaintenanceIndex === null) return;
+
+    firstNewMaintenanceRef.current?.focus();
+    setFirstNewMaintenanceIndex(null);
+  }, [firstNewMaintenanceIndex, historyPages]);
+
+  useEffect(() => {
     if (!pendingDetail) return;
     if (
       pendingDetail.vehicleId !== activeVehicle?.id ||
@@ -282,13 +289,6 @@ function CalendarPage() {
     historyPages,
     HISTORY_PAGE_SIZE,
   );
-
-  useEffect(() => {
-    if (firstNewMaintenanceIndex === null) return;
-
-    firstNewMaintenanceRef.current?.focus();
-    setFirstNewMaintenanceIndex(null);
-  }, [firstNewMaintenanceIndex, paginatedMaintenances.shown]);
 
   const clearFilters = () => {
     setSearch('');

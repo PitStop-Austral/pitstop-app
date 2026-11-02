@@ -6,6 +6,7 @@
     "correctness": "error"
   },
   "rules": {
+    "react/rules-of-hooks": "error",
     "react/forbid-elements": [
       "error",
       { "forbid": ["p", "span", "h1", "h2", "h3", "h4", "h5", "h6"] }
