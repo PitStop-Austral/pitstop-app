@@ -1,3 +1,5 @@
+import type { Ref } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -13,12 +15,18 @@ type MaintenanceCardProps = {
   maintenance: Maintenance;
   schedules?: Schedule[];
   onClick?: () => void;
+  buttonRef?: Ref<HTMLButtonElement>;
 };
 
 const cardClassName =
   'group flex w-full items-start gap-3.5 rounded-lg border border-border bg-card p-3.5 text-left transition-all hover:shadow-card focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.99]';
 
-export function MaintenanceCard({ maintenance, schedules, onClick }: MaintenanceCardProps) {
+export function MaintenanceCard({
+  maintenance,
+  schedules,
+  onClick,
+  buttonRef,
+}: MaintenanceCardProps) {
   const isRepair = maintenance.category === 'ARREGLO';
   const nextDue = getNextMaintenanceDue(maintenance.type, schedules);
 
@@ -82,7 +90,12 @@ export function MaintenanceCard({ maintenance, schedules, onClick }: Maintenance
   }
 
   return (
-    <button className={cn(cardClassName, 'cursor-pointer')} type="button" onClick={onClick}>
+    <button
+      ref={buttonRef}
+      className={cn(cardClassName, 'cursor-pointer')}
+      type="button"
+      onClick={onClick}
+    >
       {content}
     </button>
   );

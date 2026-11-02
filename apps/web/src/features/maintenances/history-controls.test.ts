@@ -104,50 +104,22 @@ test('sorts descending and keeps missing costs last with stable ties', () => {
   );
 });
 
-test('shows ten more records at a time without hiding previous records', () => {
-  const maintenances = Array.from({ length: 21 }, (_, index) =>
-    maintenance({ id: `${index + 1}` }),
-  );
+test('shows cumulative history batches and treats zero pages as one', () => {
+  for (const total of [0, 9, 10, 11, 25]) {
+    const maintenances = Array.from({ length: total }, (_, index) =>
+      maintenance({ id: `${index + 1}` }),
+    );
 
-  assert.deepEqual(
-    paginateHistory(maintenances, 0).visible.map(({ id }) => id),
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-  );
-  assert.deepEqual(
-    paginateHistory(maintenances, 2).visible.map(({ id }) => id),
-    [
-      '1',
-      '2',
-      '3',
-      '4',
-      '5',
-      '6',
-      '7',
-      '8',
-      '9',
-      '10',
-      '11',
-      '12',
-      '13',
-      '14',
-      '15',
-      '16',
-      '17',
-      '18',
-      '19',
-      '20',
-    ],
-  );
-  assert.deepEqual(paginateHistory(maintenances, 3), {
-    visible: maintenances,
-    shown: 21,
-    total: 21,
-    hasMore: false,
-  });
-  assert.deepEqual(paginateHistory(maintenances, 4), {
-    visible: maintenances,
-    shown: 21,
-    total: 21,
-    hasMore: false,
-  });
+    for (const pages of [1, 2, 3]) {
+      const shown = Math.min(pages * 10, total);
+      assert.deepEqual(paginateHistory(maintenances, pages), {
+        visible: maintenances.slice(0, shown),
+        shown,
+        total,
+        hasMore: shown < total,
+      });
+    }
+
+    assert.deepEqual(paginateHistory(maintenances, 0), paginateHistory(maintenances, 1));
+  }
 });

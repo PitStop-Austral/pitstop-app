@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
 import { PageContainer } from '@/components/layout/page-container';
@@ -116,6 +116,7 @@ function CalendarPage() {
   const [category, setCategory] = useState<HistoryCategory>('TODOS');
   const [sort, setSort] = useState<HistorySort>('date');
   const [historyPages, setHistoryPages] = useState(1);
+  const [firstNewMaintenanceIndex, setFirstNewMaintenanceIndex] = useState<number | null>(null);
   const [selection, setSelection] = useState<CalendarSelection | null>(null);
   const [pendingDetail, setPendingDetail] = useState<PendingDetail | null>(null);
   const [headerFocusRequest, setHeaderFocusRequest] = useState(0);
@@ -124,11 +125,17 @@ function CalendarPage() {
   const schedulesQuery = useSchedules(activeVehicle?.id);
   const { openMaintenanceDetail, openRegisterMaintenance } = useMaintenanceSheet();
   const { openScheduleDetail } = useScheduleSheet();
+  const firstNewMaintenanceRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setSelection(null);
     setPendingDetail(null);
   }, [activeVehicle?.id, currentUserQuery.data?.id]);
+
+  useEffect(() => {
+    setHistoryPages(1);
+    setFirstNewMaintenanceIndex(null);
+  }, [activeVehicle?.id]);
 
   useEffect(() => {
     if (!pendingDetail) return;
@@ -275,11 +282,20 @@ function CalendarPage() {
     historyPages,
     HISTORY_PAGE_SIZE,
   );
+
+  useEffect(() => {
+    if (firstNewMaintenanceIndex === null) return;
+
+    firstNewMaintenanceRef.current?.focus();
+    setFirstNewMaintenanceIndex(null);
+  }, [firstNewMaintenanceIndex, paginatedMaintenances.shown]);
+
   const clearFilters = () => {
     setSearch('');
     setCategory('TODOS');
     setSort('date');
     setHistoryPages(1);
+    setFirstNewMaintenanceIndex(null);
   };
 
   let history: ReactNode;
@@ -336,6 +352,7 @@ function CalendarPage() {
               onChange={(event) => {
                 setSearch(event.target.value);
                 setHistoryPages(1);
+                setFirstNewMaintenanceIndex(null);
               }}
             />
           </div>
@@ -352,6 +369,7 @@ function CalendarPage() {
                     onClick={() => {
                       setCategory(option);
                       setHistoryPages(1);
+                      setFirstNewMaintenanceIndex(null);
                     }}
                   >
                     <Text color={selected ? 'on-primary' : 'muted'} variant="caption-strong">
@@ -371,6 +389,7 @@ function CalendarPage() {
                 onValueChange={(value) => {
                   setSort(value as HistorySort);
                   setHistoryPages(1);
+                  setFirstNewMaintenanceIndex(null);
                 }}
               >
                 <SelectTrigger aria-label="Ordenar historial">
@@ -406,9 +425,12 @@ function CalendarPage() {
         ) : (
           <>
             <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
-              {paginatedMaintenances.visible.map((maintenance) => (
+              {paginatedMaintenances.visible.map((maintenance, index) => (
                 <MaintenanceCard
                   key={maintenance.id}
+                  buttonRef={
+                    index === firstNewMaintenanceIndex ? firstNewMaintenanceRef : undefined
+                  }
                   maintenance={maintenance}
                   schedules={schedulesQuery.data}
                   onClick={() => openMaintenanceDetail(maintenance.id)}
@@ -417,14 +439,17 @@ function CalendarPage() {
             </div>
             {paginatedMaintenances.total > HISTORY_PAGE_SIZE ? (
               <div className="mt-4 flex flex-col items-center gap-3">
-                <Text color="muted" variant="caption">
+                <Text aria-live="polite" color="muted" variant="caption">
                   Mostrando {paginatedMaintenances.shown} de {paginatedMaintenances.total}
                 </Text>
                 {paginatedMaintenances.hasMore ? (
                   <Button
                     className="h-12 w-full gap-2 rounded-full lg:min-w-48 lg:w-auto"
                     variant="secondary"
-                    onClick={() => setHistoryPages((pages) => pages + 1)}
+                    onClick={() => {
+                      setFirstNewMaintenanceIndex(paginatedMaintenances.shown);
+                      setHistoryPages((pages) => pages + 1);
+                    }}
                   >
                     <Text variant="label">Ver más</Text>
                     <Icon color="muted" name="ChevronDown" size="sm" />
