@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 import { isNotificationMessagingSupported, subscribeToForegroundMessages } from './messaging';
 import {
   buildMaintenanceAlertDestination,
+  buildMileageReminderDestination,
   claimNotificationId,
   parseNotificationMessageData,
 } from './notification-message';
@@ -51,7 +52,17 @@ export function NotificationMessageListener({ userId }: NotificationMessageListe
                       }),
                   },
                 }
-              : {}),
+              : message.kind === 'mileage-reminder'
+                ? {
+                    action: {
+                      label: <Text variant="label">Actualizar</Text>,
+                      onClick: () =>
+                        navigate({
+                          href: buildMileageReminderDestination(message.vehicleId),
+                        }),
+                    },
+                  }
+                : {}),
           });
         });
       })

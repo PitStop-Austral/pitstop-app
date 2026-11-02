@@ -39,7 +39,9 @@ account and maintenance usable. A valid message produces one Sonner toast while 
 or one native notification from the existing PWA worker while it is in the background. Both paths
 use `notificationId` for deduplication; the PIT-59 test payload's legacy `testId` remains accepted.
 Maintenance alerts include a **Ver** action and native-notification clicks open the matching vehicle
-and frequency in the garage. The complete destination is preserved through login and registration.
+and frequency in the garage. Mileage reminders include an **Actualizar** action and open the matching
+vehicle with the mileage sheet ready. The complete destination is preserved through login and
+registration.
 
 ## Daily maintenance alerts
 
@@ -67,6 +69,14 @@ immediately before its send; if a run is interrupted, later unclaimed deliveries
 the next run. A claimed delivery in `PENDING` or `FAILED` is not retried for the same due occurrence.
 Changing the frequency or recording maintenance can create a new due occurrence and therefore a new
 alert.
+
+The same cron reviews vehicles whose owner has notifications enabled and at least one registered
+device. A mileage reminder is delivered per installation after 30 full 24-hour periods without a
+kilometre confirmation, with new delivery periods at 60, 90, and subsequent 30-day intervals.
+Confirming the same or a greater mileage through `PATCH /vehicles/:id/mileage` restarts the period;
+editing other vehicle data, its photo, or maintenance history does not. Sent and pending deliveries
+are not repeated for the same period, while failed deliveries are retried. The cron response keeps
+the maintenance-alert counters and adds `mileageReminders: { sent, failed, skipped }`.
 
 ## Send a test notification
 
@@ -119,8 +129,8 @@ case. Never record the FCM token, Firebase ID token or Admin credentials.
 
 | Case                               | Expected result                                                                          |
 | ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| App focused                        | One in-app toast; **Ver** opens the correct vehicle and frequency                        |
-| App open in another/background tab | One native notification; clicking it opens the correct vehicle and frequency             |
+| App focused                        | One in-app toast; its action opens the correct maintenance or mileage destination        |
+| App open in another/background tab | One native notification; clicking it opens the correct destination                       |
 | App tab closed                     | One native notification; clicking it opens or focuses PitStop at the correct destination |
 | Logout                             | No foreground listener remains and the device association is removed                     |
 | Account switch                     | The previous listener is removed; one listener is installed for the new session          |

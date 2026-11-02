@@ -55,4 +55,4 @@ export type Vehicle = {
 };
 
 export type VehicleInput = Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'photoUrl'>;
-export type VehicleUpdateInput = Partial<VehicleInput>;
+export type VehicleUpdateInput = Partial<Omit<VehicleInput, 'mileage'>>;

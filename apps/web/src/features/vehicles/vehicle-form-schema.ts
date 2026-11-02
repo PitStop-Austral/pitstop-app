@@ -149,7 +149,8 @@ export function getVehicleUpdateInput(
   existingPlate: string,
 ): VehicleUpdateInput {
   const normalizedExistingPlate = normalizePlate(existingPlate);
-  const input: VehicleUpdateInput = { ...values };
+  const { mileage: _mileage, ...updateValues } = values;
+  const input: VehicleUpdateInput = { ...updateValues };
 
   if (
     LEGACY_PLATE_PATTERN.test(normalizedExistingPlate) &&

@@ -146,7 +146,6 @@ export class VehiclesService {
     if (dto.year !== undefined) data.year = dto.year;
     if (dto.fuel !== undefined) data.fuel = dto.fuel;
     if (dto.plate !== undefined) data.plate = normalizeVehiclePlate(dto.plate);
-    if (dto.mileage !== undefined) data.mileage = dto.mileage;
     if (dto.nickname !== undefined) data.nickname = normalizeOptionalText(dto.nickname);
     if (dto.engineOilType !== undefined)
       data.engineOilType = normalizeOptionalText(dto.engineOilType);

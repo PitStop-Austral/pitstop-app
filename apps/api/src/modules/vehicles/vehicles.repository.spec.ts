@@ -105,7 +105,12 @@ describe('VehiclesRepository', () => {
     await expect(repository.createAndSetActive('user-1', data)).resolves.toBe(vehicle);
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith({
-      data: { ...data, ownerId: 'user-1', initialMileage: data.mileage },
+      data: {
+        ...data,
+        ownerId: 'user-1',
+        initialMileage: data.mileage,
+        mileageUpdatedAt: expect.any(Date),
+      },
       select: expect.any(Object),
     });
     expect(createSchedules).toHaveBeenCalledWith({
@@ -206,7 +211,7 @@ describe('VehiclesRepository', () => {
     ).resolves.toEqual({ ...vehicle, mileage: 50000 });
     expect(updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: vehicle.id, ownerId: 'user-1', mileage: { lte: 50000 } },
-      data: { mileage: 50000 },
+      data: { mileage: 50000, mileageUpdatedAt: expect.any(Date) },
       select: expect.any(Object),
     });
   });

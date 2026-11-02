@@ -3,7 +3,11 @@ import { TransmissionType } from '../../../generated/prisma/client';
 import { UpdateVehicleDto } from './update-vehicle.dto';
 
 describe('UpdateVehicleDto', () => {
-  const pipe = new ValidationPipe({ whitelist: true, transform: true });
+  const pipe = new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  });
   const metadata = { type: 'body' as const, metatype: UpdateVehicleDto };
 
   it('allows omitted fields and an explicitly cleared nickname', async () => {
@@ -49,7 +53,7 @@ describe('UpdateVehicleDto', () => {
     await expect(pipe.transform(input, metadata)).resolves.toEqual(input);
   });
 
-  it.each(['brand', 'model', 'year', 'fuel', 'plate', 'mileage'])(
+  it.each(['brand', 'model', 'year', 'fuel', 'plate'])(
     'rejects null for the required %s field',
     async (field) => {
       await expect(pipe.transform({ [field]: null }, metadata)).rejects.toThrow(
@@ -57,6 +61,10 @@ describe('UpdateVehicleDto', () => {
       );
     },
   );
+
+  it('rejects mileage because it has a dedicated endpoint', async () => {
+    await expect(pipe.transform({ mileage: 50000 }, metadata)).rejects.toThrow(BadRequestException);
+  });
 
   it.each([
     ['oil liters as text', { engineOilLiters: '4.2' }],

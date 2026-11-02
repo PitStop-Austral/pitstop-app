@@ -1,0 +1,18 @@
+model MileageReminderDelivery {
+  id                   String                         @id @default(uuid()) @db.Uuid
+  vehicleId            String                         @db.Uuid
+  installationId       String                         @db.Uuid
+  notificationDeviceId String?                        @db.Uuid
+  periodKey            String
+  status               MaintenanceAlertDeliveryStatus @default(PENDING)
+  fcmMessageId         String?
+  errorCode            String?
+  attemptedAt          DateTime                       @default(now()) @db.Timestamptz(3)
+  finishedAt           DateTime?                      @db.Timestamptz(3)
+  vehicle              Vehicle                        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  notificationDevice   NotificationDevice?            @relation(fields: [notificationDeviceId], references: [id], onDelete: SetNull)
+
+  @@unique([vehicleId, installationId, periodKey])
+  @@index([notificationDeviceId])
+  @@index([status, attemptedAt])
+}

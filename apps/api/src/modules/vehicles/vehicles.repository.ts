@@ -59,7 +59,7 @@ export type CreateVehicleData = {
   fogLight: string | null;
 };
 
-export type UpdateVehicleData = Partial<CreateVehicleData>;
+export type UpdateVehicleData = Partial<Omit<CreateVehicleData, 'mileage'>>;
 
 @Injectable()
 export class VehiclesRepository {
@@ -93,7 +93,12 @@ export class VehiclesRepository {
   async createAndSetActive(ownerId: string, data: CreateVehicleData): Promise<VehicleView> {
     return this.prisma.$transaction(async (transaction) => {
       const vehicle = await transaction.vehicle.create({
-        data: { ...data, ownerId, initialMileage: data.mileage },
+        data: {
+          ...data,
+          ownerId,
+          initialMileage: data.mileage,
+          mileageUpdatedAt: new Date(),
+        },
         select: vehicleSelect,
       });
 
@@ -118,17 +123,10 @@ export class VehiclesRepository {
   }
 
   async update(id: string, data: UpdateVehicleData): Promise<VehicleView> {
-    return this.prisma.$transaction(async (transaction) => {
-      if (data.mileage !== undefined) await lockVehicleSchedules(transaction, id);
-      const vehicle = await transaction.vehicle.update({
-        where: { id },
-        data,
-        select: vehicleSelect,
-      });
-      if (data.mileage !== undefined) {
-        await observeAlertMileage(transaction, id, data.mileage, new Date());
-      }
-      return vehicle;
+    return this.prisma.vehicle.update({
+      where: { id },
+      data,
+      select: vehicleSelect,
     });
   }
 
@@ -144,12 +142,13 @@ export class VehiclesRepository {
     id: string,
     ownerId: string,
     mileage: number,
+    mileageUpdatedAt = new Date(),
   ): Promise<VehicleView | null> {
     return this.prisma.$transaction(async (transaction) => {
       await lockVehicleSchedules(transaction, id);
       const [vehicle] = await transaction.vehicle.updateManyAndReturn({
         where: { id, ownerId, mileage: { lte: mileage } },
-        data: { mileage },
+        data: { mileage, mileageUpdatedAt },
         select: vehicleSelect,
       });
       if (vehicle) await observeAlertMileage(transaction, id, mileage, new Date());

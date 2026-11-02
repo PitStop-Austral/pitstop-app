@@ -16,7 +16,10 @@ import { Icon } from '@/components/ui/icon';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import { resolveMaintenanceAlertTarget } from '@/features/notifications/notification-message';
+import {
+  resolveMaintenanceAlertTarget,
+  resolveMileageReminderTarget,
+} from '@/features/notifications/notification-message';
 import { useSchedules } from '@/features/schedules/queries';
 import { ScheduleCard } from '@/features/schedules/schedule-card';
 import { useScheduleSheet } from '@/features/schedules/schedule-sheet-context';
@@ -28,7 +31,12 @@ import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 
 const GARAGE_TABS = ['info', 'recomendados', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
-type GarageSearch = { tab: GarageTab; vehicleId?: string; scheduleId?: string };
+type GarageSearch = {
+  tab: GarageTab;
+  vehicleId?: string;
+  scheduleId?: string;
+  action?: 'update-mileage';
+};
 
 function optionalSearchString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
@@ -39,6 +47,7 @@ export const Route = createFileRoute('/_app/garage')({
     tab: GARAGE_TABS.includes(search.tab as GarageTab) ? (search.tab as GarageTab) : 'info',
     vehicleId: optionalSearchString(search.vehicleId),
     scheduleId: optionalSearchString(search.scheduleId),
+    action: search.action === 'update-mileage' ? 'update-mileage' : undefined,
   }),
   component: GaragePage,
 });
@@ -47,7 +56,12 @@ function GaragePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit' | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mileageOpen, setMileageOpen] = useState(false);
-  const { tab, vehicleId: targetVehicleId, scheduleId: targetScheduleId } = Route.useSearch();
+  const {
+    tab,
+    vehicleId: targetVehicleId,
+    scheduleId: targetScheduleId,
+    action: targetAction,
+  } = Route.useSearch();
   const navigate = useNavigate();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const { mutateAsync: setActiveVehicle } = useSetActiveVehicle();
@@ -59,6 +73,9 @@ function GaragePage() {
   const handledDestination = useRef<string | undefined>(undefined);
   const refreshedVehiclesDestination = useRef<string | undefined>(undefined);
   const refreshedSchedulesDestination = useRef<string | undefined>(undefined);
+  const switchingMileageDestination = useRef<string | undefined>(undefined);
+  const handledMileageDestination = useRef<string | undefined>(undefined);
+  const refreshedMileageDestination = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!targetVehicleId || !targetScheduleId) {
@@ -137,6 +154,73 @@ function GaragePage() {
     schedulesQuery.isFetching,
     setActiveVehicle,
     targetScheduleId,
+    targetVehicleId,
+    vehiclesQuery.data,
+    vehiclesQuery.isFetching,
+    vehiclesQuery.isPending,
+  ]);
+
+  useEffect(() => {
+    if (targetAction !== 'update-mileage' || !targetVehicleId) {
+      switchingMileageDestination.current = undefined;
+      handledMileageDestination.current = undefined;
+      refreshedMileageDestination.current = undefined;
+      return;
+    }
+    if (vehiclesQuery.isPending || currentUserQuery.isPending) return;
+
+    const destinationKey = `${targetVehicleId}:update-mileage`;
+    if (handledMileageDestination.current === destinationKey) return;
+    if (refreshedMileageDestination.current !== destinationKey) {
+      refreshedMileageDestination.current = destinationKey;
+      void refetchVehicles();
+      return;
+    }
+    if (vehiclesQuery.isFetching) return;
+
+    const clearDestination = () =>
+      navigate({
+        to: '/garage',
+        search: { tab: 'info' },
+        replace: true,
+        resetScroll: false,
+      });
+    const resolution = resolveMileageReminderTarget(
+      activeVehicle?.id,
+      vehiclesQuery.data,
+      targetVehicleId,
+      vehiclesQuery.isFetching,
+    );
+    if (resolution.kind === 'waiting') return;
+    if (resolution.kind === 'invalid') {
+      switchingMileageDestination.current = undefined;
+      handledMileageDestination.current = destinationKey;
+      void clearDestination();
+      toast.error('No encontramos ese vehículo');
+      return;
+    }
+    if (resolution.kind === 'switch-vehicle') {
+      if (switchingMileageDestination.current === destinationKey) return;
+      switchingMileageDestination.current = destinationKey;
+      void setActiveVehicle(resolution.vehicleId).catch(async () => {
+        switchingMileageDestination.current = undefined;
+        await clearDestination();
+        toast.error('No encontramos ese vehículo');
+      });
+      return;
+    }
+
+    switchingMileageDestination.current = undefined;
+    handledMileageDestination.current = destinationKey;
+    void clearDestination();
+    setMileageOpen(true);
+  }, [
+    activeVehicle?.id,
+    currentUserQuery.isPending,
+    navigate,
+    refetchVehicles,
+    setActiveVehicle,
+    targetAction,
     targetVehicleId,
     vehiclesQuery.data,
     vehiclesQuery.isFetching,

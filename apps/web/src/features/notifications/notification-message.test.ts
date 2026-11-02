@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildMaintenanceAlertDestination,
+  buildMileageReminderDestination,
   claimNotificationId,
   parseNotificationMessageData,
   resolveMaintenanceAlertTarget,
+  resolveMileageReminderTarget,
 } from './notification-message.ts';
 
 test('parses the PIT-59 test message and keeps legacy testId compatibility', () => {
@@ -46,6 +48,25 @@ test('parses a complete maintenance alert', () => {
   );
 });
 
+test('parses a complete mileage reminder', () => {
+  assert.deepEqual(
+    parseNotificationMessageData({
+      kind: 'mileage-reminder',
+      notificationId: 'reminder-id',
+      title: 'Actualizá el kilometraje',
+      body: 'Honda Civic: pasaron 30 días desde la última actualización.',
+      vehicleId: 'vehicle-id',
+    }),
+    {
+      kind: 'mileage-reminder',
+      notificationId: 'reminder-id',
+      title: 'Actualizá el kilometraje',
+      body: 'Honda Civic: pasaron 30 días desde la última actualización.',
+      vehicleId: 'vehicle-id',
+    },
+  );
+});
+
 test('rejects incomplete or unknown notification messages', () => {
   assert.equal(
     parseNotificationMessageData({
@@ -60,12 +81,28 @@ test('rejects incomplete or unknown notification messages', () => {
   );
   assert.equal(
     parseNotificationMessageData({
+      kind: 'mileage-reminder',
+      notificationId: 'reminder-id',
+      title: 'Actualizá el kilometraje',
+      body: 'Actualizá el kilometraje de tu vehículo.',
+    }),
+    null,
+  );
+  assert.equal(
+    parseNotificationMessageData({
       kind: 'unknown',
       notificationId: 'alert-id',
       title: 'Título',
       body: 'Cuerpo',
     }),
     null,
+  );
+});
+
+test('builds the mileage reminder garage destination', () => {
+  assert.equal(
+    buildMileageReminderDestination('vehicle/id'),
+    '/garage?tab=info&vehicleId=vehicle%2Fid&action=update-mileage',
   );
 });
 
@@ -128,4 +165,22 @@ test('waits for fresh deep-link data before rejecting stale cached results', () 
     ),
     { kind: 'waiting' },
   );
+});
+
+test('resolves mileage reminder targets', () => {
+  const vehicles = [{ id: 'vehicle-a' }, { id: 'vehicle-b' }];
+
+  assert.deepEqual(resolveMileageReminderTarget('vehicle-a', vehicles, 'vehicle-b'), {
+    kind: 'switch-vehicle',
+    vehicleId: 'vehicle-b',
+  });
+  assert.deepEqual(resolveMileageReminderTarget('vehicle-b', vehicles, 'vehicle-b'), {
+    kind: 'ready',
+  });
+  assert.deepEqual(resolveMileageReminderTarget('vehicle-a', vehicles, 'missing'), {
+    kind: 'invalid',
+  });
+  assert.deepEqual(resolveMileageReminderTarget('vehicle-a', vehicles, 'vehicle-b', true), {
+    kind: 'waiting',
+  });
 });
