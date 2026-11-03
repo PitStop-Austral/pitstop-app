@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { filterAndSortMaintenances } from './history-controls.ts';
+import { filterAndSortMaintenances, paginateHistory } from './history-controls.ts';
 import type { Maintenance } from './types.ts';
 
 function maintenance(overrides: Partial<Maintenance>): Maintenance {
@@ -102,4 +102,24 @@ test('sorts descending and keeps missing costs last with stable ties', () => {
     }).map(({ id }) => id),
     ['first-tie', 'second-tie', 'older', 'without-cost'],
   );
+});
+
+test('shows cumulative history batches and treats zero pages as one', () => {
+  for (const total of [0, 9, 10, 11, 25]) {
+    const maintenances = Array.from({ length: total }, (_, index) =>
+      maintenance({ id: `${index + 1}` }),
+    );
+
+    for (const pages of [1, 2, 3]) {
+      const shown = Math.min(pages * 10, total);
+      assert.deepEqual(paginateHistory(maintenances, pages), {
+        visible: maintenances.slice(0, shown),
+        shown,
+        total,
+        hasMore: shown < total,
+      });
+    }
+
+    assert.deepEqual(paginateHistory(maintenances, 0), paginateHistory(maintenances, 1));
+  }
 });
