@@ -1,8 +1,8 @@
 # Vehicle wishlist
 
 Each vehicle has a wishlist: things the user wants to buy for the car, with an estimated price, a
-priority, and whether they were already bought. PIT-77 adds the database storage and PIT-80 the API.
-There is no screen yet.
+priority, and whether they were already bought. PIT-77 adds the database storage, PIT-80 the API,
+and PIT-82 the Garage "Deseos" tab.
 
 ## Data model
 
@@ -60,3 +60,21 @@ An item that is not on that vehicle returns `404 "Deseo no encontrado"`. Writes 
 
 `apps/api/test/wishlist.db-spec.ts` covers the ordering, the purchase toggle, deletion isolation,
 and the cross-account `404`s against the `_test` database.
+
+## Web
+
+`apps/web/src/features/wishlist` renders the Garage "Deseos" tab for the active vehicle. The query
+key is `['vehicles', vehicleId, 'wishlist']`, so switching vehicles never shows the previous one's
+list. The panel keeps the API order and only splits it into pending items and a "Comprados · N"
+block; it has loading, error-with-retry, empty, and background-refetch-error states.
+
+- **Add:** a `BottomSheet` form (name, estimated price, priority, note) validated by
+  `wishlist-form-schema.ts`. The price accepts a comma as decimal separator, and an empty price or
+  note is left out of the request body. A failed save keeps the sheet open with what was typed.
+- **Purchased toggle:** optimistic. Each item has its own mutation key
+  (`['wishlist', vehicleId, 'set-purchased', id]`) because the row remounts when it moves between
+  blocks; the circle reads `useIsMutating` on that key, so it stays locked (via `aria-disabled`, to
+  keep keyboard focus on the remounted row) until the PATCH settles. A failure rolls back only that
+  item, and only the vehicle's last in-flight toggle refetches the list.
+- **Delete:** goes through a confirmation sheet. A `404` (item already gone) is treated as success;
+  the list is refetched either way.

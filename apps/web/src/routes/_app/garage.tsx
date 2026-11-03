@@ -25,6 +25,7 @@ import { DeleteVehicleConfirmSheet } from '@/features/vehicles/delete-vehicle-co
 import { useActiveVehicle, useSetActiveVehicle } from '@/features/vehicles/queries';
 import { UpdateMileageSheet } from '@/features/vehicles/update-mileage-sheet';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
+import { WishlistPanel } from '@/features/wishlist/wishlist-panel';
 
 const GARAGE_TABS = ['info', 'recomendados', 'deseos'] as const;
 type GarageTab = (typeof GARAGE_TABS)[number];
@@ -354,11 +355,7 @@ function GaragePage() {
             ) : null}
           </TabsContent>
           <TabsContent value="deseos">
-            <EmptyState
-              description="Acá vas a poder guardar los mantenimientos o mejoras que tengas pensados para tu vehículo."
-              icon="Heart"
-              title="Todavía no armamos esto"
-            />
+            <WishlistPanel vehicleId={activeVehicle.id} />
           </TabsContent>
         </Tabs>
       </div>
