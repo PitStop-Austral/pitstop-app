@@ -108,7 +108,6 @@ export function WishlistFormSheet({ open, onOpenChange, vehicleId }: WishlistFor
             aria-invalid={Boolean(errors.name)}
             autoFocus
             id="wishlist-name"
-            maxLength={80}
             placeholder="Llantas deportivas rodado 17"
             value={values.name}
             onChange={(event) => updateField('name', event.target.value)}
@@ -157,7 +156,6 @@ export function WishlistFormSheet({ open, onOpenChange, vehicleId }: WishlistFor
             aria-describedby={errors.note ? 'wishlist-note-error' : undefined}
             aria-invalid={Boolean(errors.note)}
             id="wishlist-note"
-            maxLength={280}
             placeholder="Modelo negro mate"
             value={values.note}
             onChange={(event) => updateField('note', event.target.value)}

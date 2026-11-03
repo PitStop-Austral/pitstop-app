@@ -65,7 +65,7 @@ export function WishlistRow({ item, focusToggle, onToggle, onDelete }: WishlistR
 
       <div className="min-w-0 flex-1">
         <Text
-          className={cn(item.purchased && 'line-through')}
+          className={cn('break-words', item.purchased && 'line-through')}
           color={item.purchased ? 'muted' : 'default'}
           variant="body-strong"
         >
