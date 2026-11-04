@@ -1,5 +1,5 @@
 import { Navigate, Outlet, createFileRoute, useLocation } from '@tanstack/react-router';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
@@ -20,6 +20,14 @@ function AppLayout() {
   // Freezes once `user` goes null to avoid re-nesting the redirect param
   // mid-transition — see docs/auth.md before simplifying this.
   const lastAuthedHrefRef = useRef(location.href);
+
+  useEffect(() => {
+    if (!user) return;
+    const root = document.documentElement;
+    root.classList.add('app-shell');
+    return () => root.classList.remove('app-shell');
+  }, [user]);
+
   if (user) {
     lastAuthedHrefRef.current = location.href;
   }
@@ -43,7 +51,7 @@ function AppLayout() {
           <div className="flex min-w-0 flex-1 flex-col">
             <AppHeader />
             <main
-              className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] lg:pb-10"
+              className="flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),12px)+88px)] [scrollbar-gutter:stable] lg:pb-10"
               id="app-scroll"
             >
               <Outlet />

@@ -351,7 +351,7 @@ function GaragePage() {
             })
           }
         >
-          <TabsList className="sticky top-0 z-10 bg-background/92 backdrop-blur-xl">
+          <TabsList className="sticky top-0 z-10 bg-background/92 pt-3 backdrop-blur-xl">
             <TabsTrigger icon="Info" value="info">
               Información
             </TabsTrigger>

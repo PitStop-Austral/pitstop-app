@@ -138,6 +138,13 @@
 }
 
 @layer base {
+  html.app-shell,
+  html.app-shell body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   button:not(:disabled),
   a[href],
   select:not(:disabled),
