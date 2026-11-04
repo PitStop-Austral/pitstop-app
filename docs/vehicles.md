@@ -32,7 +32,9 @@ The Garage route uses TanStack Query for vehicle and current-user state. It show
 accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
 mutations invalidate the affected query caches before the form closes. The mobile header and desktop
 sidebar expose the same active-vehicle picker; the selection is stored in the account and Garage falls
-back to the first vehicle if no valid active vehicle is saved.
+back to the first vehicle if no valid active vehicle is saved. While vehicles and the current user
+load, the picker shows a disabled spinner; a non-blank nickname appears under brand and model in
+both the picker button and the "Elegir vehículo" sheet.
 
 The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
 Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a
