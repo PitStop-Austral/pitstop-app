@@ -60,12 +60,6 @@ export class UpdateVehicleDto {
   @Matches(PLATE_PATTERN)
   plate?: string;
 
-  @ValidateIf((_object, value) => value !== undefined)
-  @IsInt()
-  @Min(0)
-  @Max(MAX_VEHICLE_MILEAGE)
-  mileage?: number;
-
   @Transform(({ value }) => normalizeNickname(value))
   @IsOptional()
   @IsString()

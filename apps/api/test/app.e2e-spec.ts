@@ -146,7 +146,7 @@ describe('AppModule (e2e)', () => {
     findUnique = jest.fn();
     create = jest.fn();
     updateUser = jest.fn();
-    findManyVehicles = jest.fn();
+    findManyVehicles = jest.fn().mockResolvedValue([]);
     countVehicles = jest.fn();
     findOwnedVehicle = jest.fn();
     createVehicle = jest.fn();
@@ -437,7 +437,13 @@ describe('AppModule (e2e)', () => {
         .get('/cron/maintenance-alerts')
         .set('Authorization', 'Bearer expected-secret')
         .expect(200)
-        .expect({ selected: 0, claimed: 0, sent: 0, failed: 0 });
+        .expect({
+          selected: 0,
+          claimed: 0,
+          sent: 0,
+          failed: 0,
+          mileageReminders: { sent: 0, failed: 0, skipped: 0 },
+        });
 
       expect(findSchedules).toHaveBeenCalledTimes(1);
       expect(verifyIdToken).not.toHaveBeenCalled();
@@ -1037,6 +1043,16 @@ describe('AppModule (e2e)', () => {
           where: { id: vehicle.id },
         }),
       );
+    });
+
+    it('rejects mileage through the general vehicle update endpoint', () => {
+      authenticate();
+
+      return request(app.getHttpServer())
+        .patch(`/vehicles/${vehicle.id}`)
+        .set('Authorization', 'Bearer valid-token')
+        .send({ mileage: 50000 })
+        .expect(400);
     });
 
     it('hides another user vehicle behind a not-found response', () => {

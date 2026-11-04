@@ -6,6 +6,11 @@ import {
   type MaintenanceAlertClaimCandidate,
 } from '../src/modules/maintenance-alerts/maintenance-alerts.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { FirebaseService } from '../src/firebase/firebase.service';
+import { MileageRemindersRepository } from '../src/modules/maintenance-alerts/mileage-reminders.repository';
+import { MileageRemindersService } from '../src/modules/maintenance-alerts/mileage-reminders.service';
+import { NotificationsRepository } from '../src/modules/notifications/notifications.repository';
+import { VehiclesRepository } from '../src/modules/vehicles/vehicles.repository';
 
 describe('Maintenance alert claims (PostgreSQL)', () => {
   let prisma: PrismaClient;
@@ -274,5 +279,195 @@ describe('Maintenance alert claims (PostgreSQL)', () => {
       prisma.maintenanceAlertDelivery.count({ where: { scheduleId: schedule.id } }),
     ).resolves.toBe(0);
     await prisma.notificationDevice.delete({ where: { id: device.id } });
+  });
+});
+
+describe('Mileage reminder deliveries (PostgreSQL)', () => {
+  let prisma: PrismaClient;
+  let service: MileageRemindersService;
+  let notificationsRepository: NotificationsRepository;
+  let vehiclesRepository: VehiclesRepository;
+  let sendDataMessage: jest.Mock;
+  const userIds: string[] = [];
+  const vehicleIds: string[] = [];
+
+  beforeAll(async () => {
+    const databaseUrl = process.env.TEST_DATABASE_URL;
+    if (!databaseUrl || !new URL(databaseUrl).pathname.slice(1).endsWith('_test')) {
+      throw new Error(
+        'TEST_DATABASE_URL must point to a dedicated PostgreSQL database ending in _test',
+      );
+    }
+
+    prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+    await prisma.$connect();
+    const prismaService = prisma as unknown as PrismaService;
+    const repository = new MileageRemindersRepository(prismaService);
+    sendDataMessage = jest.fn().mockResolvedValue('projects/test/messages/reminder');
+    service = new MileageRemindersService(repository, {
+      sendDataMessage,
+    } as unknown as FirebaseService);
+    notificationsRepository = new NotificationsRepository(prismaService);
+    vehiclesRepository = new VehiclesRepository(prismaService);
+  });
+
+  afterEach(async () => {
+    if (vehicleIds.length > 0) {
+      await prisma.vehicle.deleteMany({ where: { id: { in: vehicleIds.splice(0) } } });
+    }
+    if (userIds.length > 0) {
+      await prisma.user.deleteMany({ where: { id: { in: userIds.splice(0) } } });
+    }
+    if (sendDataMessage) {
+      sendDataMessage.mockReset().mockResolvedValue('projects/test/messages/reminder');
+    }
+  });
+
+  afterAll(async () => {
+    if (prisma) await prisma.$disconnect();
+  });
+
+  async function createReminderVehicle(mileageUpdatedAt: Date, notificationsEnabled = true) {
+    const suffix = randomUUID();
+    const user = await prisma.user.create({
+      data: {
+        firebaseUid: `mileage-reminder-${suffix}`,
+        email: `mileage-reminder-${suffix}@example.com`,
+        name: 'Mileage Reminder Driver',
+        notificationsEnabled,
+      },
+    });
+    userIds.push(user.id);
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        ownerId: user.id,
+        brand: 'Honda',
+        model: 'Civic',
+        year: 2021,
+        fuel: 'NAFTA',
+        plate: `MR${suffix.slice(0, 3).toUpperCase()}AA`,
+        mileage: 48250,
+        mileageUpdatedAt,
+      },
+    });
+    vehicleIds.push(vehicle.id);
+    const device = await prisma.notificationDevice.create({
+      data: {
+        userId: user.id,
+        installationId: randomUUID(),
+        token: `mileage-token-${randomUUID()}`,
+      },
+    });
+    return { user, vehicle, device };
+  }
+
+  it('sends once across repeated and concurrent reviews for the same period', async () => {
+    const now = new Date('2026-10-31T15:00:00.000Z');
+    const { vehicle } = await createReminderVehicle(new Date('2026-10-01T15:00:00.000Z'));
+
+    const runs = await Promise.all([service.runDailyReview(now), service.runDailyReview(now)]);
+    expect(runs.reduce((total, run) => total + run.sent, 0)).toBe(1);
+    await expect(service.runDailyReview(now)).resolves.toEqual({
+      sent: 0,
+      failed: 0,
+      skipped: 1,
+    });
+    await expect(
+      prisma.mileageReminderDelivery.count({
+        where: { vehicleId: vehicle.id, status: MaintenanceAlertDeliveryStatus.SENT },
+      }),
+    ).resolves.toBe(1);
+    expect(sendDataMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts at 30 days and creates a new delivery at 60 days', async () => {
+    const mileageUpdatedAt = new Date('2026-10-01T15:00:00.000Z');
+    const { vehicle } = await createReminderVehicle(mileageUpdatedAt);
+
+    await expect(service.runDailyReview(new Date('2026-10-30T15:00:00.000Z'))).resolves.toEqual({
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+    });
+    await expect(
+      service.runDailyReview(new Date('2026-10-31T15:00:00.000Z')),
+    ).resolves.toMatchObject({ sent: 1 });
+    await expect(
+      service.runDailyReview(new Date('2026-11-15T15:00:00.000Z')),
+    ).resolves.toMatchObject({ sent: 0, skipped: 1 });
+    await expect(
+      service.runDailyReview(new Date('2026-11-30T15:00:00.000Z')),
+    ).resolves.toMatchObject({ sent: 1 });
+    await expect(
+      prisma.mileageReminderDelivery.count({ where: { vehicleId: vehicle.id } }),
+    ).resolves.toBe(2);
+  });
+
+  it('retries a failed delivery without creating another row', async () => {
+    const now = new Date('2026-10-31T15:00:00.000Z');
+    const { vehicle } = await createReminderVehicle(new Date('2026-10-01T15:00:00.000Z'));
+    sendDataMessage.mockRejectedValueOnce({ code: 'messaging/server-unavailable' });
+
+    await expect(service.runDailyReview(now)).resolves.toMatchObject({ failed: 1 });
+    await expect(service.runDailyReview(now)).resolves.toMatchObject({ sent: 1 });
+    await expect(
+      prisma.mileageReminderDelivery.count({ where: { vehicleId: vehicle.id } }),
+    ).resolves.toBe(1);
+  });
+
+  it('stops being eligible immediately after confirming the mileage', async () => {
+    const now = new Date('2026-10-31T15:00:00.000Z');
+    const { user, vehicle } = await createReminderVehicle(new Date('2026-09-01T15:00:00.000Z'));
+    await vehiclesRepository.updateMileageIfNotDecreased(vehicle.id, user.id, vehicle.mileage, now);
+
+    await expect(service.runDailyReview(now)).resolves.toEqual({
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+    });
+  });
+
+  it('ignores users who disabled notifications', async () => {
+    const now = new Date('2026-10-31T15:00:00.000Z');
+    await createReminderVehicle(new Date('2026-09-01T15:00:00.000Z'), false);
+
+    await expect(service.runDailyReview(now)).resolves.toEqual({
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+    });
+    expect(sendDataMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not commit an opt-out while a validated delivery is in progress', async () => {
+    const now = new Date('2026-10-31T15:00:00.000Z');
+    const { user } = await createReminderVehicle(new Date('2026-09-01T15:00:00.000Z'));
+    let signalDeliveryStarted = () => {};
+    const deliveryStarted = new Promise<void>((resolve) => {
+      signalDeliveryStarted = resolve;
+    });
+    let releaseDelivery = () => {};
+    const deliveryCanFinish = new Promise<void>((resolve) => {
+      releaseDelivery = resolve;
+    });
+    sendDataMessage.mockImplementationOnce(async () => {
+      signalDeliveryStarted();
+      await deliveryCanFinish;
+      return 'projects/test/messages/reminder';
+    });
+
+    const review = service.runDailyReview(now);
+    await deliveryStarted;
+    const optOut = notificationsRepository.updatePreferences(user.id, false);
+    await expect(
+      Promise.race([
+        optOut.then(() => 'updated'),
+        new Promise<string>((resolve) => setTimeout(() => resolve('waiting'), 50)),
+      ]),
+    ).resolves.toBe('waiting');
+
+    releaseDelivery();
+    await expect(review).resolves.toMatchObject({ sent: 1 });
+    await expect(optOut).resolves.toEqual({ notificationsEnabled: false });
   });
 });

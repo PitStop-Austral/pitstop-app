@@ -39,12 +39,14 @@ model Vehicle {
   fogLight             String?
   photoUrl             String?
   photoPath            String?
+  mileageUpdatedAt     DateTime                  @default(now()) @db.Timestamptz(3)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   owner                User              @relation(fields: [ownerId], references: [id])
   maintenances         Maintenance[]
   schedules            Schedule[]
   wishlistItems        WishlistItem[]
+  mileageReminders     MileageReminderDelivery[]
 
   @@unique([ownerId, plate])
   @@index([ownerId])

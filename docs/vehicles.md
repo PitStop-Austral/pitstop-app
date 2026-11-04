@@ -13,10 +13,11 @@ The authenticated vehicle API exposes:
   user's active vehicle in one transaction. The rules cover oil change (10,000 km / 6 months),
   wheel alignment (10,000 km / 12 months), air filter (15,000 km / 12 months), oil filter
   (10,000 km / 6 months), and timing belt (100,000 km / 60 months).
-- `PATCH /vehicles/:id` to update an owned vehicle. Requests for another user's vehicle return 404.
+- `PATCH /vehicles/:id` to update an owned vehicle except its mileage. Requests containing
+  `mileage` are rejected; requests for another user's vehicle return 404.
 - `PATCH /vehicles/:id/mileage` with `{ "mileage": number }` to update only an owned vehicle's
   mileage. The value cannot be lower than the saved mileage; lower values return 400 and equal
-  values are allowed.
+  values are allowed and still confirm the mileage timestamp used by reminder delivery.
 - `DELETE /vehicles/:id` to permanently delete an owned vehicle. If it was active, the oldest
   remaining vehicle becomes active; if none remain, the active vehicle is set to `null`. The delete
   and reassignment run in one transaction, and requests for another user's vehicle return 404.
@@ -36,7 +37,8 @@ back to the first vehicle if no valid active vehicle is saved.
 
 The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
 Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a
-stale value.
+stale value. Mileage is collected when creating a vehicle but is intentionally absent from the
+general edit form; the dedicated Garage sheet is the only update path after creation.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
 odometer) alongside a tabbed detail panel — Información, Recomendados, and Deseos (the vehicle's
@@ -48,3 +50,6 @@ measurements receive units. The cards stack on smaller screens and use a two-col
 param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.
 The odometer offers an "Actualizar km" action that opens a prefilled mileage form; successful
 updates refresh the displayed vehicle without a page reload.
+Mileage-reminder deep links select the requested owned vehicle, consume the destination parameters,
+and open this same sheet. A missing or foreign vehicle leaves Garage open without a sheet and shows
+an error message.

@@ -5,15 +5,28 @@ import {
   MaintenanceAlertsService,
   type MaintenanceAlertRunResult,
 } from './maintenance-alerts.service';
+import {
+  MileageRemindersService,
+  type MileageReminderRunResult,
+} from './mileage-reminders.service';
+
+export type DailyAlertRunResult = MaintenanceAlertRunResult & {
+  mileageReminders: MileageReminderRunResult;
+};
 
 @Public()
 @UseGuards(CronSecretGuard)
 @Controller('cron/maintenance-alerts')
 export class MaintenanceAlertsController {
-  constructor(private readonly maintenanceAlertsService: MaintenanceAlertsService) {}
+  constructor(
+    private readonly maintenanceAlertsService: MaintenanceAlertsService,
+    private readonly mileageRemindersService: MileageRemindersService,
+  ) {}
 
   @Get()
-  run(): Promise<MaintenanceAlertRunResult> {
-    return this.maintenanceAlertsService.runDailyReview();
+  async run(): Promise<DailyAlertRunResult> {
+    const maintenanceAlerts = await this.maintenanceAlertsService.runDailyReview();
+    const mileageReminders = await this.mileageRemindersService.runDailyReview();
+    return { ...maintenanceAlerts, mileageReminders };
   }
 }

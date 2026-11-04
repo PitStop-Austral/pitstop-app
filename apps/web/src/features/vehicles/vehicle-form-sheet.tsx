@@ -311,29 +311,31 @@ export function VehicleFormSheet(props: VehicleFormSheetProps) {
               />
             </FormField>
 
-            <FormField error={errors.mileage} id="vehicle-mileage" label="Kilometraje">
-              <div className="relative">
-                <Input
-                  aria-describedby={errors.mileage ? 'vehicle-mileage-error' : undefined}
-                  aria-invalid={Boolean(errors.mileage)}
-                  className="pr-12"
-                  id="vehicle-mileage"
-                  inputMode="numeric"
-                  min={0}
-                  placeholder="48000"
-                  type="number"
-                  value={values.mileage}
-                  onChange={(event) => updateField('mileage', event.target.value)}
-                />
-                <Text
-                  className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2"
-                  color="subtle"
-                  variant="caption-strong"
-                >
-                  km
-                </Text>
-              </div>
-            </FormField>
+            {props.mode === 'add' ? (
+              <FormField error={errors.mileage} id="vehicle-mileage" label="Kilometraje">
+                <div className="relative">
+                  <Input
+                    aria-describedby={errors.mileage ? 'vehicle-mileage-error' : undefined}
+                    aria-invalid={Boolean(errors.mileage)}
+                    className="pr-12"
+                    id="vehicle-mileage"
+                    inputMode="numeric"
+                    min={0}
+                    placeholder="48000"
+                    type="number"
+                    value={values.mileage}
+                    onChange={(event) => updateField('mileage', event.target.value)}
+                  />
+                  <Text
+                    className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2"
+                    color="subtle"
+                    variant="caption-strong"
+                  >
+                    km
+                  </Text>
+                </div>
+              </FormField>
+            ) : null}
 
             <FormField
               className="col-span-2"

@@ -11,6 +11,7 @@ import {
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import {
   buildMaintenanceAlertDestination,
+  buildMileageReminderDestination,
   parseNotificationMessageData,
 } from './features/notifications/notification-message';
 import { firebaseConfig } from './lib/firebase-config';
@@ -34,12 +35,14 @@ if (precacheManifest.length > 0) {
 
 self.addEventListener('notificationclick', (event) => {
   const message = parseNotificationMessageData(event.notification.data);
-  if (!message || message.kind !== 'maintenance-alert') return;
+  if (!message || message.kind === 'test') return;
 
   event.notification.close();
-  event.waitUntil(
-    focusOrOpenDestination(buildMaintenanceAlertDestination(message.vehicleId, message.scheduleId)),
-  );
+  const destination =
+    message.kind === 'maintenance-alert'
+      ? buildMaintenanceAlertDestination(message.vehicleId, message.scheduleId)
+      : buildMileageReminderDestination(message.vehicleId);
+  event.waitUntil(focusOrOpenDestination(destination));
 });
 
 async function focusOrOpenDestination(destination: string): Promise<void> {

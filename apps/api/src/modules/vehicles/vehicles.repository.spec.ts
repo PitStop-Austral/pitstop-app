@@ -12,6 +12,7 @@ describe('VehiclesRepository', () => {
   let findReplacement: jest.Mock;
   let findTransactionUser: jest.Mock;
   let lockOwner: jest.Mock;
+  let updateVehicle: jest.Mock;
   let updateManyAndReturn: jest.Mock;
   let updateUser: jest.Mock;
   let createSchedules: jest.Mock;
@@ -49,6 +50,7 @@ describe('VehiclesRepository', () => {
     findReplacement = jest.fn();
     findTransactionUser = jest.fn();
     lockOwner = jest.fn();
+    updateVehicle = jest.fn().mockResolvedValue(vehicle);
     updateManyAndReturn = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
     createSchedules = jest.fn();
@@ -70,7 +72,7 @@ describe('VehiclesRepository', () => {
           useValue: {
             $transaction: transaction,
             user: { update: updateUser },
-            vehicle: { findFirst: findOwnedVehicle, updateManyAndReturn },
+            vehicle: { findFirst: findOwnedVehicle, update: updateVehicle, updateManyAndReturn },
           },
         },
       ],
@@ -105,7 +107,12 @@ describe('VehiclesRepository', () => {
     await expect(repository.createAndSetActive('user-1', data)).resolves.toBe(vehicle);
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith({
-      data: { ...data, ownerId: 'user-1', initialMileage: data.mileage },
+      data: {
+        ...data,
+        ownerId: 'user-1',
+        initialMileage: data.mileage,
+        mileageUpdatedAt: expect.any(Date),
+      },
       select: expect.any(Object),
     });
     expect(createSchedules).toHaveBeenCalledWith({
@@ -198,6 +205,17 @@ describe('VehiclesRepository', () => {
     });
   });
 
+  it('does not reset the mileage confirmation timestamp when editing vehicle details', async () => {
+    await expect(repository.update(vehicle.id, { nickname: 'Daily' })).resolves.toBe(vehicle);
+
+    expect(updateVehicle).toHaveBeenCalledWith({
+      where: { id: vehicle.id },
+      data: { nickname: 'Daily' },
+      select: expect.any(Object),
+    });
+    expect(updateVehicle.mock.calls[0]?.[0].data).not.toHaveProperty('mileageUpdatedAt');
+  });
+
   it('updates mileage only when the stored value is not greater', async () => {
     updateManyAndReturn.mockResolvedValue([{ ...vehicle, mileage: 50000 }]);
 
@@ -206,7 +224,7 @@ describe('VehiclesRepository', () => {
     ).resolves.toEqual({ ...vehicle, mileage: 50000 });
     expect(updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: vehicle.id, ownerId: 'user-1', mileage: { lte: 50000 } },
-      data: { mileage: 50000 },
+      data: { mileage: 50000, mileageUpdatedAt: expect.any(Date) },
       select: expect.any(Object),
     });
   });

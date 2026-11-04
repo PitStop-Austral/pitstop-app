@@ -191,7 +191,6 @@ test('vehicle edit form accepts an unchanged legacy plate and omits it from the 
     model: 'Civic',
     year: 2021,
     fuel: 'NAFTA',
-    mileage: 48000,
     nickname: null,
     engineOilType: null,
     engineOilLiters: null,
