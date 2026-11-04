@@ -39,12 +39,12 @@ Tires, and Lights. Clearing a previously completed field sends `null`, so editin
 stale value.
 
 For the active vehicle, Garage renders a hero card (photo placeholder, name, status chip, and
-odometer) alongside a tabbed detail panel — Información, Recomendados, and Deseos. Only
-Información has real content today: five read-only cards for identification, lubricants,
-transmission, tires, and lights. All technical fields remain visible when empty and display
-`A definir`; paired values fall back independently and only completed measurements receive units.
-The cards stack on smaller screens and use a two-column layout from 1280 px, with identification
-spanning both columns. The other tabs show a "coming soon" empty state. The active tab is kept in
-the `tab` URL search param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.
+odometer) alongside a tabbed detail panel — Información, Recomendados, and Deseos (the vehicle's
+wishlist, see [wishlist.md](./wishlist.md)). Información shows five read-only cards for
+identification, lubricants, transmission, tires, and lights. All technical fields remain visible
+when empty and display `A definir`; paired values fall back independently and only completed
+measurements receive units. The cards stack on smaller screens and use a two-column layout from
+1280 px, with identification spanning both columns. The active tab is kept in the `tab` URL search
+param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.
 The odometer offers an "Actualizar km" action that opens a prefilled mileage form; successful
 updates refresh the displayed vehicle without a page reload.

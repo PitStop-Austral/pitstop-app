@@ -73,12 +73,12 @@ export function BottomSheet({
         <div className="flex max-h-[92dvh] flex-col">
           <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
           <div className="flex items-start gap-4 px-6 pt-5 pb-4">
-            <div className="flex-1">
-              <Text as="h2" id={titleId} variant="heading">
+            <div className="min-w-0 flex-1">
+              <Text as="h2" className="break-words" id={titleId} variant="heading">
                 {title}
               </Text>
               {description ? (
-                <Text className="mt-1" color="muted" variant="body">
+                <Text className="mt-1 break-words" color="muted" variant="body">
                   {description}
                 </Text>
               ) : null}
