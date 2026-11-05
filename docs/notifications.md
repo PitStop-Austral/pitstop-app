@@ -10,8 +10,10 @@ the same token resolve without exposing a uniqueness error. A user can own multi
 `User.notificationsEnabled` records that the user opted in. Removing the final installation does
 not reset this preference; the absence of device rows means there is no current delivery target.
 `User.notificationPromptShownAt` records the first time the invitation was presented and remains
-unchanged on repeated marking calls. Firebase identity synchronization only updates email and name,
-so both notification fields survive later authenticated requests.
+unchanged on repeated marking calls. It is retained for account history; the client decides whether
+to present the invitation again per browser installation and Firebase UID. Firebase identity
+synchronization only updates email and name, so both notification fields survive later authenticated
+requests.
 
 ## Authenticated API
 
@@ -30,11 +32,15 @@ so both notification fields survive later authenticated requests.
 
 ## Browser flow
 
-The invitation opens only after the first successfully created maintenance. Browser support is
-resolved before enabling the activation button so `Notification.requestPermission()` runs directly
-inside the click gesture. After permission is granted, Firebase receives the existing PWA service
-worker registration and `VITE_FIREBASE_VAPID_KEY`; the resulting token and local installation UUID
-are sent to the API.
+After the authenticated app finishes loading, each browser installation offers the invitation once
+per Firebase UID. The client stores `pitstop:notification-prompt:<firebaseUid>` in local storage
+when the sheet opens, so another account on the same browser and the same account on another
+browser or installed PWA receive their own offer. The sheet is not shown when notification support
+is unavailable or the permission is denied, and registering a first maintenance does not trigger
+it. Browser support is resolved before enabling the activation button so
+`Notification.requestPermission()` runs directly inside the click gesture. After permission is
+granted, Firebase receives the existing PWA service worker registration and
+`VITE_FIREBASE_VAPID_KEY`; the resulting token and local installation UUID are sent to the API.
 
 iOS and iPadOS require an installed Home Screen web app before notification permission is requested.
 Unsupported browsers, denied permission, cancellation, and token-registration failures leave the

@@ -1,14 +1,19 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
 import { NotificationPermissionSheet } from '@/features/notifications/notification-permission-sheet';
+import {
+  hasOfferedNotificationPrompt,
+  shouldOfferNotificationPrompt,
+} from '@/features/notifications/notification-prompt';
+import { getNotificationCapability } from '@/features/notifications/messaging';
+import { useAuth } from '@/lib/auth-context';
 import { DeleteMaintenanceConfirmSheet } from './delete-maintenance-confirm-sheet';
 import { MaintenanceDetailSheet } from './maintenance-detail-sheet';
 import { MaintenanceFormSheet } from './maintenance-form-sheet';
 import type { Maintenance } from './types';
-import type { MaintenanceCreated } from './types';
 
 type MaintenanceSheetContextValue = {
   openRegisterMaintenance: () => void;
@@ -37,7 +42,8 @@ type MaintenanceSheetProviderProps = {
 
 export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderProps) {
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
-  const notificationDismissed = useRef(false);
+  const promptChecked = useRef(false);
+  const { user } = useAuth();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
   const isDisabled =
     vehiclesQuery.isPending ||
@@ -67,19 +73,48 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     if (!open) setOpenSheet(null);
   }, []);
 
-  function handleCreated(maintenance: MaintenanceCreated): void {
-    if (
-      maintenance.isFirstMaintenance &&
-      currentUserQuery.data?.notificationPromptShownAt == null &&
-      !notificationDismissed.current
-    ) {
-      setOpenSheet({ type: 'notification-permission' });
+  useEffect(() => {
+    if (promptChecked.current || !user || !vehiclesQuery.isSuccess || !currentUserQuery.isSuccess) {
+      return;
     }
-  }
+
+    if (hasOfferedNotificationPrompt(window.localStorage, user.uid)) {
+      promptChecked.current = true;
+      return;
+    }
+
+    let cancelled = false;
+
+    void getNotificationCapability()
+      .then((capability) => {
+        if (cancelled || promptChecked.current) return;
+
+        if (
+          !shouldOfferNotificationPrompt({
+            capability,
+            alreadyOfferedOnThisDevice: false,
+          })
+        ) {
+          promptChecked.current = true;
+          return;
+        }
+
+        if (openSheet !== null) return;
+
+        promptChecked.current = true;
+        setOpenSheet({ type: 'notification-permission' });
+      })
+      .catch(() => {
+        if (!cancelled) promptChecked.current = true;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserQuery.isSuccess, openSheet, user, vehiclesQuery.isSuccess]);
 
   function closeNotificationPermission(open: boolean): void {
     if (open) return;
-    notificationDismissed.current = true;
     setOpenSheet(null);
   }
 
@@ -99,7 +134,6 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
           defaultServiceType={openSheet.defaultServiceType}
           open
           vehicle={activeVehicle}
-          onCreated={handleCreated}
           onOpenChange={closeOnDismiss}
         />
       ) : null}
