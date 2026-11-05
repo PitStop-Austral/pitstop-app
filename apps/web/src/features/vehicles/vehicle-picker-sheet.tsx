@@ -87,6 +87,11 @@ export function VehiclePickerSheet({
                 <Text className="block truncate" variant="subheading">
                   {vehicle.brand} {vehicle.model}
                 </Text>
+                {vehicle.nickname?.trim() ? (
+                  <Text className="mt-0.5 block truncate" color="emphasis" variant="caption-strong">
+                    “{vehicle.nickname.trim()}”
+                  </Text>
+                ) : null}
                 <Text className="mt-1 block" color="muted" variant="body">
                   {vehicle.year} · {vehicle.mileage.toLocaleString('es-AR')} km
                 </Text>
