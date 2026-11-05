@@ -6,8 +6,10 @@ import { Icon } from '@/components/ui/icon';
 import { toast } from '@/components/ui/sonner';
 import { Text } from '@/components/ui/text';
 import type { ApiError } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth-context';
 import { getOrCreateInstallationId } from './installation-id';
 import { getNotificationCapability, getNotificationToken } from './messaging';
+import { markNotificationPromptOffered } from './notification-prompt';
 import type { NotificationCapability } from './notification-support';
 import { useMarkNotificationPromptShown, useRegisterNotificationDevice } from './queries';
 
@@ -29,14 +31,16 @@ export function NotificationPermissionSheet({
   const [activationError, setActivationError] = useState<string | null>(null);
   const [isActivating, setIsActivating] = useState(false);
   const didMarkPrompt = useRef(false);
+  const { user } = useAuth();
   const markPrompt = useMarkNotificationPromptShown();
   const registerDevice = useRegisterNotificationDevice();
 
   useEffect(() => {
-    if (!open || didMarkPrompt.current) return;
+    if (!open || didMarkPrompt.current || !user) return;
     didMarkPrompt.current = true;
+    markNotificationPromptOffered(window.localStorage, user.uid);
     markPrompt.mutate();
-  }, [markPrompt, open]);
+  }, [markPrompt, open, user]);
 
   useEffect(() => {
     let cancelled = false;
