@@ -5,6 +5,7 @@ import {
   dragOffset,
   NON_DISMISSIBLE_RESISTANCE,
   releaseVelocity,
+  sheetContentTouchAction,
   shouldDismissSheet,
 } from './sheet-drag.ts';
 
@@ -60,6 +61,60 @@ test('sheet never dismisses when dismissal is disabled', () => {
       dismissible: false,
     }),
     false,
+  );
+});
+
+test('content touch action keeps native scroll after leaving the top', () => {
+  assert.equal(
+    sheetContentTouchAction({
+      canScroll: true,
+      isAtTop: false,
+      isDesktop: false,
+      supportsDirectionalPan: false,
+    }),
+    'pan-y',
+  );
+});
+
+test('content touch action reserves downward drags at the top', () => {
+  assert.equal(
+    sheetContentTouchAction({
+      canScroll: true,
+      isAtTop: true,
+      isDesktop: false,
+      supportsDirectionalPan: true,
+    }),
+    'pan-down',
+  );
+  assert.equal(
+    sheetContentTouchAction({
+      canScroll: true,
+      isAtTop: true,
+      isDesktop: false,
+      supportsDirectionalPan: false,
+    }),
+    'none',
+  );
+});
+
+test('content touch action disables panning when unnecessary and leaves desktop unchanged', () => {
+  assert.equal(
+    sheetContentTouchAction({
+      canScroll: false,
+      isAtTop: true,
+      isDesktop: false,
+      supportsDirectionalPan: true,
+    }),
+    'none',
+  );
+  assert.equal(
+    sheetContentTouchAction({
+      canScroll: true,
+      isAtTop: true,
+      isDesktop: true,
+      supportsDirectionalPan: true,
+    }),
+    '',
   );
 });
 

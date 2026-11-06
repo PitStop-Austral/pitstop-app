@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef } from 'react';
+import { useCallback, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -40,14 +40,6 @@ export function BottomSheet({
 
   useSheetDrag({ dialogRef, contentRef, dismissible, onDismiss: handleDismiss });
 
-  // iOS ignores `overscroll-behavior: contain` on a container that isn't actually overflowing and
-  // hands the drag to the root scroller instead; `touch-action: none` is the documented fallback
-  // for that case. No dep array — the sheet re-renders whenever its content can change.
-  useEffect(() => {
-    const el = contentRef.current;
-    if (el) el.style.touchAction = el.scrollHeight > el.clientHeight ? '' : 'none';
-  });
-
   return (
     <DialogContainerProvider value={dialogRef}>
       {/*
@@ -75,7 +67,7 @@ export function BottomSheet({
       >
         <div className="flex max-h-[92dvh] flex-col">
           <div
-            className="min-h-11 cursor-grab select-none active:cursor-grabbing lg:cursor-auto lg:select-auto"
+            className="min-h-11 shrink-0 cursor-grab select-none active:cursor-grabbing lg:cursor-auto lg:select-auto"
             data-sheet-drag-handle=""
           >
             <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />

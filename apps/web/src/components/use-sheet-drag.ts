@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import {
   DRAG_START_THRESHOLD_PX,
   dragOffset,
   releaseVelocity,
+  sheetContentTouchAction,
   shouldDismissSheet,
 } from '@/components/sheet-drag';
 
@@ -23,10 +24,11 @@ type UseSheetDragInput = {
 type DragGesture = {
   pointerId: number;
   startY: number;
+  startScrollTop: number;
   offset: number;
   samples: Array<{ y: number; t: number }>;
   source: 'handle' | 'content';
-  dragging: boolean;
+  mode: 'pending' | 'dragging' | 'scrolling';
 };
 
 export function useSheetDrag({
@@ -35,6 +37,25 @@ export function useSheetDrag({
   dismissible,
   onDismiss,
 }: UseSheetDragInput): void {
+  const dismissibleRef = useRef(dismissible);
+  const onDismissRef = useRef(onDismiss);
+  dismissibleRef.current = dismissible;
+  onDismissRef.current = onDismiss;
+
+  // Content can become scrollable after async data or validation changes render. Keep the browser's
+  // gesture policy in sync without rebuilding the pointer listeners on every component render.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    content.style.touchAction = sheetContentTouchAction({
+      canScroll: content.scrollHeight > content.clientHeight,
+      isAtTop: content.scrollTop <= 0,
+      isDesktop: window.matchMedia(DESKTOP_MEDIA_QUERY).matches,
+      supportsDirectionalPan: window.CSS?.supports('touch-action', 'pan-down') ?? false,
+    });
+  });
+
   useEffect(() => {
     const dialogElement = dialogRef.current;
     const contentElement = contentRef.current;
@@ -44,6 +65,7 @@ export function useSheetDrag({
     const content: HTMLDivElement = contentElement;
 
     const desktopQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
+    const supportsDirectionalPan = window.CSS?.supports('touch-action', 'pan-down') ?? false;
     let gesture: DragGesture | null = null;
     let isSettling = false;
     let listenersRegistered = false;
@@ -115,7 +137,7 @@ export function useSheetDrag({
       const complete = (): void => {
         isSettling = false;
         if (dismiss) {
-          onDismiss();
+          onDismissRef.current();
           return;
         }
         resetDialogStyles();
@@ -153,10 +175,11 @@ export function useSheetDrag({
       gesture = {
         pointerId: event.pointerId,
         startY: event.clientY,
+        startScrollTop: content.scrollTop,
         offset: 0,
         samples: [{ y: event.clientY, t: event.timeStamp }],
         source,
-        dragging: false,
+        mode: 'pending',
       };
     }
 
@@ -164,21 +187,33 @@ export function useSheetDrag({
       if (!gesture || event.pointerId !== gesture.pointerId) return;
 
       const deltaY = event.clientY - gesture.startY;
-      if (!gesture.dragging) {
-        if (gesture.source === 'content' && (content.scrollTop > 0 || deltaY < 0)) {
-          gesture = null;
+      if (gesture.mode === 'pending') {
+        if (gesture.source === 'content' && deltaY < -DRAG_START_THRESHOLD_PX) {
+          if (supportsDirectionalPan) {
+            gesture = null;
+            return;
+          }
+
+          gesture.mode = 'scrolling';
+          dialog.setPointerCapture(event.pointerId);
+        } else if (deltaY > DRAG_START_THRESHOLD_PX) {
+          gesture.mode = 'dragging';
+          dialog.setPointerCapture(event.pointerId);
+          dialog.style.transition = 'none';
+          dialog.style.willChange = 'transform';
+        } else {
           return;
         }
-        if (deltaY <= DRAG_START_THRESHOLD_PX) return;
+      }
 
-        gesture.dragging = true;
-        dialog.setPointerCapture(event.pointerId);
-        dialog.style.transition = 'none';
-        dialog.style.willChange = 'transform';
+      if (gesture.mode === 'scrolling') {
+        event.preventDefault();
+        content.scrollTop = gesture.startScrollTop - deltaY;
+        return;
       }
 
       event.preventDefault();
-      gesture.offset = dragOffset(deltaY, dismissible);
+      gesture.offset = dragOffset(deltaY, dismissibleRef.current);
       gesture.samples.push({ y: event.clientY, t: event.timeStamp });
       const sampleCutoff = event.timeStamp - 100;
       gesture.samples = gesture.samples.filter((sample) => sample.t >= sampleCutoff);
@@ -187,22 +222,29 @@ export function useSheetDrag({
 
     function handlePointerRelease(event: PointerEvent): void {
       if (!gesture || event.pointerId !== gesture.pointerId) return;
-      if (!gesture.dragging) {
+      if (gesture.mode === 'pending') {
         gesture = null;
         return;
       }
 
       event.preventDefault();
+      suppressClick = true;
+      suppressClickReset = window.setTimeout(clearClickSuppression, 0);
+
+      if (gesture.mode === 'scrolling') {
+        releasePointerCapture();
+        gesture = null;
+        return;
+      }
+
       gesture.samples.push({ y: event.clientY, t: event.timeStamp });
       const dismiss = shouldDismissSheet({
         offset: gesture.offset,
         sheetHeight: dialog.getBoundingClientRect().height,
         velocity: releaseVelocity(gesture.samples),
-        dismissible,
+        dismissible: dismissibleRef.current,
       });
 
-      suppressClick = true;
-      suppressClickReset = window.setTimeout(clearClickSuppression, 0);
       releasePointerCapture();
       gesture = null;
       settle(dismiss);
@@ -218,6 +260,15 @@ export function useSheetDrag({
     function handleDialogClose(): void {
       resetInteraction();
       clearClickSuppression();
+    }
+
+    function syncContentTouchAction(): void {
+      content.style.touchAction = sheetContentTouchAction({
+        canScroll: content.scrollHeight > content.clientHeight,
+        isAtTop: content.scrollTop <= 0,
+        isDesktop: desktopQuery.matches,
+        supportsDirectionalPan,
+      });
     }
 
     function registerListeners(): void {
@@ -243,6 +294,7 @@ export function useSheetDrag({
     }
 
     function syncListeners(): void {
+      syncContentTouchAction();
       if (desktopQuery.matches) {
         unregisterListeners();
         resetInteraction();
@@ -253,13 +305,16 @@ export function useSheetDrag({
     }
 
     syncListeners();
+    content.addEventListener('scroll', syncContentTouchAction);
     desktopQuery.addEventListener('change', syncListeners);
 
     return () => {
       desktopQuery.removeEventListener('change', syncListeners);
+      content.removeEventListener('scroll', syncContentTouchAction);
       unregisterListeners();
       resetInteraction();
       clearClickSuppression();
+      content.style.removeProperty('touch-action');
     };
-  }, [contentRef, dialogRef, dismissible, onDismiss]);
+  }, [contentRef, dialogRef]);
 }

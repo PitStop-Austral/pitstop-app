@@ -17,6 +17,13 @@ type ShouldDismissSheetInput = {
   dismissible: boolean;
 };
 
+type SheetContentTouchActionInput = {
+  canScroll: boolean;
+  isAtTop: boolean;
+  isDesktop: boolean;
+  supportsDirectionalPan: boolean;
+};
+
 export function dragOffset(deltaY: number, dismissible: boolean): number {
   const downwardOffset = Math.max(0, deltaY);
   return dismissible ? downwardOffset : downwardOffset * NON_DISMISSIBLE_RESISTANCE;
@@ -31,6 +38,18 @@ export function shouldDismissSheet({
   if (!dismissible) return false;
 
   return offset > sheetHeight * DISMISS_DISTANCE_RATIO || velocity > DISMISS_VELOCITY;
+}
+
+export function sheetContentTouchAction({
+  canScroll,
+  isAtTop,
+  isDesktop,
+  supportsDirectionalPan,
+}: SheetContentTouchActionInput): string {
+  if (isDesktop) return '';
+  if (!canScroll) return 'none';
+  if (!isAtTop) return 'pan-y';
+  return supportsDirectionalPan ? 'pan-down' : 'none';
 }
 
 export function releaseVelocity(samples: VelocitySample[]): number {
