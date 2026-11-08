@@ -43,7 +43,7 @@ type VehicleFormSheetProps = CommonProps &
       }
   );
 
-function initialValues(vehicle?: Vehicle): VehicleFormValues {
+export function initialValues(vehicle?: Vehicle): VehicleFormValues {
   return {
     brand: vehicle?.brand ?? '',
     model: vehicle?.model ?? '',

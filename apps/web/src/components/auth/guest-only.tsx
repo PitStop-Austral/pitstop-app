@@ -12,12 +12,12 @@ type GuestOnlyProps = {
 };
 
 // Shared by the public auth screens and the landing: an authenticated user
-// goes to `redirect` (a full href, query included) or Inicio.
+// goes to `redirect` (a full href, query included) or Garage.
 export function GuestOnly({ children, redirect }: GuestOnlyProps) {
   const { user, isLoading, isAuthenticating } = useAuth();
   const navigate = useNavigate();
   const shouldLeave = !isLoading && user !== null && !isAuthenticating;
-  const destination = getPostAuthRedirect(redirect) ?? '/';
+  const destination = getPostAuthRedirect(redirect) ?? '/garage';
 
   // Same as <Navigate>, which runs navigate() in a layout effect, but typed for
   // `href`: <Navigate> requires `to`, and `to` would drop the destination's query.

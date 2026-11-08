@@ -30,12 +30,15 @@ range. Oil quantities accept up to two decimal places between 0 and 99.99 liters
 fields are stored as `null`; decimal quantities are serialized as JSON numbers.
 
 The Garage route uses TanStack Query for vehicle and current-user state. It shows an empty state for
-accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. Successful
-mutations invalidate the affected query caches before the form closes. The mobile header and desktop
-sidebar expose the same active-vehicle picker; the selection is stored in the account and Garage falls
-back to the first vehicle if no valid active vehicle is saved. While vehicles and the current user
-load, the picker shows a disabled spinner; a non-blank nickname appears under brand and model in
-both the picker button and the "Elegir vehículo" sheet.
+accounts without vehicles and reuses `VehicleFormSheet` for creation and editing. For a user with no
+vehicles, it first offers a three-step onboarding sheet for brand/model, year/fuel, and plate/mileage.
+Closing or completing that sheet records `pitstop:vehicle-onboarding:<firebaseUid>` in browser local
+storage, so it is offered only once per account on that device; the empty-state form remains available
+after it is skipped. Successful mutations invalidate the affected query caches before the form closes.
+The mobile header and desktop sidebar expose the same active-vehicle picker; the selection is stored
+in the account and Garage falls back to the first vehicle if no valid active vehicle is saved. While
+vehicles and the current user load, the picker shows a disabled spinner; a non-blank nickname appears
+under brand and model in both the picker button and the "Elegir vehículo" sheet.
 
 The same form collects the technical sheet in four optional sections: Lubricants, Transmission,
 Tires, and Lights. Clearing a previously completed field sends `null`, so editing never restores a

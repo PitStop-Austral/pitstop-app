@@ -37,7 +37,7 @@ function AppLayout() {
   }
 
   if (!user) {
-    // Inicio is the default destination already, so it isn't carried as `redirect`.
+    // Inicio is intentionally not carried as `redirect`; the post-auth default is Garage.
     const redirect = lastAuthedHrefRef.current === '/' ? undefined : lastAuthedHrefRef.current;
     return <Navigate replace search={{ redirect }} to="/bienvenida" />;
   }

@@ -70,7 +70,7 @@ function LoginRoute() {
 
       setFormError(mappedError.message);
     },
-    onSuccess: () => navigate({ replace: true, href: redirect ?? '/' }),
+    onSuccess: () => navigate({ replace: true, href: redirect ?? '/garage' }),
   });
 
   function updateValue(field: keyof LoginValues, value: string) {

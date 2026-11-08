@@ -100,7 +100,7 @@ function RegistrationRoute() {
     },
     onSuccess: () => {
       setIsAuthenticating(false);
-      navigate({ replace: true, href: redirect ?? '/' });
+      navigate({ replace: true, href: redirect ?? '/garage' });
     },
   });
 
