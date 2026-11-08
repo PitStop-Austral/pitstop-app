@@ -1,10 +1,11 @@
-import { useEffect, useId, useRef } from 'react';
+import { useCallback, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { DialogContainerProvider, useNativeDialog } from '@/components/ui/dialog-container-context';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useSheetDrag } from '@/components/use-sheet-drag';
 import { cn } from '@/lib/utils';
 
 type BottomSheetProps = {
@@ -35,14 +36,9 @@ export function BottomSheet({
   const dialogRef = useNativeDialog(open);
   const contentRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const handleDismiss = useCallback(() => onOpenChange(false), [onOpenChange]);
 
-  // iOS ignores `overscroll-behavior: contain` on a container that isn't actually overflowing and
-  // hands the drag to the root scroller instead; `touch-action: none` is the documented fallback
-  // for that case. No dep array — the sheet re-renders whenever its content can change.
-  useEffect(() => {
-    const el = contentRef.current;
-    if (el) el.style.touchAction = el.scrollHeight > el.clientHeight ? '' : 'none';
-  });
+  useSheetDrag({ dialogRef, contentRef, dismissible, onDismiss: handleDismiss });
 
   return (
     <DialogContainerProvider value={dialogRef}>
@@ -67,32 +63,36 @@ export function BottomSheet({
         onClick={(event) => {
           if (dismissible && event.target === event.currentTarget) onOpenChange(false);
         }}
-        onClose={() => onOpenChange(false)}
         ref={dialogRef}
       >
         <div className="flex max-h-[92dvh] flex-col">
-          <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
-          <div className="flex items-start gap-4 px-6 pt-5 pb-4">
-            <div className="min-w-0 flex-1">
-              <Text as="h2" className="break-words" id={titleId} variant="heading">
-                {title}
-              </Text>
-              {description ? (
-                <Text className="mt-1 break-words" color="muted" variant="body">
-                  {description}
+          <div
+            className="min-h-11 shrink-0 cursor-grab select-none active:cursor-grabbing lg:cursor-auto lg:select-auto"
+            data-sheet-drag-handle=""
+          >
+            <div className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-neutral-200 lg:hidden" />
+            <div className="flex items-start gap-4 px-6 pt-5 pb-4">
+              <div className="min-w-0 flex-1">
+                <Text as="h2" className="break-words" id={titleId} variant="heading">
+                  {title}
                 </Text>
-              ) : null}
+                {description ? (
+                  <Text className="mt-1 break-words" color="muted" variant="body">
+                    {description}
+                  </Text>
+                ) : null}
+              </div>
+              {headerAction}
+              <Button
+                aria-label="Cerrar"
+                disabled={!dismissible}
+                size="icon"
+                variant="icon"
+                onClick={() => onOpenChange(false)}
+              >
+                <Icon color="muted" name="X" size="sm" />
+              </Button>
             </div>
-            {headerAction}
-            <Button
-              aria-label="Cerrar"
-              disabled={!dismissible}
-              size="icon"
-              variant="icon"
-              onClick={() => onOpenChange(false)}
-            >
-              <Icon color="muted" name="X" size="sm" />
-            </Button>
           </div>
           <div
             className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6"
