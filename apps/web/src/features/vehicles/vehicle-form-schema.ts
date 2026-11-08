@@ -162,12 +162,11 @@ export function getVehicleUpdateInput(
   return input;
 }
 
-export function getVehicleFormErrors(error: z.ZodError<VehicleFormOutput>): VehicleFormErrors {
-  const fieldErrors = z.flattenError(error).fieldErrors;
+export function getVehicleFormErrors(error: Pick<z.ZodError, 'issues'>): VehicleFormErrors {
   const errors: VehicleFormErrors = {};
 
   for (const field of FORM_FIELDS) {
-    const message = fieldErrors[field]?.[0];
+    const message = error.issues.find((issue) => issue.path[0] === field)?.message;
     if (message) errors[field] = message;
   }
 

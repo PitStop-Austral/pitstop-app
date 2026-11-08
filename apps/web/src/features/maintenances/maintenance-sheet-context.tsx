@@ -3,6 +3,12 @@ import type { ReactNode } from 'react';
 
 import { useActiveVehicle } from '@/features/vehicles/queries';
 import { VehicleFormSheet } from '@/features/vehicles/vehicle-form-sheet';
+import { VehicleOnboardingSheet } from '@/features/vehicles/vehicle-onboarding-sheet';
+import {
+  hasSeenVehicleOnboarding,
+  markVehicleOnboardingSeen,
+  shouldOfferVehicleOnboarding,
+} from '@/features/vehicles/vehicle-onboarding';
 import { NotificationPermissionSheet } from '@/features/notifications/notification-permission-sheet';
 import {
   hasOfferedNotificationPrompt,
@@ -32,6 +38,7 @@ type OpenSheet =
   | { type: 'edit'; maintenance: Maintenance }
   | { type: 'delete'; maintenance: Maintenance }
   | { type: 'notification-permission' }
+  | { type: 'vehicle-onboarding' }
   | null;
 
 const MaintenanceSheetContext = createContext<MaintenanceSheetContextValue | null>(null);
@@ -43,8 +50,10 @@ type MaintenanceSheetProviderProps = {
 export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderProps) {
   const [openSheet, setOpenSheet] = useState<OpenSheet>(null);
   const promptChecked = useRef(false);
+  const vehicleOnboardingDismissed = useRef(false);
   const { user } = useAuth();
   const { activeVehicle, currentUserQuery, vehiclesQuery } = useActiveVehicle();
+  const vehicleCount = vehiclesQuery.data?.length ?? 0;
   const isDisabled =
     vehiclesQuery.isPending ||
     currentUserQuery.isPending ||
@@ -74,9 +83,23 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
   }, []);
 
   useEffect(() => {
-    if (promptChecked.current || !user || !vehiclesQuery.isSuccess || !currentUserQuery.isSuccess) {
+    if (!user || !vehiclesQuery.isSuccess || !currentUserQuery.isSuccess) {
       return;
     }
+
+    if (
+      openSheet === null &&
+      !vehicleOnboardingDismissed.current &&
+      shouldOfferVehicleOnboarding({
+        vehicleCount,
+        alreadySeen: hasSeenVehicleOnboarding(window.localStorage, user.uid),
+      })
+    ) {
+      setOpenSheet({ type: 'vehicle-onboarding' });
+      return;
+    }
+
+    if (openSheet !== null || promptChecked.current) return;
 
     if (hasOfferedNotificationPrompt(window.localStorage, user.uid)) {
       promptChecked.current = true;
@@ -111,10 +134,17 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
     return () => {
       cancelled = true;
     };
-  }, [currentUserQuery.isSuccess, openSheet, user, vehiclesQuery.isSuccess]);
+  }, [currentUserQuery.isSuccess, openSheet, user, vehicleCount, vehiclesQuery.isSuccess]);
 
   function closeNotificationPermission(open: boolean): void {
     if (open) return;
+    setOpenSheet(null);
+  }
+
+  function closeVehicleOnboarding(open: boolean): void {
+    if (open) return;
+    vehicleOnboardingDismissed.current = true;
+    if (user) markVehicleOnboardingSeen(window.localStorage, user.uid);
     setOpenSheet(null);
   }
 
@@ -163,6 +193,9 @@ export function MaintenanceSheetProvider({ children }: MaintenanceSheetProviderP
       ) : null}
       {openSheet?.type === 'vehicle' ? (
         <VehicleFormSheet mode="add" open onOpenChange={closeOnDismiss} />
+      ) : null}
+      {openSheet?.type === 'vehicle-onboarding' ? (
+        <VehicleOnboardingSheet open onOpenChange={closeVehicleOnboarding} />
       ) : null}
       {openSheet?.type === 'notification-permission' ? (
         <NotificationPermissionSheet open onOpenChange={closeNotificationPermission} />

@@ -3,9 +3,9 @@
 ## Route guards
 
 - `_app.tsx` (protected layout): once the initial Firebase auth check resolves (`isLoading`), redirects to the public landing `/bienvenida` if there's no user, passing the current page as `?redirect=` so the user returns to it after authenticating.
-- `GuestOnly` (`components/auth/guest-only.tsx`): the shared guard for public screens. Shows a loader while `isLoading` and sends an authenticated user (unless `isAuthenticating`) to `getPostAuthRedirect(redirect) ?? '/'`.
+- `GuestOnly` (`components/auth/guest-only.tsx`): the shared guard for public screens. Shows a loader while `isLoading` and sends an authenticated user (unless `isAuthenticating`) to `getPostAuthRedirect(redirect) ?? '/garage'`.
 - `bienvenida.tsx` (public landing, outside `AuthLayout`) and `_auth.tsx` (auth layout for `/login`/`/register`/`/forgot-password`) both render through `GuestOnly`. The landing's CTAs link to `/login` and `/register` carrying `redirect`.
-- Flow: `/bienvenida → /login | /register (↔ /forgot-password) → redirect target`. Every hop between landing, login, register and recovery propagates `redirect`, and login/register navigate to it on success. `_app.tsx` omits `redirect` when the destination is `/`.
+- Flow: `/bienvenida → /login | /register (↔ /forgot-password) → redirect target`. Every hop between landing, login, register and recovery propagates `redirect`, and login/register navigate to it on success; without one, they enter `/garage`. `_app.tsx` omits `redirect` when the destination is `/`.
 - `redirect` is a full href (path + query + hash, e.g. `/vehicles/abc?tab=history`), so every post-auth navigation uses `navigate({ href })` / `<Navigate href>` — `to` takes a path only and would drop the query.
 
 ## Session source of truth
