@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/empty-state';
 import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { HomeScheduleCard } from '@/features/home/home-schedule-card';
 import { MaintenanceCard } from '@/features/maintenances/maintenance-card';
@@ -36,7 +37,7 @@ function HomePage() {
   }
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
-    return page(<SectionLoader label="Cargando inicio..." />);
+    return page(<HomePageSkeleton />);
   }
 
   if (vehiclesQuery.isLoadingError || currentUserQuery.isLoadingError) {
@@ -120,7 +121,7 @@ function HomePage() {
                 title="No pudimos cargar los próximos mantenimientos"
               />
             ) : schedulesQuery.isPending ? (
-              <SectionLoader label="Cargando próximos mantenimientos..." />
+              <MaintenanceCardsSkeleton />
             ) : (
               <>
                 {schedulesQuery.isRefetchError ? (
@@ -167,7 +168,7 @@ function HomePage() {
                 title="No pudimos cargar el historial"
               />
             ) : maintenancesQuery.isPending ? (
-              <SectionLoader label="Cargando historial..." />
+              <HistoryRowsSkeleton />
             ) : (
               <>
                 {maintenancesQuery.isRefetchError ? (
@@ -211,14 +212,72 @@ function HomePage() {
   );
 }
 
-function SectionLoader({ label }: { label: string }) {
+const SKELETON_ITEMS = ['first', 'second', 'third'] as const;
+
+function HomePageSkeleton() {
   return (
-    <div className="grid min-h-48 place-items-center">
-      <div className="flex flex-col items-center gap-3">
-        <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
-        <Text color="muted" variant="body">
-          {label}
-        </Text>
+    <div aria-busy="true" className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <Text className="sr-only">Cargando…</Text>
+      <div className="lg:col-span-7">
+        <Skeleton className="h-3 w-40 rounded-full" />
+        <div className="mt-3 flex flex-col gap-3">
+          {SKELETON_ITEMS.map((item) => (
+            <MaintenanceCardSkeleton key={item} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MaintenanceCardsSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-3">
+      <Text className="sr-only">Cargando…</Text>
+      {SKELETON_ITEMS.map((item) => (
+        <MaintenanceCardSkeleton key={item} />
+      ))}
+    </div>
+  );
+}
+
+function MaintenanceCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="size-12 shrink-0 rounded-lg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Skeleton className="h-5 w-2/3 rounded-full" />
+          <Skeleton className="h-4 w-1/2 rounded-full" />
+        </div>
+      </div>
+      <div className="my-4 border-t border-border" />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-28 rounded-full" />
+        <Skeleton className="h-7 w-24 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+function HistoryRowsSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-3">
+      <Text className="sr-only">Cargando…</Text>
+      {SKELETON_ITEMS.map((item) => (
+        <HistoryRowSkeleton key={item} />
+      ))}
+    </div>
+  );
+}
+
+function HistoryRowSkeleton() {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border bg-card p-4">
+      <Skeleton className="size-12 shrink-0 rounded-lg" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <Skeleton className="h-5 w-1/2 rounded-full" />
+        <Skeleton className="h-4 w-3/4 rounded-full" />
       </div>
     </div>
   );
