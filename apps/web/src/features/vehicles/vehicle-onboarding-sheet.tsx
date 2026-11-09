@@ -26,7 +26,7 @@ import {
   type VehicleFormErrors,
   type VehicleFormValues,
 } from './vehicle-form-schema';
-import { initialValues } from './vehicle-form-sheet';
+import { initialValues } from './vehicle-form-values';
 
 type VehicleOnboardingSheetProps = {
   open: boolean;
