@@ -48,7 +48,7 @@ function AppLayout() {
         <NotificationMessageListener userId={user.uid} />
         <div className="flex h-app overflow-hidden bg-background">
           <DesktopSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative flex min-w-0 flex-1 flex-col">
             <AppHeader />
             <main
               className="flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),12px)+88px)] [scrollbar-gutter:stable] lg:pb-10"

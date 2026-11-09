@@ -10,9 +10,13 @@ export function BottomNav() {
   const actionLabel = canRegister ? 'Registrar mantenimiento' : 'Agregar vehículo';
 
   return (
+    // Absolute, not fixed: it anchors to the `relative` column in routes/_app.tsx, which has
+    // the height of the h-app frame, so that `relative` is required. On an iOS PWA cold start
+    // WebKit places fixed elements with stale viewport metrics until the first touch, so a
+    // fixed nav would sit too high (PIT-44, PIT-90).
     <nav
       aria-label="Navegación principal"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),12px)] lg:hidden"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),12px)] lg:hidden"
     >
       <div className="pointer-events-auto flex w-full max-w-md items-center gap-1 rounded-full border border-border/70 bg-white/80 p-1.5 shadow-lg backdrop-blur-xl">
         {NAV_ITEMS.slice(0, 2).map((item) => (
