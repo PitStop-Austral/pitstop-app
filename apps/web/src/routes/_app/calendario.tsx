@@ -7,6 +7,7 @@ import { PageContainer } from '@/components/layout/page-container';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import {
   Select,
@@ -74,19 +75,6 @@ function CalendarHeader({ vehicle }: { vehicle?: Vehicle }) {
           Mantenimientos de {vehicle.brand} {vehicle.model}
         </Text>
       ) : null}
-    </div>
-  );
-}
-
-function SectionLoader({ label }: { label: string }) {
-  return (
-    <div className="grid min-h-48 place-items-center">
-      <div className="flex flex-col items-center gap-3">
-        <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
-        <Text color="muted" variant="body">
-          {label}
-        </Text>
-      </div>
     </div>
   );
 }
@@ -203,7 +191,11 @@ function CalendarPage() {
   }
 
   if (vehiclesQuery.isPending || currentUserQuery.isPending) {
-    return page(<SectionLoader label="Cargando calendario..." />);
+    return page(
+      <div className="mt-8">
+        <CalendarSkeleton />
+      </div>,
+    );
   }
 
   // isLoadingError is the error-without-data case: a failed background refetch keeps the
@@ -259,9 +251,9 @@ function CalendarPage() {
       />
     );
   } else if (!maintenancesQuery.data || !schedulesQuery.data) {
-    calendar = <SectionLoader label="Cargando calendario..." />;
+    calendar = <CalendarSkeleton />;
   } else if (!eventsByDate) {
-    calendar = <SectionLoader label="Cargando calendario..." />;
+    calendar = <CalendarSkeleton />;
   } else {
     calendar = (
       <>
@@ -309,7 +301,7 @@ function CalendarPage() {
       />
     );
   } else if (maintenancesQuery.isPending) {
-    history = <SectionLoader label="Cargando historial..." />;
+    history = <CalendarHistorySkeleton />;
   } else if (maintenances.length === 0) {
     history = (
       <EmptyState
@@ -488,5 +480,80 @@ function CalendarPage() {
         />
       ) : null}
     </>,
+  );
+}
+
+const CALENDAR_SKELETON_DAYS = Array.from({ length: 42 }, (_, index) => `day-${index + 1}`);
+const CALENDAR_SKELETON_WEEKDAYS = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
+const HISTORY_SKELETON_ITEMS = ['first', 'second', 'third'] as const;
+
+function CalendarSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+    >
+      <Text className="sr-only">Cargando…</Text>
+      <Skeleton className="h-12 w-full rounded-none" />
+
+      <div className="grid grid-cols-7 border-y border-border bg-neutral-50 py-2.5">
+        {CALENDAR_SKELETON_WEEKDAYS.map((weekday) => (
+          <div className="flex justify-center" key={weekday}>
+            <Skeleton className="h-3 w-4 rounded-full" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 p-2 lg:p-3">
+        {CALENDAR_SKELETON_DAYS.map((day) => (
+          <div
+            className="flex min-h-12 items-center justify-center p-1.5 lg:min-h-24 lg:items-start lg:justify-start lg:p-2"
+            key={day}
+          >
+            <Skeleton className="size-9 rounded-full" />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-4 border-t border-border px-4 py-3 lg:px-6">
+        {HISTORY_SKELETON_ITEMS.map((item) => (
+          <Skeleton className="h-4 w-20 rounded-full" key={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarHistorySkeleton() {
+  return (
+    <div aria-busy="true">
+      <Text className="sr-only">Cargando…</Text>
+      <Skeleton className="h-12 w-full rounded-full" />
+      <div className="mt-4 flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3">
+        {HISTORY_SKELETON_ITEMS.map((item) => (
+          <CalendarHistoryRowSkeleton key={item} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarHistoryRowSkeleton() {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border bg-card p-4">
+      <Skeleton className="size-12 shrink-0 rounded-lg" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <Skeleton className="h-5 w-1/2 rounded-full" />
+        <Skeleton className="h-4 w-3/4 rounded-full" />
+      </div>
+    </div>
   );
 }

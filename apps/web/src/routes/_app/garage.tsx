@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Icon } from '@/components/ui/icon';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -232,14 +233,7 @@ function GaragePage() {
     return (
       <PageContainer>
         <Text variant="title">Garage</Text>
-        <div className="grid min-h-72 place-items-center">
-          <div className="flex flex-col items-center gap-3">
-            <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
-            <Text color="muted" variant="body">
-              Cargando tu garage...
-            </Text>
-          </div>
-        </div>
+        <GaragePageSkeleton />
       </PageContainer>
     );
   }
@@ -401,16 +395,7 @@ function GaragePage() {
                 </Button>
               </div>
             ) : null}
-            {schedulesQuery.isPending ? (
-              <div className="grid min-h-48 place-items-center">
-                <div className="flex flex-col items-center gap-3">
-                  <Icon className="animate-spin" color="primary" name="Loader2" size="lg" />
-                  <Text color="muted" variant="body">
-                    Cargando frecuencias...
-                  </Text>
-                </div>
-              </div>
-            ) : null}
+            {schedulesQuery.isPending ? <ScheduleRowsSkeleton /> : null}
             {schedulesQuery.data?.length === 0 ? (
               <EmptyState
                 action={
@@ -463,5 +448,59 @@ function GaragePage() {
         <UpdateMileageSheet open vehicle={activeVehicle} onOpenChange={setMileageOpen} />
       ) : null}
     </PageContainer>
+  );
+}
+
+const SCHEDULE_SKELETON_ITEMS = ['first', 'second', 'third'] as const;
+
+function GaragePageSkeleton() {
+  return (
+    <div
+      aria-busy="true"
+      className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start"
+    >
+      <Text className="sr-only">Cargando…</Text>
+      <div className="rounded-[20px] border border-border bg-card p-4">
+        <Skeleton className="aspect-video w-full rounded-xl lg:aspect-[4/3]" />
+        <div className="mt-4 flex flex-col gap-2">
+          <Skeleton className="h-6 w-1/2 rounded-full" />
+          <Skeleton className="h-5 w-2/3 rounded-full" />
+          <Skeleton className="mt-2 h-7 w-28 rounded-full" />
+          <Skeleton className="h-4 w-24 rounded-full" />
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <div className="mt-4 flex flex-col gap-3">
+          {SCHEDULE_SKELETON_ITEMS.slice(0, 2).map((item) => (
+            <ScheduleRowSkeleton key={item} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleRowsSkeleton() {
+  return (
+    <div aria-busy="true" className="grid grid-cols-1 gap-3 min-[1360px]:grid-cols-2">
+      <Text className="sr-only">Cargando…</Text>
+      {SCHEDULE_SKELETON_ITEMS.map((item) => (
+        <ScheduleRowSkeleton key={item} />
+      ))}
+    </div>
+  );
+}
+
+function ScheduleRowSkeleton() {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border bg-card p-4">
+      <Skeleton className="size-12 shrink-0 rounded-lg" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <Skeleton className="h-5 w-1/2 rounded-full" />
+        <Skeleton className="h-4 w-3/4 rounded-full" />
+      </div>
+    </div>
   );
 }
