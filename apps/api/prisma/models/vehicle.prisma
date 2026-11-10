@@ -47,6 +47,7 @@ model Vehicle {
   schedules            Schedule[]
   wishlistItems        WishlistItem[]
   mileageReminders     MileageReminderDelivery[]
+  mileageReadings      MileageReading[]
 
   @@unique([ownerId, plate])
   @@index([ownerId])

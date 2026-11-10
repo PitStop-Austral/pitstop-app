@@ -19,7 +19,7 @@ export function VehicleHeroCard({ vehicle, onUpdateMileage }: VehicleHeroCardPro
   useEffect(() => setImageFailed(false), [vehicle.photoUrl]);
 
   return (
-    <div className="rounded-[20px] border border-border bg-card p-4 lg:sticky lg:top-10">
+    <div className="rounded-[20px] border border-border bg-card p-4">
       <div className="grid aspect-video place-items-center overflow-hidden rounded-[16px] bg-neutral-100 lg:aspect-[4/3]">
         {vehicle.photoUrl && !imageFailed ? (
           <img

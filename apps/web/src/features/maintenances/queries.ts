@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { profileSummaryQueryKey } from '@/features/users/queries';
-import { vehiclesQueryKey } from '@/features/vehicles/queries';
+import { mileageHistoryQueryKey, vehiclesQueryKey } from '@/features/vehicles/queries';
 import {
   createMaintenance,
   deleteMaintenance,
@@ -54,9 +54,10 @@ export function useCreateMaintenance() {
   return useMutation({
     mutationFn: ({ vehicleId, input }: { vehicleId: string; input: MaintenanceInput }) =>
       createMaintenance(vehicleId, input),
-    onSuccess: async () => {
+    onSuccess: async (_maintenance, { vehicleId }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: mileageHistoryQueryKey(vehicleId) }),
         queryClient.invalidateQueries({ queryKey: profileSummaryQueryKey }),
       ]);
     },
@@ -83,7 +84,10 @@ export function useUpdateMaintenance() {
         ...updated,
         schedule: null,
       });
-      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: mileageHistoryQueryKey(vehicleId) }),
+      ]);
     },
   });
 }
@@ -99,6 +103,7 @@ export function useDeleteMaintenance() {
       queryClient.removeQueries({ queryKey: maintenanceQueryKey(vehicleId, id) });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: mileageHistoryQueryKey(vehicleId) }),
         queryClient.invalidateQueries({ queryKey: profileSummaryQueryKey }),
       ]);
     },

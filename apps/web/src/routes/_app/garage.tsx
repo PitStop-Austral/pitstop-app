@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/empty-state';
+import { MileageEvolutionCard } from '@/components/garage/mileage-evolution-card';
 import { VehicleHeroCard } from '@/components/garage/vehicle-hero-card';
 import { VehicleInformationPanel } from '@/components/garage/vehicle-information-panel';
 import { PageContainer } from '@/components/layout/page-container';
@@ -338,7 +339,14 @@ function GaragePage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
-        <VehicleHeroCard vehicle={activeVehicle} onUpdateMileage={() => setMileageOpen(true)} />
+        <div className="flex flex-col gap-6">
+          <VehicleHeroCard vehicle={activeVehicle} onUpdateMileage={() => setMileageOpen(true)} />
+          <MileageEvolutionCard
+            key={activeVehicle.id}
+            vehicleId={activeVehicle.id}
+            onUpdateMileage={() => setMileageOpen(true)}
+          />
+        </div>
 
         <Tabs
           value={tab}

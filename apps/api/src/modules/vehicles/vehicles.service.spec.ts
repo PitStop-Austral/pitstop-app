@@ -10,6 +10,7 @@ describe('VehiclesService', () => {
   let service: VehiclesService;
   let findByOwner: jest.MockedFunction<VehiclesRepository['findByOwner']>;
   let findOwnedById: jest.MockedFunction<VehiclesRepository['findOwnedById']>;
+  let findOwnedMileageSources: jest.MockedFunction<VehiclesRepository['findOwnedMileageSources']>;
   let createAndSetActive: jest.MockedFunction<VehiclesRepository['createAndSetActive']>;
   let update: jest.MockedFunction<VehiclesRepository['update']>;
   let updateMileageIfNotDecreased: jest.MockedFunction<
@@ -58,6 +59,7 @@ describe('VehiclesService', () => {
   beforeEach(async () => {
     findByOwner = jest.fn();
     findOwnedById = jest.fn();
+    findOwnedMileageSources = jest.fn();
     createAndSetActive = jest.fn();
     update = jest.fn();
     updateMileageIfNotDecreased = jest.fn();
@@ -73,6 +75,7 @@ describe('VehiclesService', () => {
           useValue: {
             findByOwner,
             findOwnedById,
+            findOwnedMileageSources,
             createAndSetActive,
             update,
             updateMileageIfNotDecreased,
@@ -398,5 +401,33 @@ describe('VehiclesService', () => {
       NotFoundException,
     );
     expect(updateMileageIfNotDecreased).toHaveBeenCalledWith('vehicle-2', 'user-1', 48001);
+  });
+
+  it('returns not found for the mileage history of another user vehicle', async () => {
+    findOwnedMileageSources.mockResolvedValue(null);
+
+    await expect(service.getMileageHistory('user-1', 'vehicle-2')).rejects.toThrow(
+      new NotFoundException('Vehículo no encontrado'),
+    );
+    expect(findOwnedMileageSources).toHaveBeenCalledWith('vehicle-2', 'user-1');
+  });
+
+  it('builds the mileage history from the sign-up, maintenances and updates', async () => {
+    findOwnedMileageSources.mockResolvedValue({
+      initialMileage: null,
+      createdAt: new Date('2024-01-10T15:00:00.000Z'),
+      maintenances: [
+        { mileage: 41000, date: new Date('2026-03-10T00:00:00.000Z'), type: 'Service' },
+      ],
+      mileageReadings: [{ mileage: 40000, recordedAt: new Date('2026-01-10T15:00:00.000Z') }],
+    });
+
+    const history = await service.getMileageHistory('user-1', vehicle.id);
+
+    expect(history.readingsCount).toBe(2);
+    expect(history.points).toEqual([
+      { date: '2026-01-10', mileage: 40000, source: 'UPDATE' },
+      { date: '2026-03-10', mileage: 41000, source: 'MAINTENANCE', label: 'Service' },
+    ]);
   });
 });

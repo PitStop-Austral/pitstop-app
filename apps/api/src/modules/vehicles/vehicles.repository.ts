@@ -83,6 +83,18 @@ export class VehiclesRepository {
     });
   }
 
+  async findOwnedMileageSources(id: string, ownerId: string) {
+    return this.prisma.vehicle.findFirst({
+      where: { id, ownerId },
+      select: {
+        initialMileage: true,
+        createdAt: true,
+        maintenances: { select: { mileage: true, date: true, type: true } },
+        mileageReadings: { select: { mileage: true, recordedAt: true } },
+      },
+    });
+  }
+
   async setActiveVehicle(ownerId: string, vehicleId: string): Promise<User> {
     return this.prisma.user.update({
       where: { id: ownerId },
@@ -151,8 +163,12 @@ export class VehiclesRepository {
         data: { mileage, mileageUpdatedAt },
         select: vehicleSelect,
       });
-      if (vehicle) await observeAlertMileage(transaction, id, mileage, new Date());
-      return vehicle ?? null;
+      if (!vehicle) return null;
+      await transaction.mileageReading.create({
+        data: { vehicleId: id, mileage, recordedAt: mileageUpdatedAt },
+      });
+      await observeAlertMileage(transaction, id, mileage, new Date());
+      return vehicle;
     });
   }
 
