@@ -44,21 +44,26 @@ export function TabsList({ children, className }: { children: ReactNode; classNa
 export function TabsTrigger({
   value,
   icon,
+  hasError = false,
   children,
 }: {
   value: string;
   icon?: ComponentProps<typeof Icon>['name'];
+  hasError?: boolean;
   children: ReactNode;
 }) {
   const tabs = useTabs();
   const active = tabs.value === value;
+  const label = typeof children === 'string' ? children : undefined;
   return (
     <button
+      aria-label={hasError && label ? `${label}, con errores` : undefined}
       aria-selected={active}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-1 pb-3',
         active ? 'border-primary' : 'border-transparent',
       )}
+      data-tabs-trigger={value}
       role="tab"
       type="button"
       onClick={() => tabs.setValue(value)}
@@ -67,6 +72,11 @@ export function TabsTrigger({
       <Text color={active ? 'default' : 'muted'} variant="label">
         {children}
       </Text>
+      {hasError ? (
+        <Text aria-hidden className="inline-block size-1.5 rounded-full bg-primary" variant="label">
+          {null}
+        </Text>
+      ) : null}
     </button>
   );
 }
