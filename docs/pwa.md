@@ -43,10 +43,15 @@ makes it the right unit.
 ## Mobile app shell
 
 `apps/web/src/routes/_app.tsx` is a fixed-height shell (`h-app` + `overflow-hidden`) rather than a
-scrolling document: `AppHeader` and `BottomNav` are static flex children, and only
-`<main id="app-scroll">` scrolls. The nav is deliberately not `position: fixed` — WebKit computes
-fixed offsets from the same stale metrics described above. Sticky offsets inside routes are
+scrolling document: `AppHeader` is a static flex child, and only `<main id="app-scroll">` scrolls.
+`BottomNav` floats over the content as `absolute bottom-0` inside the `relative` column, and
+`#app-scroll`'s bottom padding keeps the last item clear of it. The nav is deliberately not
+`position: fixed`: WebKit computes fixed offsets from the same stale metrics described above, so on
+a cold start the nav sits too high until the first touch (PIT-90). Sticky offsets inside routes are
 therefore relative to the scroll container, not the window (see the Garage tabs' `sticky top-0`).
+For the same cold-start reason, `html.app-shell` and its `body` are sized with `var(--app-height)`,
+not `100%`: `100%` resolves against the stale viewport, so the `overflow: hidden` body ended above
+the screen bottom and clipped the bottom of the `h-app` frame, cutting the nav in half.
 
 Because the document itself no longer scrolls, TanStack Router's `scrollRestoration` currently has
 no effect; wiring it to `#app-scroll` is outstanding work.
