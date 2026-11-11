@@ -16,6 +16,7 @@ describe('VehiclesRepository', () => {
   let updateManyAndReturn: jest.Mock;
   let updateUser: jest.Mock;
   let createSchedules: jest.Mock;
+  let createMileageReading: jest.Mock;
 
   const vehicle: VehicleView = {
     id: 'vehicle-1',
@@ -54,11 +55,13 @@ describe('VehiclesRepository', () => {
     updateManyAndReturn = jest.fn();
     updateUser = jest.fn().mockResolvedValue({ id: 'user-1', activeVehicleId: vehicle.id });
     createSchedules = jest.fn();
+    createMileageReading = jest.fn();
     transaction = jest.fn(async (callback) =>
       callback({
         $queryRaw: lockOwner,
         vehicle: { create, delete: deleteVehicle, findFirst: findReplacement, updateManyAndReturn },
         maintenanceAlertCycle: { updateMany: jest.fn() },
+        mileageReading: { create: createMileageReading },
         schedule: { createMany: createSchedules },
         user: { findUnique: findTransactionUser, update: updateUser },
       }),
@@ -229,12 +232,24 @@ describe('VehiclesRepository', () => {
     });
   });
 
+  it('records a mileage reading when the update is stored', async () => {
+    const mileageUpdatedAt = new Date('2026-11-02T15:00:00.000Z');
+    updateManyAndReturn.mockResolvedValue([{ ...vehicle, mileage: 50000 }]);
+
+    await repository.updateMileageIfNotDecreased(vehicle.id, 'user-1', 50000, mileageUpdatedAt);
+
+    expect(createMileageReading).toHaveBeenCalledWith({
+      data: { vehicleId: vehicle.id, mileage: 50000, recordedAt: mileageUpdatedAt },
+    });
+  });
+
   it('does not update mileage when another request already stored a greater value', async () => {
     updateManyAndReturn.mockResolvedValue([]);
 
     await expect(
       repository.updateMileageIfNotDecreased(vehicle.id, 'user-1', 49000),
     ).resolves.toBeNull();
+    expect(createMileageReading).not.toHaveBeenCalled();
   });
 
   it('deletes the active vehicle and assigns the oldest remaining one in one transaction', async () => {

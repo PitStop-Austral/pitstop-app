@@ -18,6 +18,22 @@ The authenticated vehicle API exposes:
 - `PATCH /vehicles/:id/mileage` with `{ "mileage": number }` to update only an owned vehicle's
   mileage. The value cannot be lower than the saved mileage; lower values return 400 and equal
   values are allowed and still confirm the mileage timestamp used by reminder delivery.
+- `GET /vehicles/:id/mileage-history` to get the owned vehicle's odometer evolution over the last
+  12 months (Argentina dates). It combines the sign-up mileage (`initialMileage`, ignored when
+  `null`), every maintenance's km and date, and every stored `MileageReading`. Each successful
+  `PATCH /vehicles/:id/mileage` stores one reading; rejected updates do not. Points follow the
+  running maximum, so the line never goes down:
+  - The highest reading before the period becomes a `WINDOW_START` point.
+  - When no reading predates the period, the period starts at the first reading.
+  - Readings that don't beat the max, and future-dated readings, are left out.
+  - On a day with several readings, only the highest is kept.
+
+  The response includes `readingsCount` (all readings, any date), `kmInPeriod`, and
+  `averageMonthlyKm` (floored, 30.44-day months, minimum 1). Another user's vehicle returns 404.
+  The `add_mileage_readings` migration backfilled one reading per vehicle at
+  `mileageUpdatedAt`. It skipped vehicles whose current km already matched their sign-up km or a
+  maintenance's km.
+
 - `DELETE /vehicles/:id` to permanently delete an owned vehicle. If it was active, the oldest
   remaining vehicle becomes active; if none remain, the active vehicle is set to `null`. The delete
   and reassignment run in one transaction, and requests for another user's vehicle return 404.
@@ -55,6 +71,13 @@ measurements receive units. The cards stack on smaller screens and use a two-col
 param (`/garage?tab=...`, defaulting to `info`) so it survives a page reload.
 The odometer offers an "Actualizar km" action that opens a prefilled mileage form; successful
 updates refresh the displayed vehicle without a page reload.
+Below the hero card (left column from 1024 px, between the hero card and the tabs on smaller
+screens; the hero card is not sticky) an "Evolución del kilometraje" card draws that history as an
+SVG step line with no chart library. It shows km in the last 12 months and the monthly average.
+Its points are buttons with roving tabindex (arrows, Home/End, Escape), and selecting one shows its
+date, km, source, and increase in an `aria-live` detail. With fewer than two readings, or no
+points, it shows an empty state whose button opens the same mileage sheet. Mileage updates and
+maintenance create, edit, or delete invalidate `['vehicles', id, 'mileage-history']`.
 Mileage-reminder deep links select the requested owned vehicle, consume the destination parameters,
 and open this same sheet. A missing or foreign vehicle leaves Garage open without a sheet and shows
 an error message.

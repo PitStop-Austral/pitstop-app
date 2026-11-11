@@ -4,6 +4,7 @@ import { currentUserQueryKey, useCurrentUser } from '@/features/users/queries';
 import {
   createVehicle,
   deleteVehicle,
+  getMileageHistory,
   getVehicles,
   setVehiclePhoto,
   setActiveVehicle,
@@ -22,6 +23,16 @@ export const vehiclesQueryOptions = queryOptions({
 
 export function useVehicles() {
   return useQuery(vehiclesQueryOptions);
+}
+
+export const mileageHistoryQueryKey = (vehicleId: string) =>
+  ['vehicles', vehicleId, 'mileage-history'] as const;
+
+export function useMileageHistory(vehicleId: string) {
+  return useQuery({
+    queryKey: mileageHistoryQueryKey(vehicleId),
+    queryFn: ({ signal }) => getMileageHistory(vehicleId, signal),
+  });
 }
 
 export function useActiveVehicle() {
@@ -67,8 +78,11 @@ export function useUpdateVehicleMileage() {
   return useMutation({
     mutationFn: ({ id, mileage }: { id: string; mileage: number }) =>
       updateVehicleMileage(id, mileage),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: vehiclesQueryKey });
+    onSuccess: async (_vehicle, { id }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: vehiclesQueryKey }),
+        queryClient.invalidateQueries({ queryKey: mileageHistoryQueryKey(id) }),
+      ]);
     },
   });
 }

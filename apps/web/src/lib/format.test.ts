@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatCurrency, formatDate, formatNumber } from './format.ts';
+import { formatCurrency, formatDate, formatLongDate, formatNumber } from './format.ts';
 
 test('formats thousands with a period separator', () => {
   assert.equal(formatNumber(48250), '48.250');
@@ -25,4 +25,8 @@ test('formats a whole cost without decimals and a cost with cents with two', () 
   assert.equal(format(42000), '$ 42.000');
   assert.equal(format(1.5), '$ 1,50');
   assert.equal(format(1234.56), '$ 1.234,56');
+});
+
+test('formats a long date with the full month name', () => {
+  assert.equal(formatLongDate('2026-09-14'), '14 de septiembre de 2026');
 });

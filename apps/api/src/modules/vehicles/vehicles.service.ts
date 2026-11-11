@@ -14,6 +14,7 @@ import { CreateVehicleData, UpdateVehicleData, VehiclesRepository } from './vehi
 import { toVehicleResponse } from './vehicles.mapper';
 import type { VehicleResponse } from './vehicles.mapper';
 import { normalizeVehiclePlate } from './vehicle-normalization';
+import { buildMileageHistory, MileageHistory, MileageReadingInput } from './mileage-history';
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
   return value?.trim() || null;
@@ -98,6 +99,38 @@ export class VehiclesService {
     throw new BadRequestException(
       `No puede ser menor a ${ownedVehicle.mileage.toLocaleString('es-AR')} km`,
     );
+  }
+
+  async getMileageHistory(ownerId: string, id: string): Promise<MileageHistory> {
+    const sources = await this.vehiclesRepository.findOwnedMileageSources(id, ownerId);
+    if (!sources) {
+      throw new NotFoundException('Vehículo no encontrado');
+    }
+
+    const readings: MileageReadingInput[] = [
+      ...(sources.initialMileage === null
+        ? []
+        : [
+            {
+              date: sources.createdAt,
+              mileage: sources.initialMileage,
+              source: 'INITIAL' as const,
+            },
+          ]),
+      ...sources.maintenances.map((maintenance) => ({
+        date: maintenance.date,
+        mileage: maintenance.mileage,
+        source: 'MAINTENANCE' as const,
+        label: maintenance.type,
+      })),
+      ...sources.mileageReadings.map((reading) => ({
+        date: reading.recordedAt,
+        mileage: reading.mileage,
+        source: 'UPDATE' as const,
+      })),
+    ];
+
+    return buildMileageHistory(readings, new Date());
   }
 
   async setPhoto(

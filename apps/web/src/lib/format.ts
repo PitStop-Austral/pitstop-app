@@ -23,3 +23,12 @@ export function formatCurrency(value: number): string {
     maximumFractionDigits: fractionDigits,
   }).format(value);
 }
+
+// "14 de septiembre de 2026"; built at local midnight for the same reason as formatDate.
+export function formatLongDate(iso: string): string {
+  return new Intl.DateTimeFormat('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${iso}T00:00:00`));
+}

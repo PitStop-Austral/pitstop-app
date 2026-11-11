@@ -3,7 +3,7 @@
 // `argentinaDateToday()`. Because of that, the difference between two of them is always a
 // whole number of days (UTC has no DST), so `remainingDays` is an exact integer.
 
-const DAY_MS = 86_400_000;
+export const DAY_MS = 86_400_000;
 
 export type ScheduleStatus = 'overdue' | 'upcoming' | 'on_track';
 export type ScheduleDueReason = 'date' | 'mileage' | 'both';

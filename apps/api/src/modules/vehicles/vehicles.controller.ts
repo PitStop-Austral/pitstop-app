@@ -18,6 +18,7 @@ import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { SetVehiclePhotoDto } from './dto/set-vehicle-photo.dto';
 import { VehiclesService } from './vehicles.service';
 import type { VehicleResponse } from './vehicles.mapper';
+import type { MileageHistory } from './mileage-history';
 
 @Controller('vehicles')
 export class VehiclesController {
@@ -31,6 +32,14 @@ export class VehiclesController {
   @Post()
   create(@CurrentUser() user: User, @Body() dto: CreateVehicleDto): Promise<VehicleResponse> {
     return this.vehiclesService.create(user.id, dto);
+  }
+
+  @Get(':id/mileage-history')
+  getMileageHistory(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<MileageHistory> {
+    return this.vehiclesService.getMileageHistory(user.id, id);
   }
 
   @Patch(':id/mileage')

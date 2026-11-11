@@ -7,6 +7,36 @@ export type SetVehiclePhotoInput = {
   photoUrl: string;
 };
 
+export type MileagePointSource = 'WINDOW_START' | 'INITIAL' | 'MAINTENANCE' | 'UPDATE';
+
+export type MileageHistoryPoint = {
+  date: string;
+  mileage: number;
+  source: MileagePointSource;
+  label?: string;
+};
+
+export type MileageHistory = {
+  from: string;
+  to: string;
+  readingsCount: number;
+  startMileage: number;
+  currentMileage: number;
+  kmInPeriod: number;
+  averageMonthlyKm: number;
+  points: MileageHistoryPoint[];
+};
+
+export async function getMileageHistory(
+  vehicleId: string,
+  signal?: AbortSignal,
+): Promise<MileageHistory> {
+  const response = await apiClient.get<MileageHistory>(`/vehicles/${vehicleId}/mileage-history`, {
+    signal,
+  });
+  return response.data;
+}
+
 export async function getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
   const response = await apiClient.get<Vehicle[]>('/vehicles', { signal });
   return response.data;
